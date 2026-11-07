@@ -116,10 +116,12 @@ describe("package files", () => {
     expect(isPacked("src/hermes/tests", pkg.files)).toBe(false)
   })
 
-  // The builds bundle everything they import, and plugin installs that clone
-  // the repository install no packages (Claude Code reports the pnpm lockfile).
-  test("the package installs no runtime dependencies", () => {
-    expect(pkg.dependencies ?? {}).toEqual({})
+  // The builds bundle everything they import but wreq-js, whose native part
+  // cannot be bundled. Plugin installs that clone the repository install no
+  // packages, so a release commit carries it in node_modules
+  // (scripts/native-tree.mjs), at the version the lockfile pins.
+  test("the only runtime dependency is the native network library, pinned exactly", () => {
+    expect(pkg.dependencies).toEqual({ "wreq-js": expect.stringMatching(/^\d+\.\d+\.\d+$/) })
   })
 })
 

@@ -5,6 +5,7 @@ const { version } = JSON.parse(readFileSync(new URL("../package.json", import.me
 
 const shared = {
   bundle: true,
+  external: ["wreq-js"],
   platform: "node",
   format: "esm",
   target: "node24",
