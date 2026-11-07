@@ -79,6 +79,8 @@ export type DiscordClientOptions = {
   env: Record<string, string | undefined>
   /** Sends the requests; by default Chrome's fingerprint through wreq, loaded on first use. */
   transport?: Transport
+  /** Internal: overrides loading the native transport on first use. */
+  loadTransport?: (os: ClientOs) => Promise<Transport>
   os?: ClientOs
   now?: () => number
   sleep?: (ms: number) => Promise<void>
@@ -103,10 +105,19 @@ function defaultSleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function lazyWreqTransport(os: ClientOs): Transport {
+function lazyWreqTransport(os: ClientOs, loadTransport: NonNullable<DiscordClientOptions["loadTransport"]>): Transport {
   let loaded: Promise<Transport> | undefined
   return async (request) => {
-    loaded ??= import("./transport-wreq").then((module) => module.wreqTransport(os))
+    loaded ??= Promise.resolve()
+      .then(() => loadTransport(os))
+      .catch((error: unknown) => {
+        loaded = undefined
+        const detail = maskTokens(error instanceof Error ? error.message : String(error)).split(/\r?\n/, 1)[0]
+        throw new ToolError(
+          "internal_error",
+          `The network library could not be loaded for ${process.platform}-${process.arch}: ${detail}`,
+        )
+      })
     return (await loaded)(request)
   }
 }
@@ -140,7 +151,12 @@ export function createDiscordClient(options: DiscordClientOptions): DiscordClien
   const now = options.now ?? Date.now
   const sleep = options.sleep ?? defaultSleep
   const random = options.random ?? Math.random
-  const transport = options.transport ?? lazyWreqTransport(os)
+  const transport =
+    options.transport ??
+    lazyWreqTransport(
+      os,
+      options.loadTransport ?? ((os) => import("./transport-wreq").then((module) => module.wreqTransport(os))),
+    )
   const systemLocale = locale()
   const discordTag = discordLocale(systemLocale)
   const zone = timeZone()
@@ -196,6 +212,7 @@ export function createDiscordClient(options: DiscordClientOptions): DiscordClien
 
   /** The error for a request that failed below HTTP: a read cannot be `uncertain`, a write that may have left is. */
   const transportError = (kind: RequestKind, current: Session, error: unknown, signal?: AbortSignal): unknown => {
+    if (error instanceof ToolError && error.code === "internal_error") return error
     if (kind === "read" && signal?.aborted) return abortError(signal)
     const dispatched = error instanceof TransportFailure ? error.dispatched : true
     const detail = maskTokens(error instanceof Error ? error.message : String(error), current.token).slice(

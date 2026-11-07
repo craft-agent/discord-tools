@@ -1,6 +1,5 @@
 import { Buffer } from "node:buffer"
 import { randomUUID } from "node:crypto"
-import { getEmulationHeaders } from "wreq-js"
 import { ToolError } from "../errors"
 import type { LabelPaths } from "./labels"
 import { readJsonFile, writePrivateFile } from "./private-file"
@@ -31,18 +30,24 @@ export const LAUNCH_TTL_MS = 24 * 60 * 60 * 1000
 /** The locale used when the system gives none. */
 const FALLBACK_LOCALE = "en-US"
 
-type OsDetails = { name: string; version: string; userAgent: string }
+/** The `sec-ch-ua` brand list of the claimed browser. */
+const CHROME_BRANDS = '"Google Chrome";v="149", "Chromium";v="149", "Not)A;Brand";v="24"'
+const CHROME_MOBILE_HINT = "?0"
+
+type OsDetails = { name: string; version: string; userAgent: string; hintPlatform: string }
 
 const OS_DETAILS: Record<ClientOs, OsDetails> = {
   macos: {
     name: "Mac OS X",
     version: "10.15.7",
     userAgent: `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${BROWSER_VERSION} Safari/537.36`,
+    hintPlatform: '"macOS"',
   },
   linux: {
     name: "Linux",
     version: "",
     userAgent: `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${BROWSER_VERSION} Safari/537.36`,
+    hintPlatform: '"Linux"',
   },
 }
 
@@ -73,15 +78,13 @@ export function userAgent(os: ClientOs): string {
   return OS_DETAILS[os].userAgent
 }
 
-/** The three `sec-ch-ua` headers of the claimed browser on `os`, as wreq's profile sends them. */
+/**
+ * The three `sec-ch-ua` headers of the claimed browser on `os`, as wreq's
+ * profile sends them (a test holds them to it). They are written out rather
+ * than read from wreq, so loading this module never loads its native part.
+ */
 export function clientHints(os: ClientOs): ClientHints {
-  const headers = getEmulationHeaders(BROWSER_PROFILE, os)
-  const read = (name: string): string => {
-    const value = headers.get(name)
-    if (value === null) throw new ToolError("internal_error", `The ${BROWSER_PROFILE} profile has no ${name} header.`)
-    return value
-  }
-  return { ua: read("sec-ch-ua"), mobile: read("sec-ch-ua-mobile"), platform: read("sec-ch-ua-platform") }
+  return { ua: CHROME_BRANDS, mobile: CHROME_MOBILE_HINT, platform: OS_DETAILS[os].hintPlatform }
 }
 
 /** The system's locale tag, such as `ja-JP`. */
