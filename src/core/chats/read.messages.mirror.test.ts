@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import { ingestMessages } from "../discord/ingest"
 import { CURRENT_MS } from "../discord/mirror-cursors"
-import { CHANNEL, OTHER_CHANNEL } from "../discord/objects.testing"
+import { CHANNEL, messageObject, msgId, OTHER_CHANNEL } from "../discord/objects.testing"
 import { UNTRUSTED_NOTE } from "./format"
 import { createChatFixture, failure, type ChatFixture } from "./read.testing"
 import {
@@ -90,6 +91,19 @@ describe("method messages from the mirror", () => {
     const below = await messages({ after: idsOf(1)[0] })
     expect(below.source).toBe("live")
     expect(messageIds(below)).toEqual(idsOf(2, 3, 4, 5))
+  })
+
+  test("a message stored above the cursor's newest is not returned, in either direction", async () => {
+    seedHistory(f, [3, 4, 5], { current: true })
+    f.seed((m) => ingestMessages(m, f.ingestContext(), [messageObject(msgId(9), CHANNEL)], { reactions: false }))
+    const latest = await messages({ limit: 3 })
+    expect(latest.source).toBe("mirror")
+    expect(messageIds(latest)).toEqual(idsOf(3, 4, 5))
+    const forward = await messages({ after: idsOf(2)[0], limit: 10 })
+    expect(forward.source).toBe("mirror")
+    expect(messageIds(forward)).toEqual(idsOf(3, 4, 5))
+    expect(forward.next_after).toBeNull()
+    expect(f.discord.requests).toHaveLength(0)
   })
 
   test("falls to Discord when the channel is not current, when live is true and when the request reaches below the oldest", async () => {

@@ -6,47 +6,50 @@ import { knownChannel } from "./channel-target"
 import { messageItems, reactionsNote } from "./message-items"
 import type { ChannelTarget } from "./message-page"
 import type { ChatHandler, ChatSession } from "./session"
-import { vouchedRange } from "./vouched"
+import { vouchedHead, vouchedRange } from "./vouched"
 
 /** How many messages to return on each side of the one asked for. */
 type Counts = { older: number; newer: number }
 
 type IdRow = { id: string }
 
-/** Ids of a channel's messages on one side of `anchor`, nearest first, from `atLeast` up. */
+/** Ids of a channel's messages on one side of `anchor`, nearest first, from `atLeast` up to `atMost`. */
 function neighbours(
   session: ChatSession,
   channel: string,
   anchor: bigint,
   side: "older" | "newer",
   limit: number,
-  atLeast: bigint,
+  bounds: { atLeast: bigint; atMost: bigint },
 ): string[] {
   const [test, order] = side === "older" ? ["<", "DESC"] : [">", "ASC"]
   const rows = session.mirror
     .prepare(
-      `SELECT CAST(id AS TEXT) AS id FROM messages WHERE channel = ? AND id ${test} ? AND id >= ? ORDER BY id ${order} LIMIT ?`,
+      `SELECT CAST(id AS TEXT) AS id FROM messages WHERE channel = ? AND id ${test} ? AND id >= ? AND id <= ? ORDER BY id ${order} LIMIT ?`,
     )
-    .all(BigInt(channel), anchor, atLeast, limit)
+    .all(BigInt(channel), anchor, bounds.atLeast, bounds.atMost, limit)
   return (rows as IdRow[]).map((row) => row.id)
 }
 
 /**
  * The ids around `anchor` from the mirror, oldest first, or `null` when it
  * cannot answer: the channel is not current, the anchor is not mirrored inside
- * the vouched part of the history, or fewer older messages are mirrored than
- * asked for while older ones may exist.
+ * the vouched part of the history (from its oldest up to its newest), or fewer
+ * older messages are mirrored than asked for while older ones may exist.
  */
 function aroundFromMirror(session: ChatSession, channel: string, anchor: string, counts: Counts): string[] | null {
   const vouched = vouchedRange(session, channel)
   const id = BigInt(anchor)
-  if (!vouched || id < vouched.oldest) return null
+  if (!vouched) return null
+  const atMost = vouchedHead(vouched)
+  if (id < vouched.oldest || id > atMost) return null
   if (!session.mirror.prepare("SELECT 1 FROM messages WHERE channel = ? AND id = ?").get(BigInt(channel), id)) {
     return null
   }
-  const older = neighbours(session, channel, id, "older", counts.older, vouched.oldest)
+  const bounds = { atLeast: vouched.oldest, atMost }
+  const older = neighbours(session, channel, id, "older", counts.older, bounds)
   if (older.length < counts.older && !vouched.complete) return null
-  const newer = neighbours(session, channel, id, "newer", counts.newer, vouched.oldest)
+  const newer = neighbours(session, channel, id, "newer", counts.newer, bounds)
   return [...older.reverse(), anchor, ...newer]
 }
 

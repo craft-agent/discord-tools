@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import { ingestMessages } from "../discord/ingest"
 import { CURRENT_MS, markCurrent, setCursorEdges } from "../discord/mirror-cursors"
 import { rowsOf, storedMessageIds } from "../discord/mirror.testing"
-import { CHANNEL, msgId } from "../discord/objects.testing"
+import { CHANNEL, messageObject, msgId } from "../discord/objects.testing"
 import { createChatFixture, failure, type ChatFixture } from "./read.testing"
 import {
   CATEGORY,
@@ -69,6 +70,23 @@ describe("method around from the mirror", () => {
     serveHistory(f, history(1, 2, 3, 4, 5, 6, 7, 8, 9))
     expect((await around(anchor, args)).source).toBe("live")
     expect(historyRequests(f)).toHaveLength(1)
+  })
+
+  test("falls to Discord for a message stored above the cursor's newest", async () => {
+    seedHistory(f, [3, 4, 5], { current: true })
+    f.seed((m) => ingestMessages(m, f.ingestContext(), [messageObject(msgId(9), CHANNEL)], { reactions: false }))
+    serveHistory(f, history(3, 4, 5, 9))
+    expect((await around(9, { before_count: 1, after_count: 1 })).source).toBe("live")
+    expect(historyRequests(f)).toHaveLength(1)
+  })
+
+  test("never includes a message above the cursor's newest among the neighbours", async () => {
+    seedHistory(f, [3, 4, 5], { current: true })
+    f.seed((m) => ingestMessages(m, f.ingestContext(), [messageObject(msgId(9), CHANNEL)], { reactions: false }))
+    const result = await around(4, { before_count: 1, after_count: 5 })
+    expect(result.source).toBe("mirror")
+    expect(messageIds(result)).toEqual(idsOf(3, 4, 5))
+    expect(f.discord.requests).toHaveLength(0)
   })
 
   test("falls to Discord when the channel is not current", async () => {
