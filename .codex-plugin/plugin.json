@@ -1,0 +1,28 @@
+{
+  "name": "discord-tools",
+  "version": "0.0.0",
+  "description": "Discord tools for coding agents: chats, messages, search, inbox, files, sends and roles.",
+  "author": {
+    "name": "craftsamo",
+    "url": "https://github.com/craft-agent"
+  },
+  "homepage": "https://github.com/craft-agent/discord-tools#readme",
+  "repository": "https://github.com/craft-agent/discord-tools",
+  "license": "MIT",
+  "skills": "./skills",
+  "mcpServers": {
+    "discord-tools": {
+      "command": "node",
+      "args": ["dist/mcp.js"],
+      "cwd": ".",
+      "env_vars": [
+        "DISCORD_TOOLS_TOOLSETS",
+        "DISCORD_TOOLS_READ_ONLY",
+        "DISCORD_TOOLS_TOOLS",
+        "DISCORD_TOOLS_EXCLUDE_TOOLS",
+        "DISCORD_TOOLS_CONFIRM",
+        "DISCORD_TOOLS_STATE_DIR"
+      ]
+    }
+  }
+}
