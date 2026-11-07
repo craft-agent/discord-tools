@@ -1,6 +1,6 @@
 import { ToolError } from "../errors"
 import { isSnowflake } from "../discord/snowflake"
-import { parseBounds } from "./bounds"
+import { parseBounds, parsePinTime } from "./bounds"
 import type { ChatMethod, ChatReadInput } from "./schemas"
 
 /** How many chats `dms` returns when `limit` is left out. */
@@ -21,6 +21,21 @@ export const AROUND_COUNT_DEFAULT = 5
 /** The most messages `around` returns on each side of the one asked for. */
 export const AROUND_COUNT_MAX = 50
 
+/** How many threads `threads` returns when `limit` is left out. */
+export const THREADS_LIMIT_DEFAULT = 25
+
+/** The most threads `threads` returns in one call. */
+export const THREADS_LIMIT_MAX = 25
+
+/** The largest `offset` of `threads`; Discord's thread search reaches no deeper. */
+export const THREADS_OFFSET_MAX = 9975
+
+/** How many pins `pins` returns when `limit` is left out. */
+export const PINS_LIMIT_DEFAULT = 50
+
+/** The most pins `pins` returns in one call. */
+export const PINS_LIMIT_MAX = 50
+
 /** The arguments every method takes. */
 const ALWAYS: readonly (keyof ChatReadInput)[] = ["account", "method"]
 
@@ -31,6 +46,8 @@ const ALLOWED: Record<ChatMethod, readonly (keyof ChatReadInput)[]> = {
   dms: ["query", "limit", "offset"],
   messages: ["channel", "before", "after", "limit", "live"],
   around: ["channel", "message", "before_count", "after_count"],
+  threads: ["channel", "archived", "sort", "tag", "limit", "offset"],
+  pins: ["channel", "before", "limit"],
 }
 
 function invalid(message: string): never {
@@ -83,6 +100,25 @@ export function checkArgs(args: ChatReadInput): void {
     parseBounds(args.before, args.after)
     if (args.limit !== undefined && args.limit > MESSAGES_LIMIT_MAX) {
       invalid(`limit is at most ${MESSAGES_LIMIT_MAX} for method messages.`)
+    }
+  }
+  if (args.method === "threads") {
+    requireChannel(args)
+    if (args.tag !== undefined && !isSnowflake(args.tag)) {
+      invalid("`tag` must be a tag id: a number of up to 20 digits, from the `tags` of a forum, not a name.")
+    }
+    if (args.limit !== undefined && args.limit > THREADS_LIMIT_MAX) {
+      invalid(`limit is at most ${THREADS_LIMIT_MAX} for method threads.`)
+    }
+    if (args.offset !== undefined && args.offset > THREADS_OFFSET_MAX) {
+      invalid(`offset is at most ${THREADS_OFFSET_MAX} for method threads.`)
+    }
+  }
+  if (args.method === "pins") {
+    requireChannel(args)
+    if (args.before !== undefined) parsePinTime(args.before)
+    if (args.limit !== undefined && args.limit > PINS_LIMIT_MAX) {
+      invalid(`limit is at most ${PINS_LIMIT_MAX} for method pins.`)
     }
   }
   if (args.method === "around") {

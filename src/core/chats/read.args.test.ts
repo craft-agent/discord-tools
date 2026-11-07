@@ -39,7 +39,7 @@ describe("arguments a method does not take", () => {
 
   test("an unknown argument or method is refused by the schema", async () => {
     expect((await failure(f.read({ method: "dms", color: "red" }))).code).toBe("invalid_argument")
-    expect((await failure(f.read({ method: "threads" }))).code).toBe("invalid_argument")
+    expect((await failure(f.read({ method: "search" }))).code).toBe("invalid_argument")
     expect((await failure(f.read({}))).code).toBe("invalid_argument")
   })
 })

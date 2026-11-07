@@ -1,8 +1,15 @@
 import { z } from "zod"
 import { messageItem } from "./message-schemas"
+import { pinItem, tagItem, threadItem } from "./thread-schemas"
 
 /** The methods of `discord_chat_read`, in the order the schema lists them; a method is added here, in `args.ts` and in the dispatch table of `read.ts`. */
-export const CHAT_METHODS = ["servers", "channels", "dms", "messages", "around"] as const
+export const CHAT_METHODS = ["servers", "channels", "dms", "messages", "around", "threads", "pins"] as const
+
+/** The orders `threads` lists by, `activity` being the default. */
+export const THREAD_SORTS = ["activity", "created"] as const
+
+/** One order of the `threads` list. */
+export type ThreadSort = (typeof THREAD_SORTS)[number]
 
 /** One method of `discord_chat_read`. */
 export type ChatMethod = (typeof CHAT_METHODS)[number]
@@ -18,7 +25,7 @@ export const chatReadInput = z.object({
   method: z
     .enum(CHAT_METHODS)
     .describe(
-      "What to read: `servers` lists the servers the account is in; `channels` lists one server's channels; `dms` lists direct messages and group chats, newest first; `messages` reads one chat's messages, oldest first; `around` reads the messages around one message.",
+      "What to read: `servers` lists the servers the account is in; `channels` lists one server's channels; `dms` lists direct messages and group chats, newest first; `messages` reads one chat's messages, oldest first; `around` reads the messages around one message; `threads` lists the threads of a text or announcement channel or the posts of a forum or media channel; `pins` lists a chat's pinned messages, newest pin first.",
     ),
   refresh: z
     .boolean()
@@ -38,24 +45,46 @@ export const chatReadInput = z.object({
     .int()
     .min(1)
     .optional()
-    .describe("Methods `dms` (default 30, at most 200) and `messages` (default 50, at most 100): the most to return."),
+    .describe(
+      "Methods `dms` (default 30, at most 200), `messages` (default 50, at most 100), `threads` (default 25, at most 25) and `pins` (default 50, at most 50): the most to return.",
+    ),
   offset: z
     .number()
     .int()
     .min(0)
     .max(OFFSET_MAX)
     .optional()
-    .describe("Method `dms`: how many chats to skip; pass the `next_offset` of the previous result to page."),
+    .describe(
+      "Methods `dms` and `threads` (at most 9975): how many to skip; pass the `next_offset` of the previous result to page.",
+    ),
   channel: z
     .string()
     .optional()
-    .describe("Methods `messages` and `around`: the chat's id, from method `dms` or `channels`; never a name."),
+    .describe(
+      "Methods `messages`, `around`, `threads` and `pins`: the chat's id, from method `dms`, `channels` or `threads`; never a name. `threads` takes a text, announcement, forum or media channel.",
+    ),
+  archived: z
+    .boolean()
+    .optional()
+    .describe("Method `threads`: true lists only archived threads, false only active ones; left out, both."),
+  sort: z
+    .enum(THREAD_SORTS)
+    .optional()
+    .describe(
+      "Method `threads`: `activity` (default) orders by the latest message, `created` by creation; newest first.",
+    ),
+  tag: z
+    .string()
+    .optional()
+    .describe(
+      "Method `threads`: only posts with this tag, a tag id from the `tags` of a forum or media channel's result.",
+    ),
   message: z.string().optional().describe("Method `around`: the id of the message to read around."),
   before: z
     .string()
     .optional()
     .describe(
-      "Method `messages`: only messages before this: a message id, a date (YYYY-MM-DD, UTC) or a timestamp with a zone. Pass the `next_before` of the previous result to page back.",
+      "Method `messages`: only messages before this: a message id, a date (YYYY-MM-DD, UTC) or a timestamp with a zone. Method `pins`: only pins made before this date or timestamp, never a message id. Pass the `next_before` of the previous result to page back.",
     ),
   after: z
     .string()
@@ -139,14 +168,24 @@ export const chatReadOutput = z.object({
   channels: z.array(channelItem).optional(),
   dms: z.array(dmItem).optional(),
   next_offset: z.number().int().nullable().optional(),
-  channel: z.string().optional().describe("Methods `messages` and `around`: the chat read."),
+  channel: z.string().optional().describe("Methods `messages`, `around`, `threads` and `pins`: the chat read."),
+  threads: z
+    .array(threadItem)
+    .optional()
+    .describe("As Discord ordered them; not contiguous, so a page may skip threads."),
+  tags: z
+    .array(tagItem)
+    .nullable()
+    .optional()
+    .describe("Method `threads`: the tags the forum or media channel offers; null for any other channel."),
+  pins: z.array(pinItem).optional().describe("Newest pin first."),
   message: z.string().optional().describe("Method `around`: the message the result is centred on."),
   messages: z.array(messageItem).optional().describe("Oldest first."),
   next_before: z
     .string()
     .nullable()
     .optional()
-    .describe("Method `messages`: pass as `before` for the next older page; null when none."),
+    .describe("Methods `messages` and `pins`: pass as `before` for the next older page; null when none."),
   next_after: z
     .string()
     .nullable()
