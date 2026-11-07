@@ -13,6 +13,8 @@ const EXIT_FAILED = 1
 const EXIT_USAGE = 2
 const UNKNOWN_TOOL = "unknown_nonexistent_read"
 const ACCOUNT_READ = "discord_account_read"
+const CHAT_READ = "discord_chat_read"
+const NO_ACCOUNT = "No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "cli-tools-smoke-"))
 
 function expect(condition, message) {
@@ -52,6 +54,10 @@ async function listsTheServersTools() {
       listed.some((tool) => tool.id === ACCOUNT_READ && tool.class === "read"),
       `Expected ${label} to include ${ACCOUNT_READ} as a read tool`,
     )
+    expect(
+      listed.some((tool) => tool.id === CHAT_READ && tool.class === "read"),
+      `Expected ${label} to include ${CHAT_READ} as a read tool`,
+    )
     const expected = await mcpToolNames(settings)
     expect(
       JSON.stringify(listed.map((tool) => tool.id)) === JSON.stringify(expected),
@@ -87,6 +93,19 @@ function rejectsAnUnknownTool() {
   console.log(`run ${UNKNOWN_TOOL} exits ${EXIT_FAILED} with invalid_argument.`)
 }
 
+function refusesChatReadOffline() {
+  for (const settings of [[], ["--read-only"]]) {
+    const run = cli(["run", CHAT_READ, "--cwd", process.cwd(), ...settings], JSON.stringify({ method: "servers" }))
+    const error = JSON.parse(run.stdout).error
+    expect(
+      run.status === EXIT_FAILED && error?.code === "not_found" && String(error.message).includes(NO_ACCOUNT),
+      `Expected exit ${EXIT_FAILED} and not_found for ${CHAT_READ}, got ${run.status}: ${run.stdout}`,
+    )
+  }
+  expect(readdirSync(stateDir).length === 0, "Chat reads must not create state")
+  console.log(`run ${CHAT_READ} exits ${EXIT_FAILED} with not_found offline, including read-only mode.`)
+}
+
 function rejectsConfirm() {
   const run = cli(["list", "--confirm", "x"])
   expect(run.status === EXIT_USAGE, `Expected exit ${EXIT_USAGE} for --confirm x, got ${run.status}: ${run.stderr}`)
@@ -114,6 +133,7 @@ try {
   await listsTheServersTools()
   readsEmptyAccounts()
   rejectsAnUnknownTool()
+  refusesChatReadOffline()
   rejectsConfirm()
   rejectsUnknownAccountsOffline()
 } catch (error) {
