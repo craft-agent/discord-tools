@@ -50,6 +50,21 @@ function boundOf(name: "before" | "after", value: string): string {
   return bound
 }
 
+/** Pins page by the time they were pinned, so only a date or a timestamp names a place in them. */
+const PIN_TIME_FORMS = "a date (YYYY-MM-DD, UTC midnight) or a timestamp with a zone (2026-01-02T03:04:05Z)"
+
+/**
+ * The instant a pin `before` names, as an ISO 8601 UTC string. `invalid_argument`
+ * for a message id (pins page by pin time, not by message) and for any other form.
+ */
+export function parsePinTime(value: string): string {
+  const shown = JSON.stringify(value.slice(0, MAX_SHOWN_LENGTH))
+  if (isSnowflake(value)) invalid(`Pins page by pin time: \`before\` must be ${PIN_TIME_FORMS}, not a message id.`)
+  const time = timeOf(value)
+  if (time === undefined) invalid(`\`before\` must be ${PIN_TIME_FORMS}; got ${shown}.`)
+  return new Date(time).toISOString()
+}
+
 /**
  * Turns `before` and `after` into exclusive snowflake bounds. A `before` time
  * keeps messages made before that instant; an `after` time keeps those made at

@@ -14,7 +14,7 @@ import type { ChatHandler, ChatSession } from "./session"
 export const CATEGORY_TYPE = 4
 
 /** The channel types of threads, which are read through their parent. */
-const THREAD_TYPES: readonly number[] = [10, 11, 12]
+export const THREAD_TYPES: readonly number[] = [10, 11, 12]
 
 /** Sorts a channel or a category without a position after those that have one. */
 const LAST_POSITION = Number.MAX_SAFE_INTEGER
