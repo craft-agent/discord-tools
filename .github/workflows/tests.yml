@@ -61,6 +61,12 @@ jobs:
         run: python -m unittest discover -s src/hermes/tests
       - name: Build
         run: pnpm run build
+      - name: Check the native release tree without an install
+        run: |
+          mkdir -p "$RUNNER_TEMP/release-tree"
+          cp -R dist "$RUNNER_TEMP/release-tree/dist"
+          node scripts/native-tree.mjs "$RUNNER_TEMP/release-tree"
+          node scripts/native-check.mjs "$RUNNER_TEMP/release-tree"
       - name: Check the plugin manifest
         run: pnpm run manifests:check
       - name: Smoke test the MCP server, the plugin and the CLI under Node

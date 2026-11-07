@@ -23,6 +23,8 @@ Discord tools for coding agents: chats, messages, search, inbox, files, sends an
 | other MCP host | MCP server from npm                            | the version in the package     |
 
 The tools need [Node.js](https://nodejs.org/) 24 or later.
+Plugin installs pinned by a release tag run on macOS (arm64, x64) and Linux
+(x64, arm64, glibc); npm installs run wherever wreq-js has a binding.
 [`docs/conventions.md`](docs/conventions.md) describes how the tools are named
 and how they behave.
 
