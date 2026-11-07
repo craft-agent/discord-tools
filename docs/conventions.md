@@ -204,6 +204,25 @@ Every entry point takes the same settings:
   label's mirror, and a request carries only that label's token, so no
   argument can carry a call to an account the label does not name.
 
+### Account health
+
+- **The account read lists every label when `account` is absent**, unlike
+  tools that operate on one account. An explicit label inspects only that
+  label. It reads local state and scheduler status, never contacts Discord,
+  migrates a mirror or changes a service.
+- **Token availability is not live authentication.** The HTTP client boundary
+  inspects the current credential and returns only its source and safe status.
+  A replacement token does not inherit the old token's rejection.
+- **A scheduled, idle job is normal.** Health needs a complete sync within
+  15 minutes as well as usable credentials, a verified identity and a scheduled
+  service. This account-level threshold makes missed runs visible; it does not
+  replace each channel's freshness check. A partial run needs continuation.
+  Recorded sync status is history, not proof that a process is running.
+- **Unknown state stays unknown.** A failed scheduler inspection or damaged
+  state produces a diagnostic for that label, not a fabricated healthy result
+  or a failure that hides every other label. Recovery gives a person one next
+  command, including the label and state directory; a read never runs it.
+
 ## The token
 
 - **The token comes from the environment first.** `<envPrefix>_TOKEN_<LABEL>`
