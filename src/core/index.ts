@@ -1,6 +1,7 @@
 export { ToolError, isAbortError, isToolError, type ErrorCode } from "./errors"
 export { abortError, exec, type ExecOptions, type ExecResult } from "./exec"
 export { isWithin } from "./paths"
+export type { ToolRuntime } from "./runtime"
 export { ANY_TARGET, writeTargets } from "./targets"
 export {
   REQUIRES_USER_INTERACTION,

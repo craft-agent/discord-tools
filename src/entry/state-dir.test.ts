@@ -7,6 +7,8 @@ import { resolveStateDir } from "./state-dir"
 
 const profile: EntryProfile = {
   name: "demo-tools",
+  cli: "demo-tools-cli",
+  serviceId: "io.example.demo-tools",
   envPrefix: "DEMO",
   toolsets: { names: ["alpha"], defaults: ["alpha"] },
 }

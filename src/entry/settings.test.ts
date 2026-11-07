@@ -196,7 +196,13 @@ describe("parseSettings", () => {
   })
 
   test("with no toolsets defined, a named toolset is rejected and the message says so", () => {
-    const none: EntryProfile = { name: "demo-tools", envPrefix: "DEMO", toolsets: { names: [], defaults: [] } }
+    const none: EntryProfile = {
+      name: "demo-tools",
+      cli: "demo-tools-cli",
+      serviceId: "io.example.demo-tools",
+      envPrefix: "DEMO",
+      toolsets: { names: [], defaults: [] },
+    }
     expect(failure(() => parseSettings(["--toolsets", "alpha"], {}, none)).message).toContain("no toolsets are defined")
     expect(parseSettings(["--toolsets", "all"], {}, none).toolsets).toBe("all")
   })
