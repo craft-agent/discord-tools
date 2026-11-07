@@ -1,15 +1,12 @@
 import { invoke, isToolError, selectTools, type ToolContext, type ToolSpec } from "../core"
 import { ANY_RESOURCE } from "../entry/permission"
 import { PROJECT_PROFILE, type EntryProfile } from "../entry/profile"
+import type { RuntimeOptions } from "../entry/runtime"
 import { settingsFromOptions } from "../entry/settings"
 import type { PluginOptions } from "./types"
 
 /** What a plugin takes from its surroundings; each has a default, and a test supplies its own. */
-export type PluginDeps = {
-  /** Where the `<envPrefix>_*` settings fall back to; defaults to `process.env`. */
-  env?: Record<string, string | undefined>
-  /** The settings' environment prefix and the toolsets; defaults to this package's. */
-  profile?: EntryProfile
+export type PluginDeps = RuntimeOptions & {
   /** The directory holding `<name>/SKILL.md` files, for the harness version that registers skills. */
   skillsDir?: URL | string
   /** Where the plugin is installed: never a call's working tree. */

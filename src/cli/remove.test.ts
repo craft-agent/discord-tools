@@ -6,6 +6,7 @@ import { acquireSyncLock } from "../core/discord/sync-lock"
 import { EXIT_FAILED, EXIT_OK, EXIT_USAGE } from "./command-io"
 import { fakeHost, refusingHost, runCommand, signedInAccount, tempStateDir } from "./commands.testing"
 import { runRemoveCommand } from "./remove"
+import { PROFILE } from "./testing"
 
 const run = runCommand.bind(null, runRemoveCommand)
 
@@ -22,6 +23,7 @@ describe("remove confirmation", () => {
       },
     })
     const result = await run(["--account=work", "--yes", `--state-dir=${dir}`], {
+      profile: PROFILE,
       serviceHost: host,
       isTTY: false,
       readLine: async () => {
@@ -31,6 +33,7 @@ describe("remove confirmation", () => {
     expect(result.code).toBe(EXIT_OK)
     expect(existedAtUninstall).toBe(true)
     expect(host.calls).toHaveLength(1)
+    expect(host.calls[0]!.at(-1)).toContain(PROFILE.serviceId)
     expect(await readdir(dir)).toEqual(["other"])
     expect(result.stdout).toContain("local state is deleted")
     expect(result.stdout).toContain("environment are not removed")

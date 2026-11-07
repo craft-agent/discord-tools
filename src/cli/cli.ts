@@ -12,6 +12,7 @@ import {
 } from "../core"
 import { permissionResources } from "../entry/permission"
 import { PROJECT_PROFILE } from "../entry/profile"
+import { createToolRuntime } from "../entry/runtime"
 import { parseStateDir, parseToolSettings } from "../entry/settings"
 import { PROJECT } from "../project"
 import { usageError } from "./command-args"
@@ -133,6 +134,7 @@ async function runTool(command: Extract<Command, { name: "run" }>, io: CliIo): P
       cwd: command.cwd,
       ownDir: io.ownDir,
       stateDir: command.stateDir,
+      runtime: createToolRuntime(io),
       signal: io.signal,
     })
     writeJson(io, { result })
@@ -153,6 +155,7 @@ async function targetOf(command: Extract<Command, { name: "target" }>, io: CliIo
       cwd: command.cwd,
       ownDir: io.ownDir,
       stateDir: command.stateDir,
+      runtime: createToolRuntime(io),
       signal: io.signal,
     })
     writeJson(io, { resources })

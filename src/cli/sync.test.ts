@@ -78,6 +78,7 @@ describe("sync command", () => {
         },
       })
       const result = await run(["--account", "work", "--state-dir", dir], {
+        profile: PROFILE,
         serviceHost: host,
         stderr: (text) => {
           stderr += text
@@ -92,6 +93,7 @@ describe("sync command", () => {
       expect(stderr.match(/The token was rejected/g)).toHaveLength(1)
       expect(stderr).not.toContain("private-manager-detail")
       expect(events).toEqual(fails ? ["stderr", "disable", "stderr"] : ["stderr", "disable", "bootout"])
+      expect(host.calls[0]!.at(-1)).toContain(PROFILE.serviceId)
       expect(result.stdout).toBe("")
       if (fails) expect(stderr).toContain("schedule could not be paused")
     },

@@ -10,6 +10,7 @@ import {
   type ServiceHost,
   type ServiceStatus,
 } from "../core/discord/service"
+import { PROJECT_PROFILE } from "../entry/profile"
 import {
   ACCOUNT_FLAG,
   handleCommandError,
@@ -19,9 +20,6 @@ import {
   usageError,
 } from "./command-args"
 import { EXIT_OK, type CommandIo } from "./command-io"
-
-/** The identity the sync service of every label is registered under with the operating system's manager. */
-export const SERVICE_ID = "io.github.craft-agent.discord-tools"
 
 /** The platforms whose service manager the sync service is registered with. */
 const SERVICE_PLATFORMS: readonly NodeJS.Platform[] = ["darwin", "linux"]
@@ -111,6 +109,7 @@ export async function runServiceCommand(argv: string[], io: CommandIo): Promise<
 
   try {
     const host: ServiceHost = io.serviceHost ?? defaultServiceHost()
+    const serviceId = (io.profile ?? PROJECT_PROFILE).serviceId
     if (command.action === "install") {
       const paths = await pickLabel(command.stateDir, label)
       if (!(await readAccount(paths))) {
@@ -124,7 +123,7 @@ export async function runServiceCommand(argv: string[], io: CommandIo): Promise<
       }
       await installService(
         {
-          id: SERVICE_ID,
+          id: serviceId,
           label,
           description: `Scheduled account sync (${label})`,
           program: io.program ?? process.execPath,
@@ -136,10 +135,10 @@ export async function runServiceCommand(argv: string[], io: CommandIo): Promise<
       io.stdout(`Installed sync service for "${label}".\n`)
       io.stdout("Environment-based tokens must be supplied independently to the service environment.\n")
     } else if (command.action === "uninstall") {
-      await uninstallService(SERVICE_ID, label, host)
+      await uninstallService(serviceId, label, host)
       io.stdout(`Uninstalled sync service for "${label}".\n`)
     } else {
-      io.stdout(`${statusLines(label, await serviceStatus(SERVICE_ID, label, host)).join("\n")}\n`)
+      io.stdout(`${statusLines(label, await serviceStatus(serviceId, label, host)).join("\n")}\n`)
     }
     return EXIT_OK
   } catch (error) {

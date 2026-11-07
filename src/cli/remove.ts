@@ -1,6 +1,7 @@
 import { checkLabel, pickLabel } from "../core/discord/labels"
 import { removeLabel } from "../core/discord/removal"
 import { defaultServiceHost, uninstallService, type ServiceHost } from "../core/discord/service"
+import { PROJECT_PROFILE } from "../entry/profile"
 import {
   ACCOUNT_FLAG,
   handleCommandError,
@@ -11,7 +12,7 @@ import {
   usageError,
 } from "./command-args"
 import { defaultReadLine, EXIT_FAILED, EXIT_OK, EXIT_USAGE, type CommandIo } from "./command-io"
-import { SERVICE_ID, serviceSupported } from "./service"
+import { serviceSupported } from "./service"
 
 const YES_FLAG = "--yes"
 
@@ -41,8 +42,8 @@ async function confirmed(label: string, io: CommandIo): Promise<boolean> {
 }
 
 /** Takes the account's sync service out of the manager, where the platform has one. */
-async function uninstallSyncService(label: string, host: ServiceHost): Promise<void> {
-  if (serviceSupported(host)) await uninstallService(SERVICE_ID, label, host)
+async function uninstallSyncService(serviceId: string, label: string, host: ServiceHost): Promise<void> {
+  if (serviceSupported(host)) await uninstallService(serviceId, label, host)
 }
 
 /**
@@ -82,7 +83,7 @@ export async function runRemoveCommand(argv: string[], io: CommandIo): Promise<n
       label,
       uninstall: async () => {
         io.signal?.throwIfAborted()
-        await uninstallSyncService(label, host)
+        await uninstallSyncService((io.profile ?? PROJECT_PROFILE).serviceId, label, host)
         io.signal?.throwIfAborted()
       },
     })

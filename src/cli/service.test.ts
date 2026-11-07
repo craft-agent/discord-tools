@@ -4,9 +4,11 @@ import { join } from "node:path"
 import { PROJECT } from "../project"
 import { writeAccount } from "../core/discord/account-meta"
 import { labelPaths } from "../core/discord/labels"
+import { PROJECT_PROFILE } from "../entry/profile"
 import { EXIT_FAILED, EXIT_OK, EXIT_USAGE } from "./command-io"
 import { fakeHost, refusingHost, runCommand, signedInAccount, tempStateDir } from "./commands.testing"
-import { SERVICE_ID, runServiceCommand } from "./service"
+import { runServiceCommand } from "./service"
+import { PROFILE } from "./testing"
 
 const run = runCommand.bind(null, runServiceCommand)
 
@@ -21,7 +23,10 @@ describe("service status", () => {
         stderr: "",
       }),
     })
-    const result = await run(["status", "--account", "work", "--state-dir", dir], { serviceHost: host })
+    const result = await run(["status", "--account", "work", "--state-dir", dir], {
+      serviceHost: host,
+      profile: PROFILE,
+    })
     expect(result.code).toBe(EXIT_OK)
     expect(result.stderr).toBe("")
     expect(result.stdout).toContain('Sync service for "work":')
@@ -29,6 +34,8 @@ describe("service status", () => {
     expect(result.stdout).toContain("Scheduled: yes")
     expect(result.stdout).toContain("Running: no")
     expect(result.stdout).toContain("File:")
+    expect(result.stdout).toContain(PROFILE.serviceId)
+    expect(host.calls.flat().some((part) => part.includes(PROFILE.serviceId))).toBe(true)
   })
 
   test("picks the only account when --account is absent", async () => {
@@ -92,10 +99,13 @@ describe("service uninstall", () => {
   test("takes the named account's registration out, even after its state is gone", async () => {
     const dir = await tempStateDir()
     const host = fakeHost(dir)
-    const result = await run(["uninstall", "--account", "gone", "--state-dir", dir], { serviceHost: host })
+    const result = await run(["uninstall", "--account", "gone", "--state-dir", dir], {
+      serviceHost: host,
+      profile: PROFILE,
+    })
     expect(result).toEqual({ code: EXIT_OK, stdout: 'Uninstalled sync service for "gone".\n', stderr: "" })
     expect(host.calls.length).toBeGreaterThan(0)
-    expect(host.calls.flat().some((part) => part.includes(SERVICE_ID))).toBe(true)
+    expect(host.calls.flat().some((part) => part.includes(PROFILE.serviceId))).toBe(true)
   })
 
   test("fails when the manager refuses", async () => {
@@ -118,7 +128,7 @@ describe("service uninstall", () => {
     })
     const result = await run(["uninstall", "--account=gone", "--state-dir", dir], { serviceHost: host })
     expect(result.code).toBe(EXIT_OK)
-    const base = `${SERVICE_ID.replaceAll(".", "-")}-gone`
+    const base = `${PROJECT_PROFILE.serviceId.replaceAll(".", "-")}-gone`
     expect(host.calls).toEqual([
       ["systemctl", "--user", "disable", "--now", `${base}.timer`],
       ["systemctl", "--user", "stop", `${base}.service`],
@@ -170,6 +180,7 @@ describe("service install", () => {
       await writeAccount(labelPaths(dir, "work"), { id: "123456789012345678", name: "test", verifiedAt: 1 })
       const host = fakeHost(dir, { platform })
       const result = await run(["install", "--account=work", `--state-dir=${dir}`], {
+        profile: PROFILE,
         serviceHost: host,
         program: "/runtime/node",
         entryPath: "/package/dist/cli.js",
@@ -180,8 +191,8 @@ describe("service install", () => {
       expect(host.calls.length).toBeGreaterThan(0)
       const file =
         platform === "darwin"
-          ? join(dir, "Library", "LaunchAgents", `${SERVICE_ID}.work.plist`)
-          : join(dir, ".config", "systemd", "user", `${SERVICE_ID.replaceAll(".", "-")}-work.service`)
+          ? join(dir, "Library", "LaunchAgents", `${PROFILE.serviceId}.work.plist`)
+          : join(dir, ".config", "systemd", "user", `${PROFILE.serviceId.replaceAll(".", "-")}-work.service`)
       const definition = await readFile(file, "utf8")
       for (const part of [
         "/runtime/node",

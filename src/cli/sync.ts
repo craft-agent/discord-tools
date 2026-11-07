@@ -6,7 +6,6 @@ import { tokenVariable } from "../core/discord/token"
 import { PROJECT_PROFILE } from "../entry/profile"
 import { ACCOUNT_FLAG, handleCommandError, parseCommandStateDir, parseFlagArgs, STATE_DIR_FLAG } from "./command-args"
 import { EXIT_FAILED, EXIT_OK, type CommandIo } from "./command-io"
-import { SERVICE_ID } from "./service"
 
 /**
  * Runs one bounded sync, reporting counts only. Busy is benign; partial work
@@ -46,7 +45,7 @@ export async function runSyncCommand(argv: string[], io: CommandIo): Promise<num
     if (isToolError(error) && error.code === "unauthenticated") {
       const exitCode = handleCommandError(error, io)
       try {
-        await suspendService(SERVICE_ID, paths.label, io.serviceHost)
+        await suspendService((io.profile ?? PROJECT_PROFILE).serviceId, paths.label, io.serviceHost)
       } catch {
         io.stderr("The sync schedule could not be paused; uninstall it before retrying.\n")
       }
