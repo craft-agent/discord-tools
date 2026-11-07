@@ -1,8 +1,18 @@
 import { describe, expect, test } from "bun:test"
+import { selectTools } from "./core"
+import { PROJECT_PROFILE } from "./entry/profile"
 import { PROJECT } from "./project"
 import { ALL_TOOLS } from "./tools"
 
 describe("the registry", () => {
+  test("account read is a read tool selected by default and in read-only mode", () => {
+    const id = "discord_account_read"
+    expect(ALL_TOOLS.find((spec) => spec.id === id)).toMatchObject({ toolset: "account", class: "read" })
+    for (const settings of [{}, { read_only: true }]) {
+      expect(selectTools(ALL_TOOLS, settings, PROJECT_PROFILE.toolsets).map((spec) => spec.id)).toContain(id)
+    }
+  })
+
   test("every tool id is unique", () => {
     const ids = ALL_TOOLS.map((spec) => spec.id)
     expect(new Set(ids).size).toBe(ids.length)

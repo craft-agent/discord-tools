@@ -11,7 +11,7 @@ export const PROJECT = {
   /** Every setting's environment variable is `<envPrefix>_<SETTING>`. */
   envPrefix: "DISCORD_TOOLS",
   /** The toolsets, in the order `all` lists them. */
-  toolsets: [] as readonly string[],
+  toolsets: ["account"] as readonly string[],
   /** The toolsets on when a setting names none. */
-  defaultToolsets: [] as readonly string[],
+  defaultToolsets: ["account"] as readonly string[],
 } as const
