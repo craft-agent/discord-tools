@@ -2,7 +2,9 @@ import { newCounts, type IngestContext, type IngestCounts } from "./ingest-conte
 import { storeMessages } from "./ingest-messages"
 import { idOrNull, isRecord } from "./ingest-values"
 import type { Mirror } from "./mirror"
+import { setCursorEdges } from "./mirror-cursors"
 import { deleteMessageRow, messageIdsBetween } from "./mirror-rows"
+import type { HistoryPage } from "./sync-page"
 
 /** The lower bound of a range: a snowflake, or `"0"` for the start of a channel. */
 function lowerBound(value: string): bigint | null {
@@ -36,6 +38,30 @@ export function ingestHistoryPage(
   for (const id of messageIdsBetween(mirror, channelId, after, before)) {
     if (!ids.has(id)) counts.deleted += deleteMessageRow(mirror, id)
   }
+  return counts
+}
+
+/**
+ * The one way a tool extends a chat's vouched history downward: stores an older
+ * page as `ingestHistoryPage` does, then widens the cursor's `oldest` edge to
+ * the page's oldest message, and sets `complete` when the page reached the
+ * channel's first message. The caller requested the page with `before` = the
+ * cursor's current oldest edge, so the page joins the vouched range.
+ *
+ * It never touches `newest`, `synced_at` or `rechecked_at`: only a sync run
+ * marks a channel current.
+ */
+export function ingestOlderHistory(
+  mirror: Mirror,
+  ctx: IngestContext,
+  channel: string,
+  page: HistoryPage,
+): IngestCounts {
+  const counts = ingestHistoryPage(mirror, ctx, channel, page.messages, page.range)
+  setCursorEdges(mirror, channel, {
+    ...(page.oldest === undefined ? {} : { oldest: page.oldest }),
+    complete: page.complete,
+  })
   return counts
 }
 
