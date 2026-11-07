@@ -2,7 +2,9 @@ import { afterEach, beforeEach, expect, test } from "bun:test"
 import { symlink, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { readSyncList, validateSyncList } from "./sync-list"
+import { getMeta } from "./mirror"
 import { getCursor } from "./mirror-cursors"
+import { DM_LIST_AT_META, SERVER_LIST_AT_META } from "./mirror-meta"
 import { rowById } from "./mirror.testing"
 import { createSyncHarness, syncMessage, type SyncHarness } from "./sync-testing"
 
@@ -87,6 +89,21 @@ test("only known servers are requested and explicit unknown channels stay unstam
   expect(h.discord.api.some((request) => request.path === "/guilds/12/channels")).toBe(false)
   expect(h.inspect((m) => getCursor(m, "22"))).toBeUndefined()
   expect(h.inspect((m) => rowById(m, "channels", "21")?.server)).toBe("11")
+})
+
+test("a run stamps the DM list, and the server list only when the sync list names a server", async () => {
+  const started = h.now()
+  await h.run()
+  const dmStamp = Number(h.inspect((m) => getMeta(m)[DM_LIST_AT_META]))
+  expect(dmStamp).toBeGreaterThanOrEqual(started)
+  expect(h.inspect((m) => getMeta(m)[SERVER_LIST_AT_META])).toBeUndefined()
+  await writeFile(join(h.paths.dir, "sync.json"), JSON.stringify({ servers: [{ id: "11", channels: [] }] }))
+  h.discord.route("GET", "/users/@me/guilds", { status: 200, json: [{ id: "11", name: "test" }] })
+  h.discord.route("GET", "/guilds/11/channels", { status: 200, json: [] })
+  await h.run()
+  const meta = h.inspect(getMeta)
+  expect(Number(meta[SERVER_LIST_AT_META])).toBeGreaterThan(dmStamp)
+  expect(Number(meta[DM_LIST_AT_META])).toBeGreaterThan(dmStamp)
 })
 
 test("whole-server selection takes ten most-active supported channels after exclusions", async () => {

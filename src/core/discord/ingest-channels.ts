@@ -12,7 +12,8 @@ import {
   textOrNull,
   type JsonRecord,
 } from "./ingest-values"
-import type { Mirror } from "./mirror"
+import { setMeta, type Mirror } from "./mirror"
+import { DM_LIST_AT_META } from "./mirror-meta"
 import { upsertChannel, type ChannelRow } from "./mirror-rows"
 
 /** Channel types of threads: announcement, public and private. */
@@ -101,5 +102,15 @@ export function ingestChannels(mirror: Mirror, ctx: IngestContext, channels: unk
     upsertChannel(mirror, shaped.row)
     counts.stored += 1
   }
+  return counts
+}
+
+/**
+ * Stores the complete list of DMs and group DMs and stamps when it was read in
+ * full, so a later read lists only the DMs it held (`updated` at or after the stamp).
+ */
+export function ingestDmList(mirror: Mirror, ctx: IngestContext, channels: unknown[]): IngestCounts {
+  const counts = ingestChannels(mirror, ctx, channels)
+  setMeta(mirror, { [DM_LIST_AT_META]: ctx.now })
   return counts
 }
