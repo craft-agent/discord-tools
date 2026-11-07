@@ -66,10 +66,21 @@ function rejectsConfirm() {
   console.log(`--confirm x exits ${EXIT_USAGE}: ${run.stderr.trim()}`)
 }
 
+function refusesUnfinishedSync() {
+  for (const args of [["sync"], ["service", "install", "--account", "default"]]) {
+    const run = cli(args)
+    expect(run.status === EXIT_FAILED, `Expected exit ${EXIT_FAILED} for ${args.join(" ")}, got ${run.status}`)
+    expect(run.stdout === "", `Expected no success output for ${args.join(" ")}`)
+    expect(run.stderr.includes("sync engine is not implemented"), `Expected an explanation, got: ${run.stderr}`)
+  }
+  console.log("Unfinished sync and service installation fail with an explanation.")
+}
+
 try {
   await listsTheServersTools()
   rejectsAnUnknownTool()
   rejectsConfirm()
+  refusesUnfinishedSync()
 } catch (error) {
   console.error(error)
   process.exit(1)

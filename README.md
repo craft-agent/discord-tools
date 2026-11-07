@@ -141,6 +141,35 @@ Add the server to the host's MCP configuration. Flags go in `args`:
 
 Each toolset comes with a skill that tells an agent how to use its tools.
 
+## Local account commands
+
+These are commands for a person, not agent tools. They print plain text;
+`list`, `run` and `target` keep their JSON output.
+
+```sh
+discord-tools-cli service status --account default
+discord-tools-cli service uninstall --account default
+discord-tools-cli remove --account default
+```
+
+Each accepts `--state-dir <directory>`; otherwise `DISCORD_TOOLS_STATE_DIR`
+or the default state directory is used. Status distinguishes a scheduled
+job from a run currently in progress. Status and uninstall accept an explicit
+label even after its local state has been removed.
+
+`remove` asks you to type the label. For a non-interactive command, pass
+`--yes`. It uninstalls the scheduled job, refuses while the label is busy,
+and deletes that label's local state, including its mirror and token file.
+If a foreground sync is still running, the state is kept and the schedule
+stays stopped; stop that run before trying removal again.
+It neither deletes anything on Discord nor removes credentials supplied by
+the environment. Other labels are kept.
+
+The sync engine and `login` are not implemented yet. `sync` and
+`service install` currently fail with an explanation and make no changes.
+The service implementation is prepared for one run every five minutes:
+launchd on macOS, or a systemd user timer and oneshot service on Linux.
+
 ## Adding a tool
 
 1. Write the spec in `src/core/<domain>/<verb>.ts` with `defineTool`: an ID
