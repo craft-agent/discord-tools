@@ -114,6 +114,35 @@ function asAuthRecord(value: unknown): AuthRecord | undefined {
   return { rejectedAt, salt, fingerprint }
 }
 
+/** Account diagnostics must distinguish an absent record from damaged rejection evidence. */
+async function readStrictAuthRecord(path: string): Promise<AuthRecord | undefined> {
+  const invalid = new ToolError(
+    "stale",
+    "The credential rejection record is unreadable or malformed; inspect it and its permissions.",
+  )
+  try {
+    const stat = await lstat(path).catch((error: unknown) => {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined
+      throw error
+    })
+    if (!stat) return undefined
+    if (!stat.isFile() || stat.isSymbolicLink()) throw invalid
+    const record = asAuthRecord(JSON.parse(await readFile(path, "utf8")))
+    if (
+      !record ||
+      !/^[a-f0-9]{32}$/i.test(record.salt) ||
+      !/^[a-f0-9]{64}$/i.test(record.fingerprint) ||
+      !Number.isSafeInteger(record.rejectedAt) ||
+      record.rejectedAt < 0 ||
+      !Number.isFinite(new Date(record.rejectedAt).getTime())
+    )
+      throw invalid
+    return record
+  } catch {
+    throw invalid
+  }
+}
+
 function fingerprint(salt: string, token: string): string {
   return createHmac("sha256", salt).update(token).digest("hex")
 }
@@ -133,18 +162,22 @@ export async function recordRejected(paths: LabelPaths, token: string, at: numbe
   await writePrivateFile(paths.auth, JSON.stringify(record))
 }
 
-/** When Discord rejected this very token, or `undefined`: another token counts as new, and a missing or malformed record as none. */
-export async function rejectedAt(paths: LabelPaths, token: string): Promise<number | undefined> {
+/** When Discord rejected this token. By default malformed records count as absent; strict diagnostics refuse them. */
+export async function rejectedAt(
+  paths: LabelPaths,
+  token: string,
+  options: { strict?: boolean } = {},
+): Promise<number | undefined> {
   const path = resolve(paths.auth)
   const key = fingerprint(rejectionSalt, token)
   const remembered = rejections.get(path)?.get(key)
   if (remembered !== undefined) return remembered
-  const record = asAuthRecord(await readJsonFile(paths.auth))
+  const record = options.strict ? await readStrictAuthRecord(paths.auth) : asAuthRecord(await readJsonFile(paths.auth))
   const observed = rejections.get(path)?.get(key)
   if (observed !== undefined) return observed
   if (!record) return undefined
   const expected = Buffer.from(fingerprint(record.salt, token))
-  const actual = Buffer.from(record.fingerprint)
+  const actual = Buffer.from(options.strict ? record.fingerprint.toLowerCase() : record.fingerprint)
   if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return undefined
   rememberRejected(paths, token, record.rejectedAt)
   return record.rejectedAt
