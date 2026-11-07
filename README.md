@@ -2,6 +2,15 @@
 
 Discord tools for coding agents: chats, messages, search, inbox, files, sends and roles.
 
+> [!WARNING]
+> These tools act from your own Discord account, through the web client's
+> API and with your account's token. Discord's terms forbid automating a user
+> account ("self-bots"), and an account can be terminated for it, read-only
+> use included. Use them only on an account whose loss you accept, and only
+> for what you would do yourself, at your own pace. The token is your account:
+> whoever holds it reads and writes as you, past your password and your second
+> factor.
+
 | Harness        | Delivery                                       | Pinned by                      |
 | -------------- | ---------------------------------------------- | ------------------------------ |
 | OpenCode V2    | native plugin (npm package, with skills)       | the version in the package     |
@@ -191,6 +200,7 @@ variable, and an option or setting wins over the variable too.
 | `tools`         | `--tools`         | `DISCORD_TOOLS_TOOLS`         | single tools to add by ID, whatever their toolset                             |
 | `exclude_tools` | `--exclude-tools` | `DISCORD_TOOLS_EXCLUDE_TOOLS` | single tools to remove by ID; wins over `tools` and `toolsets`                |
 | `confirm`       | `--confirm`       | `DISCORD_TOOLS_CONFIRM`       | MCP server only: `harness` (default) or `elicitation`, as the conventions say |
+| `state_dir`     | `--state-dir`     | `DISCORD_TOOLS_STATE_DIR`     | where every label's state lives; default `$XDG_STATE_HOME/discord-tools`      |
 
 Lists are comma-separated in a flag or a variable. Where each harness reads them:
 
@@ -232,6 +242,32 @@ Lists are comma-separated in a flag or a variable. Where each harness reads them
   args = ["-y", "@craftsamo/discord-tools@<version>", "--read-only"]
   env_vars = ["DISCORD_TOOLS_TOOLSETS"]
   ```
+
+### Accounts, the token and the sync service
+
+- **Each Discord account has a label**, 1 to 24 lowercase letters, digits and
+  `_` (`default` when signing in names none). A tool's `account` argument
+  picks the label; leave it out when only one account is signed in.
+- **Each label keeps its state in one directory**, `<state_dir>/<label>/`
+  (mode 700): the mirror of synced messages, the sync list, the token file
+  when there is one, and the copies of files being sent or received.
+  `state_dir` defaults to `$XDG_STATE_HOME/discord-tools`, or
+  `~/.local/state/discord-tools`. The mirror holds your private messages, so
+  keep the directory out of backups you share.
+- **The token comes from `DISCORD_TOOLS_TOKEN_<LABEL>` when it is set**
+  (`DISCORD_TOOLS_TOKEN_DEFAULT` for `default`), and from the token file that
+  signing in writes otherwise. With the variable, nothing of the token is
+  stored by the package: inject it from the secret manager you use, into the
+  environment of both the harness (its MCP server reads live and writes) and
+  the sync service. For Codex, list it in `env_vars` as above.
+- **A sync service keeps each label's mirror**, polling Discord every 5
+  minutes in short, capped runs: DMs and group DMs always, servers only as the
+  sync list names them (at most 10 servers and 30 channels). A read uses the
+  mirror only while its channel was synced in the last 15 minutes, and reads
+  Discord directly otherwise. The service sends nothing of its own: no
+  presence, no typing, no read marks.
+- **A rejected token stops the service** for its label until a new one is
+  given; changing your Discord password invalidates the token.
 
 ## Layout
 
