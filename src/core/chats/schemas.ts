@@ -3,7 +3,7 @@ import { messageItem } from "./message-schemas"
 import { pinItem, tagItem, threadItem } from "./thread-schemas"
 
 /** The methods of `discord_chat_read`, in the order the schema lists them; a method is added here, in `args.ts` and in the dispatch table of `read.ts`. */
-export const CHAT_METHODS = ["servers", "channels", "dms", "messages", "around", "threads", "pins"] as const
+export const CHAT_METHODS = ["servers", "channels", "dms", "messages", "around", "threads", "pins", "backfill"] as const
 
 /** The orders `threads` lists by, `activity` being the default. */
 export const THREAD_SORTS = ["activity", "created"] as const
@@ -25,7 +25,7 @@ export const chatReadInput = z.object({
   method: z
     .enum(CHAT_METHODS)
     .describe(
-      "What to read: `servers` lists the servers the account is in; `channels` lists one server's channels; `dms` lists direct messages and group chats, newest first; `messages` reads one chat's messages, oldest first; `around` reads the messages around one message; `threads` lists the threads of a text or announcement channel or the posts of a forum or media channel; `pins` lists a chat's pinned messages, newest pin first.",
+      "What to read: `servers` lists the servers the account is in; `channels` lists one server's channels; `dms` lists direct messages and group chats, newest first; `messages` reads one chat's messages, oldest first; `around` reads the messages around one message; `threads` lists the threads of a text or announcement channel or the posts of a forum or media channel; `pins` lists a chat's pinned messages, newest pin first; `backfill` pulls older history of a chat the sync follows into the local mirror.",
     ),
   refresh: z
     .boolean()
@@ -61,8 +61,14 @@ export const chatReadInput = z.object({
     .string()
     .optional()
     .describe(
-      "Methods `messages`, `around`, `threads` and `pins`: the chat's id, from method `dms`, `channels` or `threads`; never a name. `threads` takes a text, announcement, forum or media channel.",
+      "Methods `messages`, `around`, `threads`, `pins` and `backfill`: the chat's id, from method `dms`, `channels` or `threads`; never a name. `threads` takes a text, announcement, forum or media channel; `backfill` takes a chat the sync follows.",
     ),
+  pages: z
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe("Method `backfill`: how many pages of 100 older messages to pull (default 2, at most 5)."),
   archived: z
     .boolean()
     .optional()
@@ -192,6 +198,28 @@ export const chatReadOutput = z.object({
     .optional()
     .describe("Method `messages` reading forward: pass as `after` for the next newer page; null when none."),
   reactions_note: z.string().optional().describe("Present when a message has reactions."),
+  pages: z.number().int().optional().describe("Method `backfill`: how many pages were requested from Discord."),
+  stored: z.number().int().optional().describe("Method `backfill`: how many messages were stored."),
+  deleted: z
+    .number()
+    .int()
+    .optional()
+    .describe("Method `backfill`: how many mirrored messages Discord no longer has, removed."),
+  complete: z
+    .boolean()
+    .optional()
+    .describe("Method `backfill`: whether the mirror now reaches the chat's first message."),
+  oldest: z
+    .string()
+    .nullable()
+    .optional()
+    .describe("Method `backfill`: the id of the oldest message the mirror holds."),
+  oldest_at: isoTime.optional().describe("Method `backfill`: the time of that message."),
+  stopped: z
+    .object({ code: z.string(), message: z.string() })
+    .nullable()
+    .optional()
+    .describe("Method `backfill`: why paging stopped early; null when it did not. What was stored stays stored."),
 })
 
 /** The result of `discord_chat_read`. */

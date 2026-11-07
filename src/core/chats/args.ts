@@ -36,6 +36,12 @@ export const PINS_LIMIT_DEFAULT = 50
 /** The most pins `pins` returns in one call. */
 export const PINS_LIMIT_MAX = 50
 
+/** How many pages `backfill` pulls when `pages` is left out. */
+export const BACKFILL_PAGES_DEFAULT = 2
+
+/** The most pages `backfill` pulls in one call. */
+export const BACKFILL_PAGES_MAX = 5
+
 /** The arguments every method takes. */
 const ALWAYS: readonly (keyof ChatReadInput)[] = ["account", "method"]
 
@@ -48,6 +54,7 @@ const ALLOWED: Record<ChatMethod, readonly (keyof ChatReadInput)[]> = {
   around: ["channel", "message", "before_count", "after_count"],
   threads: ["channel", "archived", "sort", "tag", "limit", "offset"],
   pins: ["channel", "before", "limit"],
+  backfill: ["channel", "pages"],
 }
 
 function invalid(message: string): never {
@@ -119,6 +126,12 @@ export function checkArgs(args: ChatReadInput): void {
     if (args.before !== undefined) parsePinTime(args.before)
     if (args.limit !== undefined && args.limit > PINS_LIMIT_MAX) {
       invalid(`limit is at most ${PINS_LIMIT_MAX} for method pins.`)
+    }
+  }
+  if (args.method === "backfill") {
+    requireChannel(args)
+    if (args.pages !== undefined && args.pages > BACKFILL_PAGES_MAX) {
+      invalid(`pages is at most ${BACKFILL_PAGES_MAX} for method backfill.`)
     }
   }
   if (args.method === "around") {
