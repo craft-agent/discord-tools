@@ -1,6 +1,7 @@
 import { newCounts, type IngestContext, type IngestCounts } from "./ingest-context"
 import { idOrNull, isRecord, textOrNull } from "./ingest-values"
-import type { Mirror } from "./mirror"
+import { setMeta, type Mirror } from "./mirror"
+import { SERVER_LIST_AT_META } from "./mirror-meta"
 import { upsertServer } from "./mirror-rows"
 
 /**
@@ -25,5 +26,15 @@ export function ingestServers(mirror: Mirror, ctx: IngestContext, servers: unkno
     })
     counts.stored += 1
   }
+  return counts
+}
+
+/**
+ * Stores the complete server list and stamps when it was read in full, so a
+ * later read lists only the servers it held (`updated` at or after the stamp).
+ */
+export function ingestServerList(mirror: Mirror, ctx: IngestContext, servers: unknown[]): IngestCounts {
+  const counts = ingestServers(mirror, ctx, servers)
+  setMeta(mirror, { [SERVER_LIST_AT_META]: ctx.now })
   return counts
 }

@@ -23,6 +23,9 @@ type CursorRow = {
   rechecked_at: number | null
 }
 
+/** How long a sync run's mark keeps a channel, or the DM list, current: three scheduler intervals, in milliseconds. */
+export const CURRENT_MS = 15 * 60 * 1000
+
 /** A channel's cursor, or `undefined` when it has none. */
 export function getCursor(mirror: Mirror, channel: string): Cursor | undefined {
   const id = idOrNull(channel)
@@ -41,6 +44,12 @@ export function getCursor(mirror: Mirror, channel: string): Cursor | undefined {
     syncedAt: row.synced_at,
     recheckedAt: row.rechecked_at,
   }
+}
+
+/** Whether a sync run marked the channel current less than `CURRENT_MS` before `now`; a mark in the future is not current. */
+export function isChannelCurrent(mirror: Mirror, channel: string, now: number): boolean {
+  const syncedAt = getCursor(mirror, channel)?.syncedAt
+  return syncedAt !== null && syncedAt !== undefined && now >= syncedAt && now - syncedAt < CURRENT_MS
 }
 
 /**
@@ -70,6 +79,10 @@ export function setCursorEdges(
  * Sync-only: reconciles edges after authoritative history has closed every gap.
  * Unlike setCursorEdges, deletions may move either edge inward or clear it.
  * Coverage and freshness are preserved; an incomplete catch-up must not call this.
+ * While the history is incomplete, only messages at or above the cursor's
+ * `oldest` count: a live read stores messages below it that no sync run
+ * vouched for, and they must not pull the vouched edge down. A complete
+ * history (or a cursor without an `oldest`) vouches for every stored message.
  */
 export function reconcileCursorEdges(mirror: Mirror, channel: string): void {
   const id = idOrNull(channel)
@@ -77,10 +90,12 @@ export function reconcileCursorEdges(mirror: Mirror, channel: string): void {
   mirror
     .prepare(
       `INSERT INTO cursors (channel, newest, oldest)
-       SELECT ?, MAX(id), MIN(id) FROM messages WHERE channel = ?
+       SELECT ?, MAX(id), MIN(id) FROM messages
+       WHERE channel = ?
+         AND id >= COALESCE((SELECT oldest FROM cursors WHERE channel = ? AND complete = 0), 0)
        ON CONFLICT (channel) DO UPDATE SET newest = excluded.newest, oldest = excluded.oldest`,
     )
-    .run(id, id)
+    .run(id, id, id)
 }
 
 /** Records when the channel's stored range was last checked against Discord. */

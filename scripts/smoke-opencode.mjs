@@ -10,10 +10,25 @@ import { PLUGIN_NAME } from "./package-name.mjs"
 const PLUGIN = fileURLToPath(new URL("../dist/opencode.js", import.meta.url))
 const SERVER = fileURLToPath(new URL("../dist/mcp.js", import.meta.url))
 const ACCOUNT_READ = "discord_account_read"
+const CHAT_READ = "discord_chat_read"
+const NO_ACCOUNT = "not_found: No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "opencode-smoke-"))
 
 function expect(condition, message) {
   if (!condition) throw new Error(message)
+}
+
+async function expectRejects(call, label) {
+  try {
+    await call()
+  } catch (error) {
+    expect(
+      String(error?.message).includes(NO_ACCOUNT),
+      `Expected ${label} to fail with a missing account, got: ${error}`,
+    )
+    return
+  }
+  throw new Error(`Expected ${label} to fail offline.`)
 }
 
 /** The tool names the MCP server lists with matching settings; it draws on the same registry as the plugin. */
@@ -59,7 +74,13 @@ try {
     })
     deepStrictEqual([...added.keys()].sort(), expected)
     expect(skills.includes("discord-account"), "Expected setup to discover the account skill.")
+    expect(skills.includes("discord-chats"), "Expected setup to discover the chats skill.")
+    expect(expected.includes(CHAT_READ), `Expected the MCP registry to include ${CHAT_READ}.`)
     const signal = new AbortController().signal
+    await expectRejects(
+      () => added.get(CHAT_READ).execute({ method: "servers" }, { sessionID: "ses_smoke", signal }),
+      `V2 ${CHAT_READ}`,
+    )
     const result = await added.get(ACCOUNT_READ).execute({}, { sessionID: "ses_smoke", signal })
     deepStrictEqual(result.output, { accounts: [] })
     deepStrictEqual(JSON.parse(result.content), { accounts: [] })
@@ -78,6 +99,14 @@ try {
       },
     )
     deepStrictEqual(JSON.parse(output), { accounts: [] })
+    await expectRejects(
+      () =>
+        tool[CHAT_READ].execute(
+          { method: "servers" },
+          { directory: process.cwd(), worktree: process.cwd(), abort: signal, ask: noPermission },
+        ),
+      `V1 ${CHAT_READ}`,
+    )
     console.log(`server returns ${served.length} tools; V1 and V2 read empty accounts with read_only=${readOnly}.`)
   }
   deepStrictEqual(readdirSync(stateDir), [])

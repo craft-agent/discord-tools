@@ -76,6 +76,34 @@ test("aggregate edges retain integer precision, numeric ordering and channel iso
   expect(getCursor(t.mirror, "2002")).toBeUndefined()
 })
 
+function storeBelowTheOldest(complete: boolean): void {
+  t.write(() => {
+    ingestMessages(
+      t.mirror,
+      { me: SYNC_ME, now: 1 },
+      ["5", "50", "51", "60"].map((id) => syncMessage(id)),
+      { reactions: false },
+    )
+    setCursorEdges(t.mirror, SYNC_CHANNEL, { newest: "60", oldest: "50", complete })
+    reconcileCursorEdges(t.mirror, SYNC_CHANNEL)
+  })
+}
+
+test("a message stored below an incomplete cursor's oldest does not move it", () => {
+  storeBelowTheOldest(false)
+  expect(getCursor(t.mirror, SYNC_CHANNEL)).toMatchObject({ newest: "60", oldest: "50", complete: false })
+  t.write(() => {
+    deleteMessage(t.mirror, "50")
+    reconcileCursorEdges(t.mirror, SYNC_CHANNEL)
+  })
+  expect(getCursor(t.mirror, SYNC_CHANNEL)).toMatchObject({ newest: "60", oldest: "51" })
+})
+
+test("a complete history reconciles over every stored message", () => {
+  storeBelowTheOldest(true)
+  expect(getCursor(t.mirror, SYNC_CHANNEL)).toMatchObject({ newest: "60", oldest: "5", complete: true })
+})
+
 test("invalid ids do not alter an existing cursor or create another one", () => {
   t.write(() => {
     setCursorEdges(t.mirror, SYNC_CHANNEL, { newest: "100" })

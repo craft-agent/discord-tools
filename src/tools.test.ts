@@ -13,6 +13,14 @@ describe("the registry", () => {
     }
   })
 
+  test("chat read is a read tool selected by default and in read-only mode", () => {
+    const id = "discord_chat_read"
+    expect(ALL_TOOLS.find((spec) => spec.id === id)).toMatchObject({ toolset: "chats", class: "read" })
+    for (const settings of [{}, { read_only: true }]) {
+      expect(selectTools(ALL_TOOLS, settings, PROJECT_PROFILE.toolsets).map((spec) => spec.id)).toContain(id)
+    }
+  })
+
   test("every tool id is unique", () => {
     const ids = ALL_TOOLS.map((spec) => spec.id)
     expect(new Set(ids).size).toBe(ids.length)

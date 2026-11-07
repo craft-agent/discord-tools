@@ -72,11 +72,26 @@ export function openMirrorForWrite(path: string): Mirror {
  * gone, which is the normal state of a mirror whose sync service stopped.
  */
 export function openMirrorForRead(path: string): Mirror {
+  return openExisting(path, true)
+}
+
+/**
+ * Opens the mirror for a tool that stores what it read live: the same checks
+ * and errors as `openMirrorForRead`, but writable. It never creates the file,
+ * sets WAL or migrates; only the sync service shapes the mirror. Every write
+ * through it goes through the ingest, inside `inTransaction`.
+ */
+export function openMirrorForIngest(path: string): Mirror {
+  return openExisting(path, false)
+}
+
+/** Opens a set-up mirror of the current version, with `query_only` on when `readOnly`. */
+function openExisting(path: string, readOnly: boolean): Mirror {
   if (!existsSync(path)) throw new ToolError("not_found", NOT_SYNCED)
   const mirror = new DatabaseSync(path)
   try {
     setBusyTimeout(mirror)
-    mirror.exec("PRAGMA query_only = ON")
+    if (readOnly) mirror.exec("PRAGMA query_only = ON")
     const version = schemaVersion(mirror)
     if (version === 0) throw new ToolError("not_found", NOT_SYNCED)
     if (version > MIRROR_VERSION) throw new ToolError("upstream_error", TOO_NEW)

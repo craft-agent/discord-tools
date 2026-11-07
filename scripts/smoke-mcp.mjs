@@ -12,7 +12,24 @@ const SERVER = fileURLToPath(new URL("../dist/mcp.js", import.meta.url))
 const EXIT_USAGE = 2
 const UNKNOWN_TOOL = "unknown_nonexistent_read"
 const ACCOUNT_READ = "discord_account_read"
+const CHAT_READ = "discord_chat_read"
+const NO_ACCOUNT = "No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "mcp-smoke-"))
+
+async function expectChatError(client, args, expectedCode, expectedText) {
+  const result = await client.callTool({ name: CHAT_READ, arguments: args })
+  const [block] = result.content
+  const error = block?.type === "text" ? JSON.parse(block.text).error : undefined
+  if (
+    result.isError !== true ||
+    error?.code !== expectedCode ||
+    (expectedText !== undefined && !String(error.message).includes(expectedText))
+  ) {
+    throw new Error(
+      `Expected a ${expectedCode} error for ${CHAT_READ} ${JSON.stringify(args)}, got ${JSON.stringify(result)}`,
+    )
+  }
+}
 
 async function listTools(settings) {
   const client = new Client({ name: "smoke", version: "0.0.0" })
@@ -35,6 +52,14 @@ async function listTools(settings) {
     deepStrictEqual(accounts.structuredContent, { accounts: [] })
     deepStrictEqual(accounts.content, [{ type: "text", text: JSON.stringify({ accounts: [] }) }])
     console.log(`${ACCOUNT_READ} returns empty accounts under ${JSON.stringify(settings)}.`)
+
+    const chat = tools.find((tool) => tool.name === CHAT_READ)
+    if (chat?.annotations?.readOnlyHint !== true) {
+      throw new Error(`Expected ${CHAT_READ} with readOnlyHint under ${JSON.stringify(settings)}`)
+    }
+    await expectChatError(client, { method: "servers" }, "not_found", NO_ACCOUNT)
+    await expectChatError(client, { method: "servers", server: "1" }, "invalid_argument")
+    console.log(`${CHAT_READ} is read-only and refuses offline under ${JSON.stringify(settings)}.`)
 
     const result = await client.callTool({ name: UNKNOWN_TOOL })
     const [block] = result.content
