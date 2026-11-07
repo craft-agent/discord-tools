@@ -133,6 +133,14 @@ describe("method channels", () => {
     expect(f.inspect((m) => rowsOf(m, "SELECT id FROM channels"))).toEqual([])
   })
 
+  test("a DM or group DM in the answer is an upstream error and stores nothing", async () => {
+    for (const type of [1, 3]) {
+      f.discord.route("GET", path, { status: 200, json: [channelObject(GENERAL), channelObject(RANDOM, { type })] })
+      expect((await failure(f.read({ method: "channels", server: SERVER }))).code).toBe("upstream_error")
+    }
+    expect(f.inspect((m) => rowsOf(m, "SELECT id FROM channels"))).toEqual([])
+  })
+
   test("a channel of another server in the answer is an upstream error and stores nothing", async () => {
     f.discord.route("GET", path, { status: 200, json: [channelObject(GENERAL, { guild_id: OTHER_SERVER })] })
     expect((await failure(f.read({ method: "channels", server: SERVER }))).code).toBe("upstream_error")

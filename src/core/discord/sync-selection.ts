@@ -5,10 +5,9 @@ import type { JsonRecord } from "./ingest-values"
 import { inTransaction } from "./mirror"
 import { checkAbort, type SyncChannel, type SyncContext } from "./sync-channels"
 import { WHOLE_SERVER_CHANNELS, type SyncList, type SyncServer } from "./sync-list"
-import { channelRecords, idRecords, invalidResponse } from "./sync-page"
+import { channelRecords, idRecords, invalidResponse, PRIVATE_CHANNEL_TYPES } from "./sync-page"
 
 const SERVER_TEXT_TYPES = [0, 5, 10, 11, 12]
-const DM_TYPES = [1, 3]
 
 function channel(row: JsonRecord): SyncChannel {
   return { id: row.id as string, head: row.last_message_id as string | null | undefined }
@@ -57,7 +56,9 @@ export async function selectChannels(
     checkAbort(ctx.signal)
     return result
   }
-  const dms = channelRecords(await read("/users/@me/channels")).filter((row) => DM_TYPES.includes(row.type as number))
+  const dms = channelRecords(await read("/users/@me/channels")).filter((row) =>
+    PRIVATE_CHANNEL_TYPES.includes(row.type as number),
+  )
   ctx.add(inTransaction(ctx.mirror, () => ingestDmList(ctx.mirror, { me: ctx.me, now: ctx.now() }, dms)))
   const selected = new Map(dms.map((row) => [row.id as string, channel(row)]))
   if (!list.servers.length) return [...selected.values()]
@@ -72,7 +73,7 @@ export async function selectChannels(
     try {
       const rows = channelRecords(await read(`/guilds/${selection.id}/channels`), selection.id)
       // A private channel cannot become a server target through a contradictory response.
-      if (rows.some((row) => selected.has(row.id as string) || DM_TYPES.includes(row.type as number))) invalidResponse()
+      if (rows.some((row) => selected.has(row.id as string))) invalidResponse()
       ctx.add(
         inTransaction(ctx.mirror, () => ingestChannels(ctx.mirror, { me: ctx.me, now: ctx.now() }, rows, selection.id)),
       )

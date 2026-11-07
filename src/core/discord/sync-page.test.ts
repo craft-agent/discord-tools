@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { ingestHistoryPage } from "./ingest"
-import { CHANNEL, ctxAt, messageObject, msgId, OTHER_CHANNEL } from "./objects.testing"
-import { forwardPage } from "./sync-page"
+import { CHANNEL, channelObject, ctxAt, messageObject, msgId, OTHER_CHANNEL, SERVER } from "./objects.testing"
+import { channelRecords, forwardPage } from "./sync-page"
 import { createTestMirror, errorOf, storedMessageIds, type TestMirror } from "./mirror.testing"
 
 let t: TestMirror
@@ -13,6 +13,18 @@ afterEach(() => {
 })
 
 const message = (n: number, channel = CHANNEL) => messageObject(msgId(n), channel)
+
+describe("channelRecords", () => {
+  test("a server's list holds no DM or group DM, a private list does", () => {
+    for (const type of [1, 3]) {
+      const rows = [channelObject(CHANNEL, { type })]
+      expect(errorOf(() => channelRecords(rows, SERVER))).toMatchObject({ code: "upstream_error" })
+      expect(channelRecords(rows)).toEqual(rows)
+    }
+    const text = [channelObject(CHANNEL, { guild_id: SERVER })]
+    expect(channelRecords(text, SERVER)).toEqual(text)
+  })
+})
 
 describe("forwardPage", () => {
   test("a full newest-first page vouches strictly between after and one above its newest", () => {

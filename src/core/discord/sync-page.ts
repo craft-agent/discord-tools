@@ -10,6 +10,9 @@ export type HistoryPage = {
   range: { after: string; before: string }
 }
 
+/** Channel types of a DM and a group DM: private channels, never part of a server. */
+export const PRIVATE_CHANNEL_TYPES = [1, 3]
+
 export function invalidResponse(): never {
   throw new ToolError("upstream_error", "Discord returned a response of an unexpected shape.")
 }
@@ -25,11 +28,12 @@ export function idRecords(value: unknown): JsonRecord[] {
   return value as JsonRecord[]
 }
 
-/** Validates a channel list: `idRecords` whose rows have an integer type, a valid last message id and, for a server's list, only that server's `guild_id` (none for a private list). */
+/** Validates a channel list: `idRecords` whose rows have an integer type, a valid last message id and, for a server's list, only that server's `guild_id` and no private channel (none for a private list). */
 export function channelRecords(value: unknown, server?: string): JsonRecord[] {
   const rows = idRecords(value)
   for (const row of rows) {
     if (typeof row.type !== "number" || !Number.isSafeInteger(row.type)) invalidResponse()
+    if (server && PRIVATE_CHANNEL_TYPES.includes(row.type)) invalidResponse()
     if (row.last_message_id !== undefined && row.last_message_id !== null && !isSnowflake(row.last_message_id))
       invalidResponse()
     if (server ? row.guild_id !== undefined && row.guild_id !== server : row.guild_id != null) invalidResponse()
