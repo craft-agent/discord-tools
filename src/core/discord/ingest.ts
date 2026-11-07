@@ -6,6 +6,7 @@
  */
 export { ingestChannels } from "./ingest-channels"
 export type { IngestContext, IngestCounts } from "./ingest-context"
+export { deleteMessage, ingestHistoryPage } from "./ingest-history"
 export { ingestMessages } from "./ingest-messages"
 export { emojiKey } from "./ingest-parts"
 export { ingestServers } from "./ingest-servers"
