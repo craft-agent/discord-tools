@@ -147,15 +147,41 @@ These are commands for a person, not agent tools. They print plain text;
 `list`, `run` and `target` keep their JSON output.
 
 ```sh
+discord-tools-cli login --account default
+discord-tools-cli sync --account default
+discord-tools-cli service install --account default
 discord-tools-cli service status --account default
 discord-tools-cli service uninstall --account default
 discord-tools-cli remove --account default
 ```
 
+`login` verifies the account with Discord. When
+`DISCORD_TOOLS_TOKEN_DEFAULT` is supplied in its environment, it uses that
+variable and stores no token. Otherwise, it reads a token from standard input:
+one hidden line at a terminal, or a UTF-8 pipe through EOF. A secret manager
+can pipe its output directly into `discord-tools-cli login --account default`.
+The verified token is then stored in the label's private token file (mode 600).
+Never pass a token as a command-line argument.
+
 Each accepts `--state-dir <directory>`; otherwise `DISCORD_TOOLS_STATE_DIR`
 or the default state directory is used. Status distinguishes a scheduled
 job from a run currently in progress. Status and uninstall accept an explicit
 label even after its local state has been removed.
+
+`sync` runs one bounded pass and prints status and counts. A complete run or
+an already-busy label exits 0; a partial run exits 1 and needs another run.
+Authentication rejection pauses the label's schedule and keeps its service
+definition. To resume, run `login` with a new token, then `service install`
+for that label.
+
+`service install` requires a signed-in label and schedules the installed CLI
+every five minutes: a launchd agent on macOS, or a systemd user timer and
+oneshot service on Linux. Keep that CLI installation and its Node runtime
+available at their installed paths. The service definition records the
+runtime, command, state directory and `PATH`, never a token. A service manager
+does not automatically inherit the terminal's environment: when using
+`DISCORD_TOOLS_TOKEN_<LABEL>`, supply it independently to the scheduled
+service's environment, as well as to the harness that starts the MCP server.
 
 `remove` asks you to type the label. For a non-interactive command, pass
 `--yes`. It uninstalls the scheduled job, refuses while the label is busy,
@@ -164,11 +190,6 @@ If a foreground sync is still running, the state is kept and the schedule
 stays stopped; stop that run before trying removal again.
 It neither deletes anything on Discord nor removes credentials supplied by
 the environment. Other labels are kept.
-
-The sync engine and `login` are not implemented yet. `sync` and
-`service install` currently fail with an explanation and make no changes.
-The service implementation is prepared for one run every five minutes:
-launchd on macOS, or a systemd user timer and oneshot service on Linux.
 
 ## Adding a tool
 
