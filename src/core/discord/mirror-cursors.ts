@@ -66,6 +66,23 @@ export function setCursorEdges(
     .run(id, idOrNull(edges.newest), idOrNull(edges.oldest), edges.complete === true ? 1 : 0)
 }
 
+/**
+ * Sync-only: reconciles edges after authoritative history has closed every gap.
+ * Unlike setCursorEdges, deletions may move either edge inward or clear it.
+ * Coverage and freshness are preserved; an incomplete catch-up must not call this.
+ */
+export function reconcileCursorEdges(mirror: Mirror, channel: string): void {
+  const id = idOrNull(channel)
+  if (id === null) return
+  mirror
+    .prepare(
+      `INSERT INTO cursors (channel, newest, oldest)
+       SELECT ?, MAX(id), MIN(id) FROM messages WHERE channel = ?
+       ON CONFLICT (channel) DO UPDATE SET newest = excluded.newest, oldest = excluded.oldest`,
+    )
+    .run(id, id)
+}
+
 /** Records when the channel's stored range was last checked against Discord. */
 export function markRechecked(mirror: Mirror, channel: string, at: number): void {
   const id = idOrNull(channel)
