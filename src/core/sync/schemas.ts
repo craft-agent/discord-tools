@@ -46,7 +46,8 @@ const followedChannel = namedItem.extend({
   current: z.boolean().describe("Whether a sync run marked it current in the last 15 minutes."),
 })
 
-const followedServer = z.object({
+/** One server of the sync list as `list` shows it; the write tools show the same. */
+export const followedServer = z.object({
   id: z.string(),
   name: z.string().nullable().describe("From the local mirror; null when it holds none."),
   follows: z.enum(["server", "channels"]).describe("Whole server (its most active text channels) or named channels."),
@@ -59,19 +60,19 @@ const followedServer = z.object({
   slots: z.number().int().describe("How many of the channel slots the entry uses."),
 })
 
+/** The limits the sync list counts against, with how much of them it uses. */
+export const listLimits = z.object({
+  servers: usage,
+  channels: usage,
+  whole_server_channels: z.number().int().describe("The channel slots a whole server uses."),
+})
+
 export const syncReadOutput = z.object({
   method: z.enum(SYNC_METHODS),
   note: z.string(),
   dms: z.literal("always").optional().describe("Method `list`: direct messages and group chats are always followed."),
   servers: z.array(followedServer).optional().describe("Method `list`: in sync-list order."),
-  limits: z
-    .object({
-      servers: usage,
-      channels: usage,
-      whole_server_channels: z.number().int().describe("The channel slots a whole server uses."),
-    })
-    .optional()
-    .describe("Method `list`: the limits the sync list counts against."),
+  limits: listLimits.optional().describe("Method `list`: the limits the sync list counts against."),
   since: z.string().optional().describe("Method `suggest`: the start of the window, ISO 8601 UTC."),
   add: z
     .array(addSuggestion)

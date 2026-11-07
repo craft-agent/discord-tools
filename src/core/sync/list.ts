@@ -6,11 +6,13 @@ import {
   MAX_SYNC_SERVERS,
   readSyncList,
   WHOLE_SERVER_CHANNELS,
+  type SyncList,
   type SyncServer,
 } from "../discord/sync-list"
 import { pickServerChannels } from "../discord/sync-selection"
+import { entrySlots } from "./list-edit"
 import type { FollowedServer } from "./schemas"
-import type { SyncHandler, SyncSession } from "./session"
+import type { SyncHandler, SyncPayload, SyncSession } from "./session"
 
 type NameRow = { name: string | null }
 
@@ -56,13 +58,16 @@ function followedServer(session: SyncSession, entry: SyncServer): FollowedServer
       current: session.mirror ? isChannelCurrent(session.mirror, id, now) : false,
     })),
     exclude: (entry.exclude ?? []).map((id) => ({ id, name: nameOf(session, "channels", id) })),
-    slots: entry.channels?.length ?? WHOLE_SERVER_CHANNELS,
+    slots: entrySlots(entry),
   }
 }
 
-/** Method `list`: the servers and channels the sync service follows, with the limits they count against. */
-export const readList: SyncHandler = async (session) => {
-  const servers = (await readSyncList(session.paths)).servers.map((entry) => followedServer(session, entry))
+/** What `list` shows of a sync list: the servers and channels it follows, with the limits they count against. */
+export type ListFields = Required<Pick<SyncPayload, "dms" | "servers" | "limits">>
+
+/** The `list` fields of `list`, as the mirror of `session` names and dates them. */
+export function listFields(session: SyncSession, list: SyncList): ListFields {
+  const servers = list.servers.map((entry) => followedServer(session, entry))
   return {
     dms: "always",
     servers,
@@ -73,3 +78,6 @@ export const readList: SyncHandler = async (session) => {
     },
   }
 }
+
+/** Method `list`: the servers and channels the sync service follows, with the limits they count against. */
+export const readList: SyncHandler = async (session) => listFields(session, await readSyncList(session.paths))
