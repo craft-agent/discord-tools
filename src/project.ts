@@ -4,12 +4,14 @@ export const PROJECT = {
   name: "discord-tools",
   /** The command line the Hermes plugin calls. */
   cli: "discord-tools-cli",
+  /** The identity under which each account's scheduled sync is registered. */
+  serviceId: "io.github.craft-agent.discord-tools",
   /** Every tool ID starts with `<toolPrefix>_`. */
   toolPrefix: "discord",
   /** Every setting's environment variable is `<envPrefix>_<SETTING>`. */
   envPrefix: "DISCORD_TOOLS",
   /** The toolsets, in the order `all` lists them. */
-  toolsets: [] as readonly string[],
+  toolsets: ["account"] as readonly string[],
   /** The toolsets on when a setting names none. */
-  defaultToolsets: [] as readonly string[],
+  defaultToolsets: ["account"] as readonly string[],
 } as const

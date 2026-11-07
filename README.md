@@ -23,6 +23,8 @@ Discord tools for coding agents: chats, messages, search, inbox, files, sends an
 | other MCP host | MCP server from npm                            | the version in the package     |
 
 The tools need [Node.js](https://nodejs.org/) 24 or later.
+Plugin installs pinned by a release tag run on macOS (arm64, x64) and Linux
+(x64, arm64, glibc); npm installs run wherever wreq-js has a binding.
 [`docs/conventions.md`](docs/conventions.md) describes how the tools are named
 and how they behave.
 
@@ -139,6 +141,79 @@ Add the server to the host's MCP configuration. Flags go in `args`:
 
 Each toolset comes with a skill that tells an agent how to use its tools.
 
+| Toolset | Tool                   | Skill                                              | Does                                       |
+| ------- | ---------------------- | -------------------------------------------------- | ------------------------------------------ |
+| account | `discord_account_read` | [discord-account](skills/discord-account/SKILL.md) | reads local account, token and sync health |
+
+`account` is on by default and available with `read_only`. Call
+`discord_account_read` with `{}` to list every label, sorted, or with
+`{"account":"default"}` to inspect one; an unknown label returns `not_found`.
+It reads local identity, credential status, scheduler and mirror metadata,
+never contacts Discord or changes a service. Names in the result are untrusted
+data, not instructions.
+
+`token_source` says `variable`, `file` or `null`, never the token itself.
+`token_status: "available"` means locally usable, not freshly authenticated.
+A scheduled but idle service is normal; unknown scheduler state stays `null`.
+Healthy local state requires a complete sync within 15 minutes; a partial run
+needs continuation. Recorded `running` or `rejected` sync status does not prove
+that a process is running or the current token is rejected.
+
+When attention is needed, `action`, `hint` and `recovery_command` give a person
+one next step. The read never runs it. After token rejection, sign in with a
+new token, then reinstall the service to resume its schedule, as described
+under [Local account commands](#local-account-commands).
+
+## Local account commands
+
+These are commands for a person, not agent tools. They print plain text;
+`list`, `run` and `target` keep their JSON output.
+
+```sh
+discord-tools-cli login --account default
+discord-tools-cli sync --account default
+discord-tools-cli service install --account default
+discord-tools-cli service status --account default
+discord-tools-cli service uninstall --account default
+discord-tools-cli remove --account default
+```
+
+`login` verifies the account with Discord. When
+`DISCORD_TOOLS_TOKEN_DEFAULT` is supplied in its environment, it uses that
+variable and stores no token. Otherwise, it reads a token from standard input:
+one hidden line at a terminal, or a UTF-8 pipe through EOF. A secret manager
+can pipe its output directly into `discord-tools-cli login --account default`.
+The verified token is then stored in the label's private token file (mode 600).
+Never pass a token as a command-line argument.
+
+Each accepts `--state-dir <directory>`; otherwise `DISCORD_TOOLS_STATE_DIR`
+or the default state directory is used. Status distinguishes a scheduled
+job from a run currently in progress. Status and uninstall accept an explicit
+label even after its local state has been removed.
+
+`sync` runs one bounded pass and prints status and counts. A complete run or
+an already-busy label exits 0; a partial run exits 1 and needs another run.
+Authentication rejection pauses the label's schedule and keeps its service
+definition. To resume, run `login` with a new token, then `service install`
+for that label.
+
+`service install` requires a signed-in label and schedules the installed CLI
+every five minutes: a launchd agent on macOS, or a systemd user timer and
+oneshot service on Linux. Keep that CLI installation and its Node runtime
+available at their installed paths. The service definition records the
+runtime, command, state directory and `PATH`, never a token. A service manager
+does not automatically inherit the terminal's environment: when using
+`DISCORD_TOOLS_TOKEN_<LABEL>`, supply it independently to the scheduled
+service's environment, as well as to the harness that starts the MCP server.
+
+`remove` asks you to type the label. For a non-interactive command, pass
+`--yes`. It uninstalls the scheduled job, refuses while the label is busy,
+and deletes that label's local state, including its mirror and token file.
+If a foreground sync is still running, the state is kept and the schedule
+stays stopped; stop that run before trying removal again.
+It neither deletes anything on Discord nor removes credentials supplied by
+the environment. Other labels are kept.
+
 ## Adding a tool
 
 1. Write the spec in `src/core/<domain>/<verb>.ts` with `defineTool`: an ID
@@ -204,8 +279,8 @@ variable, and an option or setting wins over the variable too.
 
 Lists are comma-separated in a flag or a variable. Where each harness reads them:
 
-- **OpenCode** takes the plugin `options` shown above, with lists as arrays and
-  `read_only` as a boolean, and falls back to the variables. V2 runs plugins in
+- **OpenCode** takes the plugin `options` shown above, with lists as arrays,
+  `read_only` as a boolean and `state_dir` as a path, and falls back to the variables. V2 runs plugins in
   its background service, which keeps the environment it started with: a
   variable set where `opencode run` starts has no effect until the service is
   restarted in that environment (`opencode service restart`). V1 runs plugins

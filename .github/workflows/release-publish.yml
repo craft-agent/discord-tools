@@ -25,6 +25,7 @@ jobs:
   # The version bump is pushed with the release deploy key, which
   # `repo-kit setup github` creates and lets bypass the protection of main.
   # `version-files` lists the same paths as `scripts/version-files.mjs`.
+  # The release commit also carries the native library's `node_modules`.
   release:
     permissions:
       contents: write
@@ -35,8 +36,10 @@ jobs:
         .claude-plugin/plugin.json
         .antigravity-plugin/plugin.json
         plugin.yaml
-      build-command: pnpm install --frozen-lockfile && pnpm run build
-      artifacts: dist
+      build-command: pnpm install --frozen-lockfile && pnpm run build && node scripts/native-tree.mjs .
+      artifacts: |
+        dist
+        node_modules
       setup-pnpm: true
       node-version-file: .node-version
     secrets:

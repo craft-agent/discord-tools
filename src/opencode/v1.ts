@@ -1,5 +1,6 @@
-import { inputJsonSchema, type ToolSpec } from "../core"
+import { inputJsonSchema, type ToolRuntime, type ToolSpec } from "../core"
 import { permissionResources } from "../entry/permission"
+import { createToolRuntime } from "../entry/runtime"
 import {
   needsPermission,
   permissionMetadata,
@@ -47,12 +48,12 @@ function workingDir(context: V1ToolContext): string {
   return context.worktree && context.worktree !== "/" ? context.worktree : context.directory
 }
 
-function v1Tool(spec: ToolSpec, ownDir: string | undefined): V1Tool {
+function v1Tool(spec: ToolSpec, ownDir: string | undefined, stateDir: string, runtime: ToolRuntime): V1Tool {
   return {
     description: `${spec.description}${describeArguments(spec)}`,
     args: spec.input.shape,
     async execute(args: unknown, context: V1ToolContext): Promise<string> {
-      const ctx = { cwd: workingDir(context), ownDir, signal: context.abort }
+      const ctx = { cwd: workingDir(context), ownDir, stateDir, runtime, signal: context.abort }
       if (needsPermission(spec)) {
         const resources = await permissionResources(spec, args, ctx)
         await context.ask({
@@ -75,9 +76,11 @@ function v1Tool(spec: ToolSpec, ownDir: string | undefined): V1Tool {
  * as failed.
  */
 export function createV1Server(specs: ToolSpec[], deps: PluginDeps = {}): OpenCodePlugin["server"] {
+  const runtime = createToolRuntime(deps)
   return async function server(_input: unknown, options?: PluginOptions): Promise<V1Hooks> {
+    const { tools, stateDir } = selectedTools(specs, options, deps.env, deps.profile)
     const tool: V1Hooks["tool"] = {}
-    for (const spec of selectedTools(specs, options, deps.env, deps.profile)) tool[spec.id] = v1Tool(spec, deps.ownDir)
+    for (const spec of tools) tool[spec.id] = v1Tool(spec, deps.ownDir, stateDir, runtime)
     return { tool }
   }
 }

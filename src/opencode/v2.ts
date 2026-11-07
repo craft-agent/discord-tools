@@ -1,5 +1,6 @@
-import type { ToolSpec } from "../core"
+import type { ToolRuntime, ToolSpec } from "../core"
 import { permissionResources } from "../entry/permission"
+import { createToolRuntime } from "../entry/runtime"
 import { loadSkills } from "./skills"
 import {
   needsPermission,
@@ -20,7 +21,13 @@ async function sessionDirectory(ctx: V2Context, sessionID: string): Promise<stri
   }
 }
 
-function v2Tool(ctx: V2Context, spec: ToolSpec, ownDir: string | undefined): V2Tool {
+function v2Tool(
+  ctx: V2Context,
+  spec: ToolSpec,
+  ownDir: string | undefined,
+  stateDir: string,
+  runtime: ToolRuntime,
+): V2Tool {
   return {
     name: spec.id,
     description: spec.description,
@@ -34,7 +41,7 @@ function v2Tool(ctx: V2Context, spec: ToolSpec, ownDir: string | undefined): V2T
             `invalid_argument: The session's directory could not be read, so ${spec.id} cannot tell what it changes; retry.`,
           )
         }
-        const resources = await permissionResources(spec, input, { cwd: directory, ownDir, signal })
+        const resources = await permissionResources(spec, input, { cwd: directory, ownDir, stateDir, runtime, signal })
         await ctx.permission.assert({
           action: spec.id,
           resources,
@@ -43,7 +50,7 @@ function v2Tool(ctx: V2Context, spec: ToolSpec, ownDir: string | undefined): V2T
           sessionID,
         })
       }
-      const result = await runTool(spec, input, { cwd: directory ?? process.cwd(), ownDir, signal })
+      const result = await runTool(spec, input, { cwd: directory ?? process.cwd(), ownDir, stateDir, runtime, signal })
       return { content: JSON.stringify(result), output: result }
     },
   }
@@ -56,10 +63,10 @@ function v2Tool(ctx: V2Context, spec: ToolSpec, ownDir: string | undefined): V2T
  * the plugin as failed.
  */
 export function createV2Setup(specs: ToolSpec[], deps: PluginDeps = {}): OpenCodePlugin["setup"] {
+  const runtime = createToolRuntime(deps)
   return async function setup(ctx: V2Context): Promise<void> {
-    const tools = selectedTools(specs, ctx.options, deps.env, deps.profile).map((spec) =>
-      v2Tool(ctx, spec, deps.ownDir),
-    )
+    const selection = selectedTools(specs, ctx.options, deps.env, deps.profile)
+    const tools = selection.tools.map((spec) => v2Tool(ctx, spec, deps.ownDir, selection.stateDir, runtime))
     const skills = deps.skillsDir === undefined ? [] : await loadSkills(deps.skillsDir)
 
     if (tools.length > 0) {

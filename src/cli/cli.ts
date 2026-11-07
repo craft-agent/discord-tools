@@ -11,46 +11,36 @@ import {
   type ToolSpec,
 } from "../core"
 import { permissionResources } from "../entry/permission"
-import { PROJECT_PROFILE, type EntryProfile } from "../entry/profile"
-import { parseToolSettings } from "../entry/settings"
+import { PROJECT_PROFILE } from "../entry/profile"
+import { createToolRuntime } from "../entry/runtime"
+import { parseStateDir, parseToolSettings } from "../entry/settings"
 import { PROJECT } from "../project"
+import { usageError } from "./command-args"
+import { EXIT_FAILED, EXIT_OK, EXIT_USAGE, type CommandIo } from "./command-io"
+import { runLoginCommand } from "./login"
+import { runRemoveCommand } from "./remove"
+import { runServiceCommand } from "./service"
+import { runSyncCommand } from "./sync"
 
-/** The exit codes of a command: it did its work, the work failed, or the command line was wrong. */
-export const EXIT_OK = 0
-export const EXIT_FAILED = 1
-export const EXIT_USAGE = 2
+export { EXIT_FAILED, EXIT_OK, EXIT_USAGE }
 
 const PROGRAM = PROJECT.cli
 const CWD_FLAG = "--cwd"
 
 /** What a command line needs from its surroundings; `main.ts` wires the process, a test supplies its own. */
-export type CliIo = {
+export type CliIo = CommandIo & {
   /** The tools the command line can select from. */
   specs: ToolSpec[]
-  /** Where the `<envPrefix>_*` settings fall back to. */
-  env: Record<string, string | undefined>
-  /** The settings' environment prefix and the toolsets; defaults to this package's. */
-  profile?: EntryProfile
   /** Reads standard input to its end; an empty string when there is none. */
   readStdin(): Promise<string>
-  /** Receives the JSON document a command answers with. */
-  stdout(text: string): void
-  /** Receives usage lines and the detail of unexpected errors. */
-  stderr(text: string): void
   /** Where the tools are installed: never a call's working tree. */
   ownDir?: string
-  /** Stops a running tool when it aborts. */
-  signal?: AbortSignal
 }
 
 type Command =
   | { name: "list"; selected: ToolSpec[] }
-  | { name: "run"; toolId: string; cwd: string; selected: ToolSpec[] }
-  | { name: "target"; toolId: string; cwd: string }
-
-function usageError(message: string): ToolError {
-  return new ToolError("invalid_argument", message)
-}
+  | { name: "run"; toolId: string; cwd: string; selected: ToolSpec[]; stateDir: string }
+  | { name: "target"; toolId: string; cwd: string; stateDir: string }
 
 /** Splits `--cwd <dir>` from the remaining arguments, which are the settings flags. */
 function takeCwd(argv: string[]): { cwd: string | undefined; rest: string[] } {
@@ -74,14 +64,15 @@ function takeCwd(argv: string[]): { cwd: string | undefined; rest: string[] } {
 /** Reads the command line; a mistake in it, in the settings or in the tool selection is `invalid_argument`. */
 function parseCommand(argv: string[], io: Pick<CliIo, "specs" | "env" | "profile">): Command {
   const profile = io.profile ?? PROJECT_PROFILE
-  const select = (flags: string[]) => selectTools(io.specs, parseToolSettings(flags, io.env, profile), profile.toolsets)
   const [name, ...args] = argv
   if (name === "list") {
-    return { name, selected: select(args) }
+    return { name, selected: selectTools(io.specs, parseToolSettings(args, io.env, profile), profile.toolsets) }
   }
   if (name !== "run" && name !== "target") {
     const given = name === undefined ? "No command given" : `Unknown command "${name}"`
-    throw usageError(`${given}; use list, run <tool-id> --cwd <dir> or target <tool-id> --cwd <dir>.`)
+    throw usageError(
+      `${given}; use list, run <tool-id> --cwd <dir>, target <tool-id> --cwd <dir>, login, sync, service or remove.`,
+    )
   }
 
   const [toolId, ...options] = args
@@ -89,10 +80,17 @@ function parseCommand(argv: string[], io: Pick<CliIo, "specs" | "env" | "profile
   const { cwd, rest } = takeCwd(options)
   if (cwd === undefined) throw usageError(`Command ${name} needs ${CWD_FLAG} <dir>.`)
   if (name === "target") {
-    if (rest.length > 0) throw usageError(`Unknown option "${rest[0]}".`)
-    return { name, toolId, cwd }
+    return { name, toolId, cwd, stateDir: parseStateDir(rest, io.env, profile) }
   }
-  return { name, toolId, cwd, selected: select(rest) }
+
+  const settings = parseToolSettings(rest, io.env, profile)
+  return {
+    name,
+    toolId,
+    cwd,
+    selected: selectTools(io.specs, settings, profile.toolsets),
+    stateDir: settings.state_dir,
+  }
 }
 
 function describeSpec(spec: ToolSpec) {
@@ -135,6 +133,8 @@ async function runTool(command: Extract<Command, { name: "run" }>, io: CliIo): P
     const result = await invoke(spec, await readArguments(io), {
       cwd: command.cwd,
       ownDir: io.ownDir,
+      stateDir: command.stateDir,
+      runtime: createToolRuntime(io),
       signal: io.signal,
     })
     writeJson(io, { result })
@@ -154,6 +154,8 @@ async function targetOf(command: Extract<Command, { name: "target" }>, io: CliIo
     const resources = await permissionResources(spec, await readArguments(io), {
       cwd: command.cwd,
       ownDir: io.ownDir,
+      stateDir: command.stateDir,
+      runtime: createToolRuntime(io),
       signal: io.signal,
     })
     writeJson(io, { resources })
@@ -170,15 +172,28 @@ function errorDetail(error: unknown): string {
   return error instanceof Error ? (error.stack ?? error.message) : String(error)
 }
 
+/** The commands a person runs to manage an account's local state, which print plain text rather than a JSON document. */
+const PERSON_COMMANDS: Partial<Record<string, (argv: string[], io: CliIo) => Promise<number>>> = {
+  login: runLoginCommand,
+  sync: runSyncCommand,
+  service: runServiceCommand,
+  remove: runRemoveCommand,
+}
+
 /**
  * The command line of the package, for callers that are not a harness's own
  * plugin: `list` answers with the selected tools, `run` runs one with the
  * arguments on standard input, and `target` answers with what a call would
  * write to (`{"resources": [...]}`). Standard output carries only the JSON document; a
  * mistake in the command line is one line on standard error and `EXIT_USAGE`.
- * Resolves to the exit code.
+ * `login`, `sync`, `service` and `remove` are for a person managing an account's local
+ * state (see `PERSON_COMMANDS`). Resolves to the exit code.
  */
 export async function runCli(argv: string[], io: CliIo): Promise<number> {
+  const [name, ...rest] = argv
+  const personCommand = name !== undefined && Object.hasOwn(PERSON_COMMANDS, name) ? PERSON_COMMANDS[name] : undefined
+  if (personCommand) return personCommand(rest, io)
+
   let command: Command
   try {
     command = parseCommand(argv, io)

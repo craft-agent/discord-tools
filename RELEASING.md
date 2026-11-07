@@ -16,9 +16,12 @@ consumers from the Releases page.
    [repo-kit](https://github.com/craftsamo/repo-kit). It sets the draft's
    version in `package.json` and in the manifests listed in
    `scripts/version-files.mjs` with a commit on `main`, builds
-   (`pnpm install --frozen-lockfile && pnpm run build`), and tags a release
-   commit that adds the built `dist/` to that tree. `main` gets only the version
-   commit, so it never holds `dist/`. Plugin installs and the Hermes plugin
+   (`pnpm install --frozen-lockfile && pnpm run build && node scripts/native-tree.mjs .`),
+   and tags a release commit that adds the built `dist/` and `node_modules/`
+   with wreq-js and its bindings for macOS (arm64, x64) and Linux (x64, arm64,
+   glibc), checked against the lockfile, so a plugin pinned to the tag runs
+   without an install. `main` gets only the version commit, so it never holds
+   `dist/` or `node_modules/`. Plugin installs and the Hermes plugin
    pin the tag or its commit.
 2. **`package`** reads `private` from `package.json`; the two jobs below run
    only when it is not `true`.

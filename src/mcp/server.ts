@@ -20,14 +20,14 @@ import {
   type Toolsets,
 } from "../core"
 import { PROJECT_PROFILE } from "../entry/profile"
+import { createToolRuntime, type RuntimeOptions } from "../entry/runtime"
 import type { EntrySettings } from "../entry/settings"
-import { PROJECT } from "../project"
 import { elicitationConfirm } from "./confirm"
 import { createWorkingDirResolver } from "./roots"
 
 const DEFAULT_VERSION = "0.0.0"
 
-export type ServerOptions = {
+export type ServerOptions = RuntimeOptions & {
   /** The directory a call runs in when the client names no usable root; defaults to `process.cwd`. */
   cwd?: () => string
   /** Where the tools are installed: never a call's working tree, so a client root inside it is skipped. */
@@ -64,13 +64,15 @@ function describeTool(spec: ToolSpec): Tool {
  * through a form where the client offers one.
  */
 export function createServer(specs: ToolSpec[], settings: EntrySettings, options: ServerOptions = {}): Server {
+  const profile = options.profile ?? PROJECT_PROFILE
+  const runtime = createToolRuntime(options)
   const log = options.log ?? ((entry: string) => process.stderr.write(`${entry}\n`))
   const server = new Server(
-    { name: PROJECT.name, version: options.version ?? DEFAULT_VERSION },
+    { name: profile.name, version: options.version ?? DEFAULT_VERSION },
     { capabilities: { tools: {} } },
   )
   const workingDir = createWorkingDirResolver(server, options.cwd ?? (() => process.cwd()), options.ownDir)
-  const toolsets = options.toolsets ?? PROJECT_PROFILE.toolsets
+  const toolsets = options.toolsets ?? profile.toolsets
   const selected = new Map(selectTools(specs, settings, toolsets).map((spec) => [spec.id, spec]))
   const tools = [...selected.values()].map(describeTool)
 
@@ -84,6 +86,8 @@ export function createServer(specs: ToolSpec[], settings: EntrySettings, options
       const ctx: ToolContext = {
         cwd: await workingDir(extra.signal),
         ownDir: options.ownDir,
+        stateDir: settings.state_dir,
+        runtime,
         signal: extra.signal,
         ...(confirm && { confirm }),
       }

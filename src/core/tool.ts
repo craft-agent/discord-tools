@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { ToolError, isAbortError, isToolError } from "./errors"
+import type { ToolRuntime } from "./runtime"
 
 /** The toolsets of a package: every name, in the order `all` lists them, and the ones on when a setting names none. */
 export type Toolsets = { names: readonly string[]; defaults: readonly string[] }
@@ -14,6 +15,10 @@ export type ToolContext = {
   cwd: string
   /** A directory that is never the caller's working tree (where these tools are installed); a tool must refuse to treat it as the caller's tree. */
   ownDir?: string
+  /** Where every account's state lives: an absolute path the entry point resolved from its settings. */
+  stateDir?: string
+  /** Identity and runtime dependencies supplied by the entry point. */
+  runtime?: ToolRuntime
   signal?: AbortSignal
   /** Asks the person to approve; absent when the harness's own approval already covers the call. */
   confirm?(request: ConfirmRequest): Promise<boolean>

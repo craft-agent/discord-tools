@@ -204,6 +204,25 @@ Every entry point takes the same settings:
   label's mirror, and a request carries only that label's token, so no
   argument can carry a call to an account the label does not name.
 
+### Account health
+
+- **The account read lists every label when `account` is absent**, unlike
+  tools that operate on one account. An explicit label inspects only that
+  label. It reads local state and scheduler status, never contacts Discord,
+  migrates a mirror or changes a service.
+- **Token availability is not live authentication.** The HTTP client boundary
+  inspects the current credential and returns only its source and safe status.
+  A replacement token does not inherit the old token's rejection.
+- **A scheduled, idle job is normal.** Health needs a complete sync within
+  15 minutes as well as usable credentials, a verified identity and a scheduled
+  service. This account-level threshold makes missed runs visible; it does not
+  replace each channel's freshness check. A partial run needs continuation.
+  Recorded sync status is history, not proof that a process is running.
+- **Unknown state stays unknown.** A failed scheduler inspection or damaged
+  state produces a diagnostic for that label, not a fabricated healthy result
+  or a failure that hides every other label. Recovery gives a person one next
+  command, including the label and state directory; a read never runs it.
+
 ## The token
 
 - **The token comes from the environment first.** `<envPrefix>_TOKEN_<LABEL>`
@@ -270,10 +289,26 @@ Every entry point takes the same settings:
   notifications. Whether a run opens it is settled with the inbox tools,
   after a check on a real phone.
 - **A rejected token stops the service** for its label until a new token is
-  given, rather than polling an account it can no longer reach.
+  given, rather than polling an account it can no longer reach. The run
+  disables future starts and keeps the service definition; it reports the
+  rejection before a scheduler operation can terminate the run itself.
+  After a new token is verified, `service install` re-enables the schedule.
 - **Signing in, running and installing the service, and removing a label are
   a person's commands, never tools**: signing in hands the account over, and
   installing a service changes the machine.
+- **The scheduler starts one run, not a resident loop.** On macOS a user
+  launchd agent uses `StartInterval` 300; on Linux a user systemd timer starts
+  a oneshot service every 300 seconds. Installing a job requires an executable
+  sync command; an unfinished command must never be registered as a service.
+- **The label's `sync.lock` is a private SQLite lock file**, separate from the
+  mirror. A run holds a write transaction until it ends; closing the connection
+  or losing the process releases it. The file stays in place so contenders
+  always lock the same file, without guessing whether a stored pid is stale.
+- **Removal stops the scheduled service and takes the same lock.** A busy
+  label's local state is left intact, with its schedule stopped. Under the
+  lock its directory is renamed out of the label namespace before deletion,
+  so a waiting run cannot write into state
+  being removed. This deletes local state only, not remote account data.
 
 ## The mirror
 
