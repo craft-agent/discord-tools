@@ -95,7 +95,7 @@ describe("a rejected token", () => {
     await expect(harness.client.read("GET", "/users/@me")).rejects.toThrow()
     harness.discord.route("GET", "/users/@me", { status: 200, json: { id: "1" } })
 
-    await writeTokenFile(harness.paths, FAKE_TOKEN)
+    await writeTokenFile(harness.paths, OTHER_TOKEN)
     expect(existsSync(harness.paths.auth)).toBe(false)
     expect(await harness.another({ env: {} }).read("GET", "/users/@me")).toEqual({ id: "1" })
   })

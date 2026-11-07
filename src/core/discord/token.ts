@@ -2,6 +2,7 @@ import { Buffer } from "node:buffer"
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto"
 import { lstat, readFile, rm } from "node:fs/promises"
 import type { Stats } from "node:fs"
+import { resolve } from "node:path"
 import { ToolError } from "../errors"
 import type { LabelPaths } from "./labels"
 import { readJsonFile, writePrivateFile } from "./private-file"
@@ -11,6 +12,10 @@ export type TokenSource = "variable" | "file"
 
 /** Bytes of randomness in the salt of a rejection record. */
 const SALT_BYTES = 16
+
+/** Process-local rejection memory survives failed persistence and holds no raw tokens. */
+const rejectionSalt = randomBytes(SALT_BYTES).toString("hex")
+const rejections = new Map<string, Map<string, number>>()
 
 /** Permission bits of group and others; a token file may have none of them. */
 const GROUP_OTHER_BITS = 0o077
@@ -36,7 +41,7 @@ export async function tokenSource(
   variable: string,
   env: Record<string, string | undefined>,
 ): Promise<TokenSource | undefined> {
-  if (env[variable]?.trim()) return "variable"
+  if (env[variable] !== undefined) return "variable"
   return (await statTokenFile(paths)) ? "file" : undefined
 }
 
@@ -60,8 +65,8 @@ export async function readToken(
   variable: string,
   env: Record<string, string | undefined>,
 ): Promise<{ token: string; source: TokenSource }> {
-  const fromVariable = env[variable]?.trim()
-  if (fromVariable) return { token: checkTokenShape(fromVariable, variable), source: "variable" }
+  const fromVariable = env[variable]
+  if (fromVariable !== undefined) return { token: checkTokenShape(fromVariable.trim(), variable), source: "variable" }
 
   const noToken = new ToolError(
     "unauthenticated",
@@ -83,13 +88,14 @@ export async function readToken(
   return { token: checkTokenShape(token, `The token in ${paths.token}`), source: "file" }
 }
 
-/** Stores the token in the label's token file (mode 600, replaced atomically) and forgets any rejection. */
+/** Stores the token privately; only a different token clears the persisted rejection. */
 export async function writeTokenFile(paths: LabelPaths, token: string): Promise<void> {
   const trimmed = token.trim()
   if (!trimmed) throw new ToolError("unauthenticated", "No token was given.")
   checkTokenShape(trimmed, "The token")
+  const rejected = await rejectedAt(paths, trimmed)
   await writePrivateFile(paths.token, trimmed)
-  await clearRejected(paths)
+  if (rejected === undefined) await clearRejected(paths)
 }
 
 type AuthRecord = { rejectedAt: number; salt: string; fingerprint: string }
@@ -112,8 +118,16 @@ function fingerprint(salt: string, token: string): string {
   return createHmac("sha256", salt).update(token).digest("hex")
 }
 
+function rememberRejected(paths: LabelPaths, token: string, at: number): void {
+  const path = resolve(paths.auth)
+  const tokens = rejections.get(path) ?? new Map<string, number>()
+  tokens.set(fingerprint(rejectionSalt, token), at)
+  rejections.set(path, tokens)
+}
+
 /** Records that Discord rejected `token` at `at`; only a salted fingerprint of it is stored. */
 export async function recordRejected(paths: LabelPaths, token: string, at: number): Promise<void> {
+  rememberRejected(paths, token, at)
   const salt = randomBytes(SALT_BYTES).toString("hex")
   const record: AuthRecord = { rejectedAt: at, salt, fingerprint: fingerprint(salt, token) }
   await writePrivateFile(paths.auth, JSON.stringify(record))
@@ -121,14 +135,22 @@ export async function recordRejected(paths: LabelPaths, token: string, at: numbe
 
 /** When Discord rejected this very token, or `undefined`: another token counts as new, and a missing or malformed record as none. */
 export async function rejectedAt(paths: LabelPaths, token: string): Promise<number | undefined> {
+  const path = resolve(paths.auth)
+  const key = fingerprint(rejectionSalt, token)
+  const remembered = rejections.get(path)?.get(key)
+  if (remembered !== undefined) return remembered
   const record = asAuthRecord(await readJsonFile(paths.auth))
+  const observed = rejections.get(path)?.get(key)
+  if (observed !== undefined) return observed
   if (!record) return undefined
   const expected = Buffer.from(fingerprint(record.salt, token))
   const actual = Buffer.from(record.fingerprint)
-  return actual.length === expected.length && timingSafeEqual(actual, expected) ? record.rejectedAt : undefined
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return undefined
+  rememberRejected(paths, token, record.rejectedAt)
+  return record.rejectedAt
 }
 
-/** Forgets the rejection record. */
+/** Removes the disk record; tokens already observed as rejected stay blocked in this process. */
 export async function clearRejected(paths: LabelPaths): Promise<void> {
   await rm(paths.auth, { force: true })
 }

@@ -58,10 +58,11 @@ describe("tokenSource", () => {
     expect(await tokenSource(paths, VARIABLE, { [VARIABLE]: TOKEN })).toBe("variable")
   })
 
-  test("is the file when the variable is missing or blank", async () => {
+  test("is the file only when the variable is missing", async () => {
     putToken(TOKEN)
     expect(await tokenSource(paths, VARIABLE, {})).toBe("file")
-    expect(await tokenSource(paths, VARIABLE, { [VARIABLE]: "  \n" })).toBe("file")
+    expect(await tokenSource(paths, VARIABLE, { [VARIABLE]: "  \n" })).toBe("variable")
+    expect(await tokenSource(paths, VARIABLE, { [VARIABLE]: "" })).toBe("variable")
   })
 
   test("is undefined with neither", async () => {
@@ -84,11 +85,20 @@ describe("readToken", () => {
   })
 
   test("throws unauthenticated naming the variable when there is no token", async () => {
-    for (const env of [{}, { [VARIABLE]: "" }]) {
-      const error = await failure(() => readToken(paths, VARIABLE, env))
-      expect(error.code).toBe("unauthenticated")
-      expect(error.message).toContain(VARIABLE)
-      expect(error.message).toContain("sign the account in")
+    const error = await failure(() => readToken(paths, VARIABLE, {}))
+    expect(error.code).toBe("unauthenticated")
+    expect(error.message).toContain(VARIABLE)
+    expect(error.message).toContain("sign the account in")
+  })
+
+  test("rejects an explicitly empty variable even beside a valid or unreadable token file", async () => {
+    for (const mode of [0o600, 0o644]) {
+      putToken(TOKEN, mode)
+      for (const text of ["", "  \n"]) {
+        const error = await failure(() => readToken(paths, VARIABLE, { [VARIABLE]: text }))
+        expect(error.code).toBe("unauthenticated")
+        expect(error.message).toContain(VARIABLE)
+      }
     }
   })
 
