@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { ingestChannels, ingestHistoryPage, ingestMessages, ingestServers, ingestUsers } from "./ingest"
-import { getCursor, markCurrent, markRechecked, setCursorEdges } from "./mirror-cursors"
+import { CURRENT_MS, getCursor, isChannelCurrent, markCurrent, markRechecked, setCursorEdges } from "./mirror-cursors"
 import { createTestMirror, rowsOf, type TestMirror } from "./mirror.testing"
 import {
   ALICE,
@@ -110,5 +110,24 @@ describe("markRechecked and markCurrent", () => {
     expect(rowsOf(t.mirror, "SELECT count(*) AS n FROM cursors")).toEqual([{ n: 0 }])
     markCurrent(t.mirror, CHANNEL, 7)
     expect(rowsOf(t.mirror, "SELECT synced_at FROM cursors")).toEqual([{ synced_at: 7 }])
+  })
+})
+
+describe("isChannelCurrent", () => {
+  test("is false for a channel without a cursor or never marked current", () => {
+    expect(isChannelCurrent(t.mirror, CHANNEL, 1000)).toBe(false)
+    setCursorEdges(t.mirror, CHANNEL, { newest: msgId(5) })
+    expect(isChannelCurrent(t.mirror, CHANNEL, 1000)).toBe(false)
+  })
+
+  test("is true for under CURRENT_MS after the mark and false from then on", () => {
+    markCurrent(t.mirror, CHANNEL, 1000)
+    expect(isChannelCurrent(t.mirror, CHANNEL, 1000)).toBe(true)
+    expect(isChannelCurrent(t.mirror, CHANNEL, 1000 + CURRENT_MS - 1)).toBe(true)
+    expect(isChannelCurrent(t.mirror, CHANNEL, 1000 + CURRENT_MS)).toBe(false)
+  })
+
+  test("is 15 minutes", () => {
+    expect(CURRENT_MS).toBe(900_000)
   })
 })

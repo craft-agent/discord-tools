@@ -1,7 +1,8 @@
+import { CURRENT_MS } from "../discord/mirror-cursors"
 import type { AccountRow } from "./schemas"
 
 /** A successful sync stays fresh across three normal scheduler intervals. */
-export const SYNC_FRESHNESS_MS = 15 * 60 * 1000
+export const SYNC_FRESHNESS_MS = CURRENT_MS
 
 const HINTS = {
   login: "Verify a new token by signing in, then run service install to resume scheduled sync.",

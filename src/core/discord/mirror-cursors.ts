@@ -23,6 +23,9 @@ type CursorRow = {
   rechecked_at: number | null
 }
 
+/** How long a sync run's mark keeps a channel, or the DM list, current: three scheduler intervals, in milliseconds. */
+export const CURRENT_MS = 15 * 60 * 1000
+
 /** A channel's cursor, or `undefined` when it has none. */
 export function getCursor(mirror: Mirror, channel: string): Cursor | undefined {
   const id = idOrNull(channel)
@@ -41,6 +44,12 @@ export function getCursor(mirror: Mirror, channel: string): Cursor | undefined {
     syncedAt: row.synced_at,
     recheckedAt: row.rechecked_at,
   }
+}
+
+/** Whether a sync run marked the channel current less than `CURRENT_MS` before `now`. */
+export function isChannelCurrent(mirror: Mirror, channel: string, now: number): boolean {
+  const syncedAt = getCursor(mirror, channel)?.syncedAt
+  return syncedAt !== null && syncedAt !== undefined && now - syncedAt < CURRENT_MS
 }
 
 /**
