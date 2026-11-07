@@ -322,6 +322,16 @@ Every entry point takes the same settings:
 - **A read serves a channel from the mirror only while it was marked current
   under 15 minutes ago**, and reads it live otherwise, so a channel that lags,
   left the sync list, or whose service stopped never reads as complete.
+- **A whole list vouches for itself.** The server list and the DM list are
+  stored with the time they were read in full, and a read lists only what the
+  latest full list held: from the mirror while it is under 15 minutes old for
+  DMs and 6 hours for servers, live otherwise. A server left or a DM closed
+  drops out without anything being deleted, and servers, which change rarely
+  and are refreshed by a sync run only when the sync list names one, are not
+  fetched on every read.
+- **A tool stores what it read on a connection that never creates or migrates
+  the mirror.** A missing mirror, or one of another version, is refused as it
+  is for any read: only the sync service shapes the file.
 - **A contiguous page vouches for its range.** Discord has no feed of edits
   and deletions a user account can poll, so every page of a channel's history
   overwrites what it returns and drops mirrored messages inside its range that
