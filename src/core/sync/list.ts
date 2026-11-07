@@ -15,7 +15,7 @@ import type { SyncHandler, SyncSession } from "./session"
 type NameRow = { name: string | null }
 
 /** The name the mirror holds for a server or a channel; null when unknown or when there is no mirror. */
-function nameOf(session: SyncSession, table: "servers" | "channels", id: string): string | null {
+export function nameOf(session: SyncSession, table: "servers" | "channels", id: string): string | null {
   const key = idOrNull(id)
   if (!session.mirror || key === null) return null
   const row = session.mirror.prepare(`SELECT name FROM ${table} WHERE id = ?`).get(key) as NameRow | undefined
@@ -39,7 +39,7 @@ function mirroredChannels(session: SyncSession, server: string): JsonRecord[] {
 }
 
 /** The ids of the channels the entry follows: the named ones not excluded, or what a sync run would pick from the mirrored rows. */
-function followedChannelIds(session: SyncSession, entry: SyncServer): string[] {
+export function followedChannelIds(session: SyncSession, entry: SyncServer): string[] {
   if (entry.channels) return entry.channels.filter((id) => !entry.exclude?.includes(id))
   return pickServerChannels(mirroredChannels(session, entry.id), entry).map((row) => row.id as string)
 }

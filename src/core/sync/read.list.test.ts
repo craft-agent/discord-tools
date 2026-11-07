@@ -99,7 +99,7 @@ describe("method list", () => {
         SERVER,
       )
     })
-    const [server] = (await f.read({ method: "list" })).servers
+    const [server] = (await f.read({ method: "list" })).servers!
     expect(server!.follows).toBe("server")
     expect(server!.channels.map((channel) => [channel.id, channel.name])).toEqual([
       [OTHER_CHANNEL, "new"],
@@ -117,15 +117,15 @@ describe("method list", () => {
       )
       ingestChannels(m, ctxAt(f.now()), rows, SERVER)
     })
-    const [server] = (await f.read({ method: "list" })).servers
+    const [server] = (await f.read({ method: "list" })).servers!
     expect(server!.channels).toHaveLength(WHOLE_SERVER_CHANNELS)
   })
 
   test("slots add up: a whole server counts ten, named channels one each", async () => {
     await f.writeSyncList({ servers: [{ id: SERVER }, { id: OTHER_SERVER, channels: [CHANNEL, OTHER_CHANNEL] }] })
     const result = await f.read({ method: "list" })
-    expect(result.limits.servers.used).toBe(2)
-    expect(result.limits.channels.used).toBe(WHOLE_SERVER_CHANNELS + 2)
+    expect(result.limits!.servers.used).toBe(2)
+    expect(result.limits!.channels.used).toBe(WHOLE_SERVER_CHANNELS + 2)
   })
 })
 

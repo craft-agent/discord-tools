@@ -7,6 +7,7 @@ const ALWAYS: readonly (keyof SyncReadInput)[] = ["account", "method"]
 /** The arguments each method takes besides `ALWAYS`; a method is added here as well as to `SYNC_METHODS`. */
 const ALLOWED: Record<SyncMethod, readonly (keyof SyncReadInput)[]> = {
   list: [],
+  suggest: ["after", "limit"],
 }
 
 /** Refuses an argument the method does not take, before anything is opened. */
