@@ -6,6 +6,7 @@ import { fakeHost } from "../discord/service.testing"
 import { invoke, type ToolContext } from "../tool"
 import { discordSyncAdd } from "./add"
 import { discordSyncRead } from "./read"
+import { discordSyncRemove } from "./remove"
 
 /** A signed-in label with no mirror yet, and a clock the test moves; nothing here reaches a network. */
 export async function createSyncFixture() {
@@ -29,6 +30,8 @@ export async function createSyncFixture() {
     read: (args: unknown) => invoke(discordSyncRead, args, ctx),
     /** Runs `discord_sync_add` as an entry point does. */
     add: (args: unknown) => invoke(discordSyncAdd, args, ctx),
+    /** Runs `discord_sync_remove` as an entry point does. */
+    remove: (args: unknown) => invoke(discordSyncRemove, args, ctx),
     /** Creates the mirror and seeds it in one transaction (ingest functions and `markCurrent` only). */
     seed<T>(fn: (mirror: Mirror) => T): T {
       const db = openMirrorForWrite(h.paths.mirror)
