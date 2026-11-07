@@ -101,8 +101,29 @@ export type DiscordClient = {
 
 type Session = { token: string; hints: ClientHints; superProperties: string }
 
+/** Keeps post-pacing disk checks inside the process-wide dispatch turn, without holding it for the response. */
+let dispatchQueue: Promise<void> = Promise.resolve()
+
 function defaultSleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/** Rebuilds exposed errors without retaining a raw cause or stack from a token-aware boundary. */
+function sanitizedError(error: unknown, token: string): Error {
+  if (error instanceof BudgetSpent) return error
+  const message = maskTokens(error instanceof Error ? error.message : String(error), token)
+  const cause =
+    error instanceof Error && error.cause !== undefined
+      ? { cause: new Error(maskTokens(String(error.cause), token)) }
+      : undefined
+  if (error instanceof ToolError) return new ToolError(error.code, message, cause)
+  const safe = new Error(message, cause)
+  safe.name = error instanceof Error ? maskTokens(error.name, token) : "Error"
+  return safe
+}
+
+function checkAbort(signal?: AbortSignal): void {
+  if (signal?.aborted) throw abortError(signal)
 }
 
 function lazyWreqTransport(os: ClientOs, loadTransport: NonNullable<DiscordClientOptions["loadTransport"]>): Transport {
@@ -118,7 +139,9 @@ function lazyWreqTransport(os: ClientOs, loadTransport: NonNullable<DiscordClien
           `The network library could not be loaded for ${process.platform}-${process.arch}: ${detail}`,
         )
       })
-    return (await loaded)(request)
+    const transport = await loaded
+    checkAbort(request.signal)
+    return transport(request)
   }
 }
 
@@ -162,6 +185,7 @@ export function createDiscordClient(options: DiscordClientOptions): DiscordClien
   const zone = timeZone()
   let requests = 0
   let session: Promise<Session> | undefined
+  let sessionSignal: AbortSignal | undefined
 
   const assertBudget = (): void => {
     if (options.budget !== undefined && requests >= options.budget) throw new BudgetSpent()
@@ -174,46 +198,89 @@ export function createDiscordClient(options: DiscordClientOptions): DiscordClien
 
   const paced = createPacer({ now, sleep, random })
 
-  const prepare = async (): Promise<Session> => {
-    const { token } = await readToken(options.paths, options.tokenVariable, options.env)
+  const checkRejected = async (token: string): Promise<void> => {
     const rejected = await rejectedAt(options.paths, token)
     if (rejected !== undefined) {
       const date = new Date(rejected)
       const when = Number.isNaN(date.getTime()) ? "an earlier time" : date.toISOString()
       throw new ToolError("unauthenticated", `Discord rejected this account's token at ${when}; give it a new token.`)
     }
-    const build = await buildNumber({
-      stateDir: options.stateDir,
-      transport: (request) => {
-        spend()
-        return transport(request)
-      },
-      now,
-      pace: async () => {
-        assertBudget()
-        await paced()
-      },
+  }
+
+  const dispatch = async (
+    request: TransportRequest,
+    send: Transport = transport,
+    token?: string,
+  ): Promise<TransportResponse> => {
+    const turn = dispatchQueue.then(async () => {
+      checkAbort(request.signal)
+      assertBudget()
+      await paced()
+      checkAbort(request.signal)
+      if (token !== undefined) await checkRejected(token)
+      checkAbort(request.signal)
+      spend()
+      return { response: send(request) }
     })
-    const launch = await loadLaunch(options.paths, now())
-    return {
-      token,
-      hints: clientHints(os),
-      superProperties: superProperties({ os, buildNumber: build, launch, systemLocale }),
+    dispatchQueue = turn.then(
+      () => {},
+      () => {},
+    )
+    return (await turn).response
+  }
+
+  const prepare = async (signal?: AbortSignal): Promise<Session> => {
+    checkAbort(signal)
+    const { token } = await readToken(options.paths, options.tokenVariable, options.env)
+    try {
+      checkAbort(signal)
+      await checkRejected(token)
+      const build = await buildNumber({
+        stateDir: options.stateDir,
+        transport: (request) => dispatch(request),
+        now,
+        pace: async () => {
+          checkAbort(signal)
+          assertBudget()
+        },
+        ...(signal ? { signal } : {}),
+      })
+      checkAbort(signal)
+      const launch = await loadLaunch(options.paths, now())
+      checkAbort(signal)
+      return {
+        token,
+        hints: clientHints(os),
+        superProperties: superProperties({ os, buildNumber: build, launch, systemLocale }),
+      }
+    } catch (error) {
+      throw sanitizedError(error, token)
     }
   }
 
-  const getSession = (): Promise<Session> => {
-    session ??= prepare().catch((error: unknown) => {
-      session = undefined
-      throw error
-    })
-    return session
+  const getSession = async (signal?: AbortSignal): Promise<Session> => {
+    for (;;) {
+      checkAbort(signal)
+      if (!session) {
+        sessionSignal = signal
+        session = prepare(signal)
+      }
+      const pending = session
+      const ownerSignal = sessionSignal
+      try {
+        return await pending
+      } catch (error) {
+        if (session === pending) session = undefined
+        if (ownerSignal?.aborted && ownerSignal !== signal && !signal?.aborted) continue
+        throw error
+      }
+    }
   }
 
   /** The error for a request that failed below HTTP: a read cannot be `uncertain`, a write that may have left is. */
   const transportError = (kind: RequestKind, current: Session, error: unknown, signal?: AbortSignal): unknown => {
-    if (error instanceof ToolError && error.code === "internal_error") return error
     if (kind === "read" && signal?.aborted) return abortError(signal)
+    if (error instanceof ToolError && error.code === "internal_error") return sanitizedError(error, current.token)
     const dispatched = error instanceof TransportFailure ? error.dispatched : true
     const detail = maskTokens(error instanceof Error ? error.message : String(error), current.token).slice(
       0,
@@ -235,10 +302,9 @@ export function createDiscordClient(options: DiscordClientOptions): DiscordClien
     url: string,
     request: RequestOptions,
   ): Promise<TransportResponse> => {
-    if (request.signal?.aborted) throw abortError(request.signal)
-    spend()
-    await paced()
-    if (request.signal?.aborted) throw abortError(request.signal)
+    checkAbort(request.signal)
+    await checkRejected(current.token)
+    checkAbort(request.signal)
     const body = request.body === undefined ? undefined : JSON.stringify(request.body)
     const outgoing: TransportRequest = {
       method,
@@ -258,11 +324,19 @@ export function createDiscordClient(options: DiscordClientOptions): DiscordClien
       timeoutMs: kind === "read" ? READ_TIMEOUT_MS : WRITE_TIMEOUT_MS,
       ...(request.signal ? { signal: request.signal } : {}),
     }
-    try {
-      return await transport(outgoing)
-    } catch (error) {
-      throw transportError(kind, current, error, request.signal)
-    }
+    return dispatch(
+      outgoing,
+      async (outgoing) => {
+        try {
+          const response = await transport(outgoing)
+          if (request.signal?.aborted) throw new TransportFailure("The operation was aborted", true)
+          return response
+        } catch (error) {
+          throw transportError(kind, current, error, request.signal)
+        }
+      },
+      current.token,
+    )
   }
 
   /** The error for a non-2xx answer; a rejected token is recorded, and the next request checks the record. */
@@ -274,54 +348,70 @@ export function createDiscordClient(options: DiscordClientOptions): DiscordClien
     return httpError(response.status, response.headers, body, current.token)
   }
 
-  const read = async <T>(method: string, path: string, request: RequestOptions = {}): Promise<T> => {
+  const withSession = async <T>(
+    path: string,
+    request: RequestOptions,
+    run: (current: Session, url: string) => Promise<T>,
+  ): Promise<T> => {
+    checkAbort(request.signal)
     const url = requestUrl(path, request)
-    const current = await getSession()
-    let waited = false
-    for (;;) {
-      const response = await exchange("read", current, method, url, request)
-      const body = parseJson(response.body)
-      const wait = retryAfter(response.headers, body)
-      const indexing = response.status === 202 && isIndexing(body)
-      const retryable = response.status === 429 || indexing
-      const seconds = indexing ? wait || INDEXING_WAIT_S : wait
-      if (retryable && !waited && seconds <= MAX_RATE_LIMIT_WAIT_S) {
-        waited = true
-        await sleep((seconds + RETRY_JITTER_MIN_S + random() * RETRY_JITTER_SPAN_S) * MS_PER_SECOND)
-        continue
-      }
-      if (indexing) {
-        throw new ToolError("rate_limited", "Discord is still indexing this search; try again in a minute")
-      }
-      if (response.status >= 200 && response.status < 300) {
-        if (response.body.trim() === "") return undefined as T
-        if (body === undefined) {
-          throw new ToolError("upstream_error", "Discord answered with something that is not JSON.")
-        }
-        return body as T
-      }
-      throw await refusal(current, response, body)
+    const current = await getSession(request.signal)
+    try {
+      checkAbort(request.signal)
+      return await run(current, url)
+    } catch (error) {
+      throw sanitizedError(error, current.token)
     }
   }
 
+  const read = async <T>(method: string, path: string, request: RequestOptions = {}): Promise<T> => {
+    return withSession(path, request, async (current, url) => {
+      let waited = false
+      for (;;) {
+        const response = await exchange("read", current, method, url, request)
+        const body = parseJson(response.body)
+        const wait = retryAfter(response.headers, body)
+        const indexing = response.status === 202 && isIndexing(body)
+        const retryable = response.status === 429 || indexing
+        const seconds = indexing ? wait || INDEXING_WAIT_S : wait
+        if (retryable && !waited && seconds <= MAX_RATE_LIMIT_WAIT_S) {
+          waited = true
+          await sleep((seconds + RETRY_JITTER_MIN_S + random() * RETRY_JITTER_SPAN_S) * MS_PER_SECOND)
+          continue
+        }
+        if (indexing) {
+          throw new ToolError("rate_limited", "Discord is still indexing this search; try again in a minute")
+        }
+        if (response.status >= 200 && response.status < 300) {
+          if (response.body.trim() === "") return undefined as T
+          if (body === undefined) {
+            throw new ToolError("upstream_error", "Discord answered with something that is not JSON.")
+          }
+          return body as T
+        }
+        throw await refusal(current, response, body)
+      }
+    })
+  }
+
   const write = async <T>(method: string, path: string, request: RequestOptions = {}): Promise<T> => {
-    const url = requestUrl(path, request)
-    const current = await getSession()
-    const response = await exchange("write", current, method, url, request)
-    const body = parseJson(response.body)
-    if (response.status >= 200 && response.status < 300) {
-      if (body !== undefined) return body as T
-      if (response.body.trim() === "" && response.status === 204) return undefined as T
+    return withSession(path, request, async (current, url) => {
+      const response = await exchange("write", current, method, url, request)
+      const body = parseJson(response.body)
+      if (response.status >= 200 && response.status < 300) {
+        if (body !== undefined) return body as T
+        if (response.body.trim() === "" && response.status === 204) return undefined as T
+        throw new ToolError(
+          "uncertain",
+          `The request may have reached Discord (it answered ${response.status} without a usable answer); check before trying again.`,
+        )
+      }
+      if (response.status >= 400 && response.status < 500) throw await refusal(current, response, body)
       throw new ToolError(
         "uncertain",
-        `The request may have reached Discord (it answered ${response.status} without a usable answer); check before trying again.`,
+        `The request may have reached Discord (it answered ${response.status}); check before trying again.`,
       )
-    }
-    if (response.status >= 400 && response.status < 500) throw await refusal(current, response, body)
-    throw new ToolError(
-      "uncertain",
-      `The request may have reached Discord (it answered ${response.status}); check before trying again.`,
-    )
+    })
   }
 
   return {

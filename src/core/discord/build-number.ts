@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises"
 import { join } from "node:path"
 import { ToolError } from "../errors"
+import { abortError } from "../exec"
 import { acceptLanguage, discordLocale, locale } from "./identity"
 import { readJsonFile, writePrivateFile } from "./private-file"
 import { type Transport, TransportFailure } from "./transport"
@@ -27,6 +28,7 @@ export type BuildNumberOptions = {
   now: () => number
   /** Waits for the client's turn before a request. */
   pace: () => Promise<void>
+  signal?: AbortSignal
 }
 
 async function readCache(file: string, now: number): Promise<BuildCache | undefined> {
@@ -48,7 +50,9 @@ function parseBuildNumber(page: string): number | undefined {
 
 async function fetchBuildNumber(options: BuildNumberOptions): Promise<number | undefined> {
   const language = acceptLanguage(discordLocale(locale()))
+  if (options.signal?.aborted) throw abortError(options.signal)
   await options.pace()
+  if (options.signal?.aborted) throw abortError(options.signal)
   try {
     const response = await options.transport({
       method: "GET",
@@ -56,9 +60,12 @@ async function fetchBuildNumber(options: BuildNumberOptions): Promise<number | u
       headers: [["accept-language", language]],
       navigation: true,
       timeoutMs: PAGE_TIMEOUT_MS,
+      ...(options.signal ? { signal: options.signal } : {}),
     })
+    if (options.signal?.aborted) throw abortError(options.signal)
     return response.status === 200 ? parseBuildNumber(response.body) : undefined
   } catch (error) {
+    if (options.signal?.aborted) throw abortError(options.signal)
     if (error instanceof TransportFailure) return undefined
     throw error
   }
@@ -73,8 +80,10 @@ async function fetchBuildNumber(options: BuildNumberOptions): Promise<number | u
  * longer exist.
  */
 export async function buildNumber(options: BuildNumberOptions): Promise<number> {
+  if (options.signal?.aborted) throw abortError(options.signal)
   const file = join(options.stateDir, BUILD_CACHE_FILE)
   const cached = await readCache(file, options.now())
+  if (options.signal?.aborted) throw abortError(options.signal)
   if (cached && options.now() - cached.fetchedAt < BUILD_TTL_MS) return cached.number
 
   const fetched = await fetchBuildNumber(options)
@@ -84,6 +93,7 @@ export async function buildNumber(options: BuildNumberOptions): Promise<number> 
     await mkdir(options.stateDir, { recursive: true, mode: DIR_MODE })
       .then(() => writePrivateFile(file, JSON.stringify(entry)))
       .catch(() => {})
+    if (options.signal?.aborted) throw abortError(options.signal)
     return fetched
   }
 
