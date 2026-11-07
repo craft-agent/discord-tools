@@ -44,6 +44,7 @@ describe("launchd service", () => {
       expect(await readFile(plist, "utf8")).toContain("<integer>300</integer>")
       expect(calls).toEqual([
         ["launchctl", "bootout", TARGET],
+        ["launchctl", "enable", TARGET],
         ["launchctl", "bootstrap", "gui/501", plist],
       ])
     })

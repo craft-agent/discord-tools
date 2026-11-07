@@ -270,7 +270,10 @@ Every entry point takes the same settings:
   notifications. Whether a run opens it is settled with the inbox tools,
   after a check on a real phone.
 - **A rejected token stops the service** for its label until a new token is
-  given, rather than polling an account it can no longer reach.
+  given, rather than polling an account it can no longer reach. The run
+  disables future starts and keeps the service definition; it reports the
+  rejection before a scheduler operation can terminate the run itself.
+  After a new token is verified, `service install` re-enables the schedule.
 - **Signing in, running and installing the service, and removing a label are
   a person's commands, never tools**: signing in hands the account over, and
   installing a service changes the machine.

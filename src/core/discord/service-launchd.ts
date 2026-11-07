@@ -110,10 +110,21 @@ export async function installLaunchdService(spec: ServiceSpec, host: ServiceHost
   await mkdir(dirname(plistPath), { recursive: true })
   await writeDefinitionFile(plistPath, buildLaunchdPlist(spec, logPath))
 
+  const enabled = await host.run(["launchctl", "enable", target])
+  if (!runSucceeded(enabled)) throw mapProgramError("launchctl", enabled)
   const result = await host.run(["launchctl", "bootstrap", `gui/${host.uid}`, plistPath])
   if (!runSucceeded(result)) throw mapProgramError("launchctl", result)
 
   return { file: plistPath, log: logPath }
+}
+
+/** Persists a disabled job before unloading it; bootout may terminate this process, so no cleanup follows it. */
+export async function suspendLaunchdService(id: string, label: string, host: ServiceHost): Promise<void> {
+  checkServiceTarget(id, label, host.home)
+  const { target } = launchdPaths(id, label, host)
+  const result = await host.run(["launchctl", "disable", target])
+  if (!runSucceeded(result)) throw mapProgramError("launchctl", result)
+  await bootout(target, host)
 }
 
 /** Unloads the agent and deletes its plist; an agent that is not loaded or not there is fine, any other failure leaves the plist. */

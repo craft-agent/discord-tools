@@ -141,6 +141,13 @@ export async function installSystemdService(spec: ServiceSpec, host: ServiceHost
   return { file: servicePath, timer: timerPath, log }
 }
 
+/** Disables future timer starts, keeping both units and allowing the current service run to finish. */
+export async function suspendSystemdService(id: string, label: string, host: ServiceHost): Promise<void> {
+  checkServiceTarget(id, label, host.home)
+  const { timerName } = systemdPaths(id, label, host)
+  await systemctlIfPresent(host, timerName, "disable", "--now")
+}
+
 /** Stops the timer and service and deletes both units; units that are not there are fine, any other failure leaves the files. */
 export async function uninstallSystemdService(id: string, label: string, host: ServiceHost): Promise<void> {
   checkServiceTarget(id, label, host.home)

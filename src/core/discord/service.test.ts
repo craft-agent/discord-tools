@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { ToolError } from "../errors"
 import { fakeToken } from "./fake-token.testing"
-import { installService, serviceStatus, uninstallService } from "./service"
+import { installService, serviceStatus, suspendService, uninstallService } from "./service"
 import { failed, fakeHost, SPEC, withHome } from "./service.testing"
 import { checkServiceSpec, defaultServiceHost, isKnownAbsent, mapProgramError } from "./service-types"
 
@@ -15,6 +15,7 @@ describe("service dispatcher", () => {
     for (const error of [
       await rejection(installService(SPEC, host)),
       await rejection(uninstallService(SPEC.id, SPEC.label, host)),
+      await rejection(suspendService(SPEC.id, SPEC.label, host)),
       await rejection(serviceStatus(SPEC.id, SPEC.label, host)),
     ]) {
       expect(error).toBeInstanceOf(ToolError)
@@ -30,11 +31,13 @@ describe("service dispatcher", () => {
         for (const id of ["../evil", "a/b", "a..b", "", ".hidden", "a b"]) {
           expect((await rejection(installService({ ...SPEC, id }, host))).code).toBe("invalid_argument")
           expect((await rejection(uninstallService(id, "default", host))).code).toBe("invalid_argument")
+          expect((await rejection(suspendService(id, "default", host))).code).toBe("invalid_argument")
           expect((await rejection(serviceStatus(id, "default", host))).code).toBe("invalid_argument")
         }
         for (const label of ["../x", "Upper", "a/b", ""]) {
           expect((await rejection(installService({ ...SPEC, label }, host))).code).toBe("invalid_argument")
           expect((await rejection(uninstallService(SPEC.id, label, host))).code).toBe("invalid_argument")
+          expect((await rejection(suspendService(SPEC.id, label, host))).code).toBe("invalid_argument")
           expect((await rejection(serviceStatus(SPEC.id, label, host))).code).toBe("invalid_argument")
         }
         expect(calls).toEqual([])
@@ -46,6 +49,7 @@ describe("service dispatcher", () => {
     const { host, calls } = fakeHost("linux", "relative/home")
     expect((await rejection(installService(SPEC, host))).code).toBe("internal_error")
     expect((await rejection(serviceStatus(SPEC.id, SPEC.label, host))).code).toBe("internal_error")
+    expect((await rejection(suspendService(SPEC.id, SPEC.label, host))).code).toBe("internal_error")
     expect(calls).toEqual([])
   })
 

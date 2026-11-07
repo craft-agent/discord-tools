@@ -1,6 +1,16 @@
 import { ToolError } from "../errors"
-import { installLaunchdService, launchdServiceStatus, uninstallLaunchdService } from "./service-launchd"
-import { installSystemdService, systemdServiceStatus, uninstallSystemdService } from "./service-systemd"
+import {
+  installLaunchdService,
+  launchdServiceStatus,
+  suspendLaunchdService,
+  uninstallLaunchdService,
+} from "./service-launchd"
+import {
+  installSystemdService,
+  suspendSystemdService,
+  systemdServiceStatus,
+  uninstallSystemdService,
+} from "./service-systemd"
 import {
   defaultServiceHost,
   type ServiceHost,
@@ -30,6 +40,16 @@ export async function installService(
 ): Promise<ServiceInstallResult> {
   checkPlatform(host.platform)
   return host.platform === "darwin" ? installLaunchdService(spec, host) : installSystemdService(spec, host)
+}
+
+/** Disables future sync starts, keeping definitions. On launchd the final operation may terminate this run. */
+export async function suspendService(
+  id: string,
+  label: string,
+  host: ServiceHost = defaultServiceHost(),
+): Promise<void> {
+  checkPlatform(host.platform)
+  return host.platform === "darwin" ? suspendLaunchdService(id, label, host) : suspendSystemdService(id, label, host)
 }
 
 /** Stops and deletes the scheduled sync for one label; one that is already gone completes without error. */
