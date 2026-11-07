@@ -6,5 +6,7 @@
  */
 export { ingestChannels } from "./ingest-channels"
 export type { IngestContext, IngestCounts } from "./ingest-context"
+export { ingestMessages } from "./ingest-messages"
+export { emojiKey } from "./ingest-parts"
 export { ingestServers } from "./ingest-servers"
 export { ingestUsers } from "./ingest-users"
