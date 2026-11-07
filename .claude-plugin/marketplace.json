@@ -1,16 +1,16 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "craftsamo",
+  "name": "craft-agent",
   "description": "Plugins by craftsamo.",
   "owner": {
     "name": "craftsamo",
-    "url": "https://github.com/craftsamo"
+    "url": "https://github.com/craft-agent"
   },
   "plugins": [
     {
-      "name": "agent-tool-starter",
+      "name": "discord-tools",
       "source": "./",
-      "description": "A starter for tool packages that coding agents call: one implementation delivered to every harness.",
+      "description": "Discord tools for coding agents: chats, messages, search, inbox, files, sends and roles.",
       "category": "development"
     }
   ]
