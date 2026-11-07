@@ -37,6 +37,20 @@ export function channelRecords(value: unknown, server?: string): JsonRecord[] {
   return rows
 }
 
+/**
+ * Validates a newest-first response to a request for the messages after
+ * `after`, as `historyPage` does, and requires every id to be above `after`.
+ * The page holds the oldest messages after `after`, so it vouches for the ids
+ * strictly between `after` and one above its newest; an empty page vouches for
+ * nothing, since messages may have arrived since.
+ */
+export function forwardPage(value: unknown, channel: string, limit: number, after: string): HistoryPage {
+  const page = historyPage(value, channel, limit)
+  if (page.oldest !== undefined && BigInt(page.oldest) <= BigInt(after)) invalidResponse()
+  const before = page.newest === undefined ? after : String(BigInt(page.newest) + 1n)
+  return { ...page, range: { after, before } }
+}
+
 /** Validates the entire newest-first history response before it can vouch for a deletion range. */
 export function historyPage(
   value: unknown,
