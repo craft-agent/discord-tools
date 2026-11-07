@@ -1,11 +1,18 @@
 import { checkLabel, pickLabel } from "../core/discord/labels"
 import { removeLabel } from "../core/discord/removal"
 import { defaultServiceHost, uninstallService, type ServiceHost } from "../core/discord/service"
-import { handleCommandError, parseCommandStateDir, parseFlagArgs, printCommandError, usageError } from "./command-args"
+import {
+  ACCOUNT_FLAG,
+  handleCommandError,
+  parseCommandStateDir,
+  parseFlagArgs,
+  printCommandError,
+  STATE_DIR_FLAG,
+  usageError,
+} from "./command-args"
 import { defaultReadLine, EXIT_FAILED, EXIT_OK, EXIT_USAGE, type CommandIo } from "./command-io"
 import { SERVICE_ID, serviceSupported } from "./service"
 
-const ACCOUNT_FLAG = "--account"
 const YES_FLAG = "--yes"
 
 type RemoveCommand = {
@@ -16,10 +23,10 @@ type RemoveCommand = {
 
 function parseRemoveCommand(argv: string[], io: CommandIo): RemoveCommand {
   const { values, switches, rest } = parseFlagArgs(argv, {
-    values: [ACCOUNT_FLAG, "--state-dir"],
+    values: [ACCOUNT_FLAG, STATE_DIR_FLAG],
     switches: [YES_FLAG],
   })
-  const stateDir = parseCommandStateDir(rest, io, values["--state-dir"])
+  const stateDir = parseCommandStateDir(rest, io, values[STATE_DIR_FLAG])
   const account = values[ACCOUNT_FLAG]
   if (account === undefined) throw usageError(`Option ${ACCOUNT_FLAG} is required.`)
   return { label: checkLabel(account), yes: switches.has(YES_FLAG), stateDir }

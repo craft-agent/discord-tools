@@ -5,6 +5,10 @@ import { parseStateDir } from "../entry/settings"
 import { PROJECT } from "../project"
 import { EXIT_FAILED, EXIT_USAGE, type CommandIo } from "./command-io"
 
+/** The flags the account commands share. */
+export const ACCOUNT_FLAG = "--account"
+export const STATE_DIR_FLAG = "--state-dir"
+
 /** The flags a command takes: those with a value (`--flag value` or `--flag=value`) and the switches. */
 export type FlagParserSpec<V extends string = string, S extends string = string> = {
   values?: readonly V[]
@@ -107,6 +111,6 @@ export function parseFlagArgs<V extends string = string, S extends string = stri
 
 /** Reads the state directory from the arguments `parseFlagArgs` left, where nothing else may remain. */
 export function parseCommandStateDir(rest: string[], io: CommandIo, stateDir?: string): string {
-  const args = stateDir === undefined ? rest : [...rest, `--state-dir=${stateDir}`]
+  const args = stateDir === undefined ? rest : [...rest, `${STATE_DIR_FLAG}=${stateDir}`]
   return parseStateDir(args, io.env, io.profile ?? PROJECT_PROFILE)
 }

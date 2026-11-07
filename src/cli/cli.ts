@@ -14,6 +14,7 @@ import { permissionResources } from "../entry/permission"
 import { PROJECT_PROFILE } from "../entry/profile"
 import { parseStateDir, parseToolSettings } from "../entry/settings"
 import { PROJECT } from "../project"
+import { usageError } from "./command-args"
 import { EXIT_FAILED, EXIT_OK, EXIT_USAGE, type CommandIo } from "./command-io"
 import { runRemoveCommand } from "./remove"
 import { runServiceCommand } from "./service"
@@ -38,10 +39,6 @@ type Command =
   | { name: "list"; selected: ToolSpec[] }
   | { name: "run"; toolId: string; cwd: string; selected: ToolSpec[]; stateDir: string }
   | { name: "target"; toolId: string; cwd: string; stateDir: string }
-
-function usageError(message: string): ToolError {
-  return new ToolError("invalid_argument", message)
-}
 
 /** Splits `--cwd <dir>` from the remaining arguments, which are the settings flags. */
 function takeCwd(argv: string[]): { cwd: string | undefined; rest: string[] } {
