@@ -127,6 +127,12 @@ describe("isChannelCurrent", () => {
     expect(isChannelCurrent(t.mirror, CHANNEL, 1000 + CURRENT_MS)).toBe(false)
   })
 
+  test("is false for a mark in the future", () => {
+    markCurrent(t.mirror, CHANNEL, 1000)
+    expect(isChannelCurrent(t.mirror, CHANNEL, 999)).toBe(false)
+    expect(isChannelCurrent(t.mirror, CHANNEL, 1000)).toBe(true)
+  })
+
   test("is 15 minutes", () => {
     expect(CURRENT_MS).toBe(900_000)
   })

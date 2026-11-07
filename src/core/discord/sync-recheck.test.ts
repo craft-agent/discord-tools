@@ -98,6 +98,18 @@ test("a failed progress write rolls back its entire history page", async () => {
   expect(h.inspect((m) => getMeta(m)[pendingKey(SYNC_CHANNEL)])).toBeUndefined()
 })
 
+test("a catch-up keeps an incomplete cursor's oldest above a message a live read stored below it", async () => {
+  h.dm("100")
+  h.discord.route("GET", history, { status: 200, json: syncMessages(100, 51) })
+  await h.run()
+  h.write((m) => ingestMessages(m, { me: SYNC_ME, now: h.now() }, [syncMessage("10")], { reactions: false }))
+  h.dm("199")
+  h.discord.route("GET", history, { status: 200, json: syncMessages(199, 100) })
+  expect((await h.run()).status).toBe("complete")
+  expect(h.inspect((m) => getCursor(m, SYNC_CHANNEL))).toMatchObject({ newest: "199", oldest: "51", complete: false })
+  expect(h.inspect((m) => storedMessageIds(m, SYNC_CHANNEL))).toContain("10")
+})
+
 test("a short continuation proves the start and prunes deleted messages up to the sent before boundary", async () => {
   h.dm("100")
   h.discord.route("GET", history, { status: 200, json: syncMessages(100, 51) })
