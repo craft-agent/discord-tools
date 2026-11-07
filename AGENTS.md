@@ -38,6 +38,21 @@ tagged `v<version>`; consumers pin a tag or the same npm version.
   annotations are hints, never the boundary.
 - **Every program a tool runs goes through one runner**, which fixes a
   non-interactive environment and maps failures to error codes.
+- **Every request to Discord goes through the one HTTP client**, with
+  Chrome's fingerprint and the web client's headers; a tool never makes a
+  request itself, and a write is never retried.
+- **Only the HTTP client reads the token.** It is never an argument or a
+  setting, and nothing from it reaches a result, an error or a log; tests use
+  made-up tokens and ids only, and no test reaches Discord.
+- **Every write to the mirror goes through the one ingest**, and only a sync
+  run marks a channel current.
+- **The sync service sends nothing of its own**, and opens the gateway only as
+  the conventions say: never held open, never present, never subscribed.
+- **A target is an id the label's mirror knows, never a name**, and a send
+  never opens a new DM.
+- **A write that may have reached Discord throws `uncertain`**, never success
+  or a plain failure: a wrong guess posts twice.
+- **No tool but the one for it marks anything read.**
 - **Every commit stays small.** The pre-commit hook rejects a commit over 500
   reviewable changed lines; split the change instead of raising the limit.
 
