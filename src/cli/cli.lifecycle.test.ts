@@ -12,14 +12,15 @@ describe("local lifecycle routing", () => {
     const args = command === "service" ? ["status"] : command === "remove" ? ["--yes"] : []
     const result = await cli([command, ...args, "--account", "work", "--state-dir", dir], "not JSON", {
       serviceHost: host,
+      syncRun: async () => ({ status: "complete", requests: 1, channels: 0, stored: 0, deleted: 0, skipped: 0 }),
       env: { DEMO_TOOLSETS: "unknown", DEMO_READ_ONLY: "invalid" },
       readStdin: async () => {
         throw new Error("lifecycle commands must not read JSON stdin")
       },
     })
-    expect(result.code).toBe(command === "sync" ? EXIT_FAILED : EXIT_OK)
+    expect(result.code).toBe(EXIT_OK)
     if (command === "sync") {
-      expect(result.stderr).toContain("not available yet")
+      expect(result.stdout).toContain("Sync complete")
       expect(host.calls).toEqual([])
     } else if (command === "service") {
       expect(result.stdout).toContain("Installed:")
@@ -30,17 +31,25 @@ describe("local lifecycle routing", () => {
     }
   })
 
-  test("service install is unavailable through runCli with no local label", async () => {
+  test("service install requires a local label before service management", async () => {
     const dir = await tempStateDir()
     const host = fakeHost(dir)
     const result = await cli(["service", "install", "--state-dir", dir], "", { serviceHost: host })
     expect(result.code).toBe(EXIT_FAILED)
-    expect(result.stderr).toContain("Installing the sync service is not available yet")
+    expect(result.stderr).toContain("No Discord account is signed in")
     expect(host.calls).toEqual([])
     expect(await readdir(dir)).toEqual([])
   })
 
-  test.each(["login", "toString", "constructor", "__proto__"])("%s is not a command", async (command) => {
+  test("login routes to its strict person-command parser", async () => {
+    const result = await cli(["login", "--token", "made-up"])
+    expect(result.code).toBe(EXIT_USAGE)
+    expect(result.stderr).toContain("Login accepts only")
+    expect(result.stderr).not.toContain("made-up")
+    expect(result.stdout).toBe("")
+  })
+
+  test.each(["toString", "constructor", "__proto__"])("%s is not a command", async (command) => {
     const result = await cli([command])
     expect(result.code).toBe(EXIT_USAGE)
     expect(result.stderr).toContain(`Unknown command "${command}"`)

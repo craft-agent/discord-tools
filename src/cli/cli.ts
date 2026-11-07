@@ -16,6 +16,7 @@ import { parseStateDir, parseToolSettings } from "../entry/settings"
 import { PROJECT } from "../project"
 import { usageError } from "./command-args"
 import { EXIT_FAILED, EXIT_OK, EXIT_USAGE, type CommandIo } from "./command-io"
+import { runLoginCommand } from "./login"
 import { runRemoveCommand } from "./remove"
 import { runServiceCommand } from "./service"
 import { runSyncCommand } from "./sync"
@@ -69,7 +70,7 @@ function parseCommand(argv: string[], io: Pick<CliIo, "specs" | "env" | "profile
   if (name !== "run" && name !== "target") {
     const given = name === undefined ? "No command given" : `Unknown command "${name}"`
     throw usageError(
-      `${given}; use list, run <tool-id> --cwd <dir>, target <tool-id> --cwd <dir>, sync, service or remove.`,
+      `${given}; use list, run <tool-id> --cwd <dir>, target <tool-id> --cwd <dir>, login, sync, service or remove.`,
     )
   }
 
@@ -169,7 +170,8 @@ function errorDetail(error: unknown): string {
 }
 
 /** The commands a person runs to manage an account's local state, which print plain text rather than a JSON document. */
-const PERSON_COMMANDS: Partial<Record<string, (argv: string[], io: CommandIo) => Promise<number>>> = {
+const PERSON_COMMANDS: Partial<Record<string, (argv: string[], io: CliIo) => Promise<number>>> = {
+  login: runLoginCommand,
   sync: runSyncCommand,
   service: runServiceCommand,
   remove: runRemoveCommand,
@@ -181,7 +183,7 @@ const PERSON_COMMANDS: Partial<Record<string, (argv: string[], io: CommandIo) =>
  * arguments on standard input, and `target` answers with what a call would
  * write to (`{"resources": [...]}`). Standard output carries only the JSON document; a
  * mistake in the command line is one line on standard error and `EXIT_USAGE`.
- * `sync`, `service` and `remove` are for a person managing an account's local
+ * `login`, `sync`, `service` and `remove` are for a person managing an account's local
  * state (see `PERSON_COMMANDS`). Resolves to the exit code.
  */
 export async function runCli(argv: string[], io: CliIo): Promise<number> {

@@ -1,6 +1,7 @@
 import { createInterface } from "node:readline/promises"
 import { isAbortError } from "../core"
 import type { ServiceHost } from "../core/discord/service"
+import type { runSync } from "../core/discord/sync"
 import type { EntryProfile } from "../entry/profile"
 
 /** The exit codes of a command: it did its work, the work failed, or the command line was wrong. */
@@ -26,6 +27,12 @@ export type CommandIo = {
   readLine?(prompt: string): Promise<string | undefined>
   /** Manages the background service; defaults to the operating system's host. */
   serviceHost?: ServiceHost
+  /** Runs one bounded sync; tests inject an offline implementation. */
+  syncRun?: typeof runSync
+  /** Absolute runtime executable used by the scheduled service. */
+  program?: string
+  /** Absolute built CLI entry path, supplied by the executable entry point. */
+  entryPath?: string
 }
 
 /**

@@ -1,6 +1,9 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { spawnSync } from "node:child_process"
+import { mkdtempSync, readdirSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const CLI = fileURLToPath(new URL("../dist/cli.js", import.meta.url))
@@ -14,7 +17,8 @@ function expect(condition, message) {
 }
 
 function cli(args, input = "") {
-  return spawnSync(process.execPath, [CLI, ...args], { encoding: "utf8", input, stdio: "pipe" })
+  const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.includes("TOKEN")))
+  return spawnSync(process.execPath, [CLI, ...args], { encoding: "utf8", input, stdio: "pipe", env })
 }
 
 /** The tool names the MCP server lists with the given settings; it draws on the same registry as the CLI. */
@@ -66,21 +70,32 @@ function rejectsConfirm() {
   console.log(`--confirm x exits ${EXIT_USAGE}: ${run.stderr.trim()}`)
 }
 
-function refusesUnfinishedSync() {
-  for (const args of [["sync"], ["service", "install", "--account", "default"]]) {
-    const run = cli(args)
-    expect(run.status === EXIT_FAILED, `Expected exit ${EXIT_FAILED} for ${args.join(" ")}, got ${run.status}`)
-    expect(run.stdout === "", `Expected no success output for ${args.join(" ")}`)
-    expect(run.stderr.includes("sync engine is not implemented"), `Expected an explanation, got: ${run.stderr}`)
+function rejectsUnknownAccountsOffline() {
+  const stateDir = mkdtempSync(join(tmpdir(), "cli-smoke-"))
+  try {
+    for (const command of [["sync"], ["service", "install"]]) {
+      const args = [...command, "--account", "unknown", "--state-dir", stateDir]
+      const run = cli(args)
+      expect(run.status === EXIT_FAILED, `Expected exit ${EXIT_FAILED} for ${command.join(" ")}, got ${run.status}`)
+      expect(run.stdout === "", `Expected no success output for ${command.join(" ")}`)
+      expect(run.stderr.includes('account "unknown" was not found'), `Expected missing account, got: ${run.stderr}`)
+    }
+    for (const command of [["login"], ["sync"], ["service", "install"]]) {
+      const run = cli([...command, "--account", "Bad", "--state-dir", stateDir])
+      expect(run.status === EXIT_USAGE, `Expected malformed ${command.join(" ")} flags to exit ${EXIT_USAGE}`)
+    }
+    expect(readdirSync(stateDir).length === 0, "Offline command checks must not create account state")
+  } finally {
+    rmSync(stateDir, { recursive: true, force: true })
   }
-  console.log("Unfinished sync and service installation fail with an explanation.")
+  console.log("Sync and installation reject unknown accounts offline; malformed flags exit 2.")
 }
 
 try {
   await listsTheServersTools()
   rejectsAnUnknownTool()
   rejectsConfirm()
-  refusesUnfinishedSync()
+  rejectsUnknownAccountsOffline()
 } catch (error) {
   console.error(error)
   process.exit(1)

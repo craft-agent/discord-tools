@@ -1,19 +1,27 @@
+import { isAbsolute } from "node:path"
+import { ToolError } from "../core"
+import { readAccount } from "../core/discord/account-meta"
 import { checkLabel, listLabels, pickLabel } from "../core/discord/labels"
 import {
   defaultServiceHost,
+  installService,
   serviceStatus,
   uninstallService,
   type ServiceHost,
   type ServiceStatus,
 } from "../core/discord/service"
-import { handleCommandError, parseCommandStateDir, parseFlagArgs, printCommandError, usageError } from "./command-args"
-import { EXIT_FAILED, EXIT_OK, type CommandIo } from "./command-io"
+import {
+  ACCOUNT_FLAG,
+  handleCommandError,
+  parseCommandStateDir,
+  parseFlagArgs,
+  STATE_DIR_FLAG,
+  usageError,
+} from "./command-args"
+import { EXIT_OK, type CommandIo } from "./command-io"
 
 /** The identity the sync service of every label is registered under with the operating system's manager. */
 export const SERVICE_ID = "io.github.craft-agent.discord-tools"
-
-const ACCOUNT_FLAG = "--account"
-const INSTALL_UNAVAILABLE = "Installing the sync service is not available yet: the sync engine is not implemented."
 
 /** The platforms whose service manager the sync service is registered with. */
 const SERVICE_PLATFORMS: readonly NodeJS.Platform[] = ["darwin", "linux"]
@@ -38,12 +46,12 @@ function parseServiceCommand(argv: string[], io: CommandIo): ServiceCommand {
     const given = action === undefined ? "No service command given" : `Unknown service command "${action}"`
     throw usageError(`${given}; use service install|uninstall|status.`)
   }
-  const { values, rest } = parseFlagArgs(args, { values: [ACCOUNT_FLAG, "--state-dir"] })
+  const { values, rest } = parseFlagArgs(args, { values: [ACCOUNT_FLAG, STATE_DIR_FLAG] })
   const account = values[ACCOUNT_FLAG]
   return {
     action,
     account: account === undefined ? undefined : checkLabel(account),
-    stateDir: parseCommandStateDir(rest, io, values["--state-dir"]),
+    stateDir: parseCommandStateDir(rest, io, values[STATE_DIR_FLAG]),
   }
 }
 
@@ -81,8 +89,8 @@ function statusLines(label: string, status: ServiceStatus): string[] {
 
 /**
  * The `service` command: `install`, `uninstall` and `status` of one account's
- * sync service (`--account`, or the only account). Installing is refused for
- * now, before anything is read or written, as there is no sync engine to run.
+ * sync service (`--account`, or the only account). Installing requires a
+ * signed-in label and an absolute runtime entry path.
  * `uninstall` and `status` take a named account whose state is gone. Resolves
  * to the exit code: 0, 1 after a failure, 2 for a mistake in the command line.
  */
@@ -94,11 +102,6 @@ export async function runServiceCommand(argv: string[], io: CommandIo): Promise<
     return handleCommandError(error, io, { mode: "usage" })
   }
 
-  if (command.action === "install") {
-    printCommandError(io, INSTALL_UNAVAILABLE)
-    return EXIT_FAILED
-  }
-
   let label: string
   try {
     label = await resolveLabel(command)
@@ -108,7 +111,31 @@ export async function runServiceCommand(argv: string[], io: CommandIo): Promise<
 
   try {
     const host: ServiceHost = io.serviceHost ?? defaultServiceHost()
-    if (command.action === "uninstall") {
+    if (command.action === "install") {
+      const paths = await pickLabel(command.stateDir, label)
+      if (!(await readAccount(paths))) {
+        throw new ToolError("not_found", `Account "${label}" has no verified identity; run login first.`)
+      }
+      if (!io.entryPath || !isAbsolute(io.entryPath)) {
+        throw new ToolError(
+          "invalid_argument",
+          "Installing the sync service requires an absolute built CLI entry path.",
+        )
+      }
+      await installService(
+        {
+          id: SERVICE_ID,
+          label,
+          description: `Scheduled account sync (${label})`,
+          program: io.program ?? process.execPath,
+          args: [io.entryPath, "sync", ACCOUNT_FLAG, label, STATE_DIR_FLAG, command.stateDir],
+          path: io.env.PATH ?? "",
+        },
+        host,
+      )
+      io.stdout(`Installed sync service for "${label}".\n`)
+      io.stdout("Environment-based tokens must be supplied independently to the service environment.\n")
+    } else if (command.action === "uninstall") {
       await uninstallService(SERVICE_ID, label, host)
       io.stdout(`Uninstalled sync service for "${label}".\n`)
     } else {

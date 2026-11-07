@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test"
-import { readdir } from "node:fs/promises"
+import { readdir, readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { PROJECT } from "../project"
+import { writeAccount } from "../core/discord/account-meta"
+import { labelPaths } from "../core/discord/labels"
 import { EXIT_FAILED, EXIT_OK, EXIT_USAGE } from "./command-io"
 import { fakeHost, refusingHost, runCommand, signedInAccount, tempStateDir } from "./commands.testing"
 import { SERVICE_ID, runServiceCommand } from "./service"
@@ -127,7 +129,7 @@ describe("service uninstall", () => {
 })
 
 describe("service install", () => {
-  test("is refused before any host call or write, after the arguments are checked", async () => {
+  test("unknown labels fail before any host call or write", async () => {
     const dir = await tempStateDir()
     const host = fakeHost(dir)
     const result = await run(["install", "--account", "work", "--state-dir", join(dir, "state")], {
@@ -135,31 +137,78 @@ describe("service install", () => {
     })
     expect(result.code).toBe(EXIT_FAILED)
     expect(result.stdout).toBe("")
-    expect(result.stderr).toBe(
-      `${PROJECT.cli}: Installing the sync service is not available yet: the sync engine is not implemented.\n`,
-    )
+    expect(result.stderr).toContain('account "work" was not found')
     expect(host.calls).toEqual([])
     expect(await readdir(dir)).toEqual([])
   })
 
-  test("is refused the same way on an unsupported platform", async () => {
+  test("requires a verified identity, not just a token file", async () => {
     const dir = await tempStateDir()
-    const host = fakeHost(dir, { platform: "win32" })
+    await signedInAccount(dir, "work")
+    const host = fakeHost(dir)
     const result = await run(["install", "--state-dir", dir], { serviceHost: host })
     expect(result.code).toBe(EXIT_FAILED)
-    expect(result.stderr).toContain("not available yet")
+    expect(result.stderr).toContain("run login first")
     expect(host.calls).toEqual([])
-    expect(await readdir(dir)).toEqual([])
   })
 
-  test("needs no local account or label to report unavailable", async () => {
+  test("requires a local account when no label is supplied", async () => {
     const dir = await tempStateDir()
     const host = fakeHost(dir)
     const result = await run(["install", "--state-dir", join(dir, "absent")], { serviceHost: host })
     expect(result.code).toBe(EXIT_FAILED)
-    expect(result.stderr).toContain("not available yet")
+    expect(result.stderr).toContain("No Discord account is signed in")
     expect(host.calls).toEqual([])
     expect(await readdir(dir)).toEqual([])
+  })
+
+  test.each(["darwin", "linux"] as const)(
+    "installs a bounded CLI command on %s without serializing tokens",
+    async (platform) => {
+      const dir = await tempStateDir()
+      await signedInAccount(dir, "work")
+      await writeAccount(labelPaths(dir, "work"), { id: "123456789012345678", name: "test", verifiedAt: 1 })
+      const host = fakeHost(dir, { platform })
+      const result = await run(["install", "--account=work", `--state-dir=${dir}`], {
+        serviceHost: host,
+        program: "/runtime/node",
+        entryPath: "/package/dist/cli.js",
+        env: { PATH: "/safe/bin", DISCORD_TOOLS_TOKEN_WORK: "made-up-private-token" },
+      })
+      expect(result.code).toBe(EXIT_OK)
+      expect(result.stdout).toContain("supplied independently")
+      expect(host.calls.length).toBeGreaterThan(0)
+      const file =
+        platform === "darwin"
+          ? join(dir, "Library", "LaunchAgents", `${SERVICE_ID}.work.plist`)
+          : join(dir, ".config", "systemd", "user", `${SERVICE_ID.replaceAll(".", "-")}-work.service`)
+      const definition = await readFile(file, "utf8")
+      for (const part of [
+        "/runtime/node",
+        "/package/dist/cli.js",
+        "sync",
+        "--account",
+        "work",
+        "--state-dir",
+        dir,
+        "/safe/bin",
+      ]) {
+        expect(definition).toContain(part)
+      }
+      expect(definition).not.toContain("made-up-private-token")
+      expect(definition).not.toContain("TOKEN_WORK")
+    },
+  )
+
+  test.each([undefined, "relative/cli.js"])("refuses unusable entry path %j before installing", async (entryPath) => {
+    const dir = await tempStateDir()
+    await signedInAccount(dir, "work")
+    await writeAccount(labelPaths(dir, "work"), { id: "123456789012345678", name: "test", verifiedAt: 1 })
+    const host = fakeHost(dir)
+    const result = await run(["install", "--state-dir", dir], { serviceHost: host, entryPath })
+    expect(result.code).toBe(EXIT_FAILED)
+    expect(result.stderr).toContain("absolute built CLI entry path")
+    expect(host.calls).toEqual([])
   })
 
   test("still rejects a bad command line with usage", async () => {
