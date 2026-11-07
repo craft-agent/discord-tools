@@ -274,6 +274,19 @@ Every entry point takes the same settings:
 - **Signing in, running and installing the service, and removing a label are
   a person's commands, never tools**: signing in hands the account over, and
   installing a service changes the machine.
+- **The scheduler starts one run, not a resident loop.** On macOS a user
+  launchd agent uses `StartInterval` 300; on Linux a user systemd timer starts
+  a oneshot service every 300 seconds. Installing a job requires an executable
+  sync command; an unfinished command must never be registered as a service.
+- **The label's `sync.lock` is a private SQLite lock file**, separate from the
+  mirror. A run holds a write transaction until it ends; closing the connection
+  or losing the process releases it. The file stays in place so contenders
+  always lock the same file, without guessing whether a stored pid is stale.
+- **Removal stops the scheduled service and takes the same lock.** A busy
+  label's local state is left intact, with its schedule stopped. Under the
+  lock its directory is renamed out of the label namespace before deletion,
+  so a waiting run cannot write into state
+  being removed. This deletes local state only, not remote account data.
 
 ## The mirror
 
