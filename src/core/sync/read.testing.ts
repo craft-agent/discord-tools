@@ -4,6 +4,7 @@ import { createHarness } from "../discord/client.testing"
 import { inTransaction, openMirrorForWrite, type Mirror } from "../discord/mirror"
 import { fakeHost } from "../discord/service.testing"
 import { invoke, type ToolContext } from "../tool"
+import { discordSyncAdd } from "./add"
 import { discordSyncRead } from "./read"
 
 /** A signed-in label with no mirror yet, and a clock the test moves; nothing here reaches a network. */
@@ -26,6 +27,8 @@ export async function createSyncFixture() {
     ctx,
     /** Runs `discord_sync_read` as an entry point does: strict arguments, a result checked against its schema. */
     read: (args: unknown) => invoke(discordSyncRead, args, ctx),
+    /** Runs `discord_sync_add` as an entry point does. */
+    add: (args: unknown) => invoke(discordSyncAdd, args, ctx),
     /** Creates the mirror and seeds it in one transaction (ingest functions and `markCurrent` only). */
     seed<T>(fn: (mirror: Mirror) => T): T {
       const db = openMirrorForWrite(h.paths.mirror)
