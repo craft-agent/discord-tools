@@ -11,7 +11,7 @@ import type { ChannelItem } from "./schemas"
 import type { ChatHandler, ChatSession } from "./session"
 
 /** The channel type of a category, which names the channels under it but is no channel to read. */
-const CATEGORY_TYPE = 4
+export const CATEGORY_TYPE = 4
 
 /** The channel types of threads, which are read through their parent. */
 const THREAD_TYPES: readonly number[] = [10, 11, 12]

@@ -1,7 +1,8 @@
 import { z } from "zod"
+import { messageItem } from "./message-schemas"
 
 /** The methods of `discord_chat_read`, in the order the schema lists them; a method is added here, in `args.ts` and in the dispatch table of `read.ts`. */
-export const CHAT_METHODS = ["servers", "channels", "dms"] as const
+export const CHAT_METHODS = ["servers", "channels", "dms", "messages", "around"] as const
 
 /** One method of `discord_chat_read`. */
 export type ChatMethod = (typeof CHAT_METHODS)[number]
@@ -17,7 +18,7 @@ export const chatReadInput = z.object({
   method: z
     .enum(CHAT_METHODS)
     .describe(
-      "What to read: `servers` lists the servers the account is in; `channels` lists one server's channels; `dms` lists direct messages and group chats, newest first.",
+      "What to read: `servers` lists the servers the account is in; `channels` lists one server's channels; `dms` lists direct messages and group chats, newest first; `messages` reads one chat's messages, oldest first; `around` reads the messages around one message.",
     ),
   refresh: z
     .boolean()
@@ -32,7 +33,12 @@ export const chatReadInput = z.object({
     .describe(
       "Method `dms`: keep only chats whose name or whose people's usernames or display names contain this text.",
     ),
-  limit: z.number().int().min(1).optional().describe("Method `dms`: the most chats to return."),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe("Methods `dms` (default 30, at most 200) and `messages` (default 50, at most 100): the most to return."),
   offset: z
     .number()
     .int()
@@ -40,6 +46,36 @@ export const chatReadInput = z.object({
     .max(OFFSET_MAX)
     .optional()
     .describe("Method `dms`: how many chats to skip; pass the `next_offset` of the previous result to page."),
+  channel: z
+    .string()
+    .optional()
+    .describe("Methods `messages` and `around`: the chat's id, from method `dms` or `channels`; never a name."),
+  message: z.string().optional().describe("Method `around`: the id of the message to read around."),
+  before: z
+    .string()
+    .optional()
+    .describe(
+      "Method `messages`: only messages before this: a message id, a date (YYYY-MM-DD, UTC) or a timestamp with a zone. Pass the `next_before` of the previous result to page back.",
+    ),
+  after: z
+    .string()
+    .optional()
+    .describe(
+      "Method `messages`: only messages after this (a timestamp includes its own instant); same forms as `before`. Alone, it reads forward from there, oldest first; pass the `next_after` of the previous result to page on.",
+    ),
+  live: z.boolean().optional().describe("Method `messages`: read from Discord even if the mirror could answer."),
+  before_count: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe("Method `around`: how many older messages to return (default 5, at most 50)."),
+  after_count: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe("Method `around`: how many newer messages to return (default 5, at most 50)."),
 })
 
 /** The arguments of `discord_chat_read` after validation. */
@@ -103,6 +139,20 @@ export const chatReadOutput = z.object({
   channels: z.array(channelItem).optional(),
   dms: z.array(dmItem).optional(),
   next_offset: z.number().int().nullable().optional(),
+  channel: z.string().optional().describe("Methods `messages` and `around`: the chat read."),
+  message: z.string().optional().describe("Method `around`: the message the result is centred on."),
+  messages: z.array(messageItem).optional().describe("Oldest first."),
+  next_before: z
+    .string()
+    .nullable()
+    .optional()
+    .describe("Method `messages`: pass as `before` for the next older page; null when none."),
+  next_after: z
+    .string()
+    .nullable()
+    .optional()
+    .describe("Method `messages` reading forward: pass as `after` for the next newer page; null when none."),
+  reactions_note: z.string().optional().describe("Present when a message has reactions."),
 })
 
 /** The result of `discord_chat_read`. */
