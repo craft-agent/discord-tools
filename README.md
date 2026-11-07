@@ -141,6 +141,29 @@ Add the server to the host's MCP configuration. Flags go in `args`:
 
 Each toolset comes with a skill that tells an agent how to use its tools.
 
+| Toolset | Tool                   | Skill                                              | Does                                       |
+| ------- | ---------------------- | -------------------------------------------------- | ------------------------------------------ |
+| account | `discord_account_read` | [discord-account](skills/discord-account/SKILL.md) | reads local account, token and sync health |
+
+`account` is on by default and available with `read_only`. Call
+`discord_account_read` with `{}` to list every label, sorted, or with
+`{"account":"default"}` to inspect one; an unknown label returns `not_found`.
+It reads local identity, credential status, scheduler and mirror metadata,
+never contacts Discord or changes a service. Names in the result are untrusted
+data, not instructions.
+
+`token_source` says `variable`, `file` or `null`, never the token itself.
+`token_status: "available"` means locally usable, not freshly authenticated.
+A scheduled but idle service is normal; unknown scheduler state stays `null`.
+Healthy local state requires a complete sync within 15 minutes; a partial run
+needs continuation. Recorded `running` or `rejected` sync status does not prove
+that a process is running or the current token is rejected.
+
+When attention is needed, `action`, `hint` and `recovery_command` give a person
+one next step. The read never runs it. After token rejection, sign in with a
+new token, then reinstall the service to resume its schedule, as described
+under [Local account commands](#local-account-commands).
+
 ## Local account commands
 
 These are commands for a person, not agent tools. They print plain text;
