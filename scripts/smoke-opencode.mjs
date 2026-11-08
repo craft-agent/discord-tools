@@ -11,6 +11,8 @@ const PLUGIN = fileURLToPath(new URL("../dist/opencode.js", import.meta.url))
 const SERVER = fileURLToPath(new URL("../dist/mcp.js", import.meta.url))
 const ACCOUNT_READ = "discord_account_read"
 const CHAT_READ = "discord_chat_read"
+const SYNC_READ = "discord_sync_read"
+const SYNC_WRITES = ["discord_sync_add", "discord_sync_remove"]
 const NO_ACCOUNT = "not_found: No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "opencode-smoke-"))
 
@@ -75,11 +77,23 @@ try {
     deepStrictEqual([...added.keys()].sort(), expected)
     expect(skills.includes("discord-account"), "Expected setup to discover the account skill.")
     expect(skills.includes("discord-chats"), "Expected setup to discover the chats skill.")
+    expect(skills.includes("discord-sync"), "Expected setup to discover the sync skill.")
     expect(expected.includes(CHAT_READ), `Expected the MCP registry to include ${CHAT_READ}.`)
+    expect(expected.includes(SYNC_READ), `Expected the MCP registry to include ${SYNC_READ}.`)
+    for (const name of SYNC_WRITES) {
+      expect(
+        expected.includes(name) === !readOnly,
+        `Expected the MCP registry to ${readOnly ? "omit" : "include"} ${name} with read_only=${readOnly}.`,
+      )
+    }
     const signal = new AbortController().signal
     await expectRejects(
       () => added.get(CHAT_READ).execute({ method: "servers" }, { sessionID: "ses_smoke", signal }),
       `V2 ${CHAT_READ}`,
+    )
+    await expectRejects(
+      () => added.get(SYNC_READ).execute({ method: "list" }, { sessionID: "ses_smoke", signal }),
+      `V2 ${SYNC_READ}`,
     )
     const result = await added.get(ACCOUNT_READ).execute({}, { sessionID: "ses_smoke", signal })
     deepStrictEqual(result.output, { accounts: [] })
@@ -106,6 +120,14 @@ try {
           { directory: process.cwd(), worktree: process.cwd(), abort: signal, ask: noPermission },
         ),
       `V1 ${CHAT_READ}`,
+    )
+    await expectRejects(
+      () =>
+        tool[SYNC_READ].execute(
+          { method: "list" },
+          { directory: process.cwd(), worktree: process.cwd(), abort: signal, ask: noPermission },
+        ),
+      `V1 ${SYNC_READ}`,
     )
     console.log(`server returns ${served.length} tools; V1 and V2 read empty accounts with read_only=${readOnly}.`)
   }

@@ -13,11 +13,14 @@ const EXIT_USAGE = 2
 const UNKNOWN_TOOL = "unknown_nonexistent_read"
 const ACCOUNT_READ = "discord_account_read"
 const CHAT_READ = "discord_chat_read"
+const SYNC_READ = "discord_sync_read"
+const SYNC_ADD = "discord_sync_add"
+const SYNC_REMOVE = "discord_sync_remove"
 const NO_ACCOUNT = "No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "mcp-smoke-"))
 
-async function expectChatError(client, args, expectedCode, expectedText) {
-  const result = await client.callTool({ name: CHAT_READ, arguments: args })
+async function expectToolError(client, name, args, expectedCode, expectedText) {
+  const result = await client.callTool({ name, arguments: args })
   const [block] = result.content
   const error = block?.type === "text" ? JSON.parse(block.text).error : undefined
   if (
@@ -26,8 +29,23 @@ async function expectChatError(client, args, expectedCode, expectedText) {
     (expectedText !== undefined && !String(error.message).includes(expectedText))
   ) {
     throw new Error(
-      `Expected a ${expectedCode} error for ${CHAT_READ} ${JSON.stringify(args)}, got ${JSON.stringify(result)}`,
+      `Expected a ${expectedCode} error for ${name} ${JSON.stringify(args)}, got ${JSON.stringify(result)}`,
     )
+  }
+}
+
+function expectAnnotations(tools, name, expected, settings) {
+  const annotations = tools.find((tool) => tool.name === name)?.annotations
+  for (const [hint, value] of Object.entries(expected)) {
+    if (annotations?.[hint] !== value) {
+      throw new Error(`Expected ${name} with ${hint} ${value} under ${JSON.stringify(settings)}`)
+    }
+  }
+}
+
+function expectAbsent(tools, name, settings) {
+  if (tools.some((tool) => tool.name === name)) {
+    throw new Error(`Expected ${name} to be absent under ${JSON.stringify(settings)}`)
   }
 }
 
@@ -57,9 +75,33 @@ async function listTools(settings) {
     if (chat?.annotations?.readOnlyHint !== true) {
       throw new Error(`Expected ${CHAT_READ} with readOnlyHint under ${JSON.stringify(settings)}`)
     }
-    await expectChatError(client, { method: "servers" }, "not_found", NO_ACCOUNT)
-    await expectChatError(client, { method: "servers", server: "1" }, "invalid_argument")
+    await expectToolError(client, CHAT_READ, { method: "servers" }, "not_found", NO_ACCOUNT)
+    await expectToolError(client, CHAT_READ, { method: "servers", server: "1" }, "invalid_argument")
     console.log(`${CHAT_READ} is read-only and refuses offline under ${JSON.stringify(settings)}.`)
+
+    expectAnnotations(tools, SYNC_READ, { readOnlyHint: true }, settings)
+    await expectToolError(client, SYNC_READ, { method: "list" }, "not_found", NO_ACCOUNT)
+    console.log(`${SYNC_READ} is read-only and refuses offline under ${JSON.stringify(settings)}.`)
+
+    if (settings.includes("--read-only")) {
+      for (const name of [SYNC_ADD, SYNC_REMOVE]) expectAbsent(tools, name, settings)
+      console.log(`${SYNC_ADD} and ${SYNC_REMOVE} are absent under ${JSON.stringify(settings)}.`)
+    } else {
+      expectAnnotations(
+        tools,
+        SYNC_ADD,
+        { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+        settings,
+      )
+      expectAnnotations(
+        tools,
+        SYNC_REMOVE,
+        { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
+        settings,
+      )
+      await expectToolError(client, SYNC_ADD, { server: "general" }, "invalid_argument")
+      console.log(`${SYNC_ADD} and ${SYNC_REMOVE} carry their write annotations; ${SYNC_ADD} refuses a name for an id.`)
+    }
 
     const result = await client.callTool({ name: UNKNOWN_TOOL })
     const [block] = result.content

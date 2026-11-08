@@ -144,6 +144,9 @@ Each toolset comes with a skill that tells an agent how to use its tools.
 | Toolset | Tool                   | Skill                                              | Does                                       |
 | ------- | ---------------------- | -------------------------------------------------- | ------------------------------------------ |
 | account | `discord_account_read` | [discord-account](skills/discord-account/SKILL.md) | reads local account, token and sync health |
+| sync    | `discord_sync_read`    | [discord-sync](skills/discord-sync/SKILL.md)       | shows the sync list and suggests changes   |
+| sync    | `discord_sync_add`     | [discord-sync](skills/discord-sync/SKILL.md)       | follows a server or named channels         |
+| sync    | `discord_sync_remove`  | [discord-sync](skills/discord-sync/SKILL.md)       | stops following a server or channels       |
 | chats   | `discord_chat_read`    | [discord-chats](skills/discord-chats/SKILL.md)     | reads servers, channels, DMs and messages  |
 
 `account` is on by default and available with `read_only`. Call
@@ -164,6 +167,27 @@ When attention is needed, `action`, `hint` and `recovery_command` give a person
 one next step. The read never runs it. After token rejection, sign in with a
 new token, then reinstall the service to resume its schedule, as described
 under [Local account commands](#local-account-commands).
+
+`sync` is on by default; `read_only` keeps only `discord_sync_read`. The sync
+list names the servers the sync service follows, each whole (its 10 most
+active text channels, minus exclusions) or by named text and announcement
+channels; DMs and group chats are always followed. At most 10 servers and 30
+channel slots, a whole server using 10.
+
+- `discord_sync_read` `list` shows each server, the channels it follows and
+  whether each is current, its exclusions and the slots used. `suggest`
+  proposes, from the mirror alone, channels the account wrote in or that are
+  busy but not followed, and entries gone quiet, each with the exact
+  arguments of the tool that applies it and whether it fits.
+- `discord_sync_add` follows a whole server or named channels of a server the
+  mirror knows; `discord_sync_remove` drops a server, or named channels, or
+  excludes channels from a whole server. Switching a server between whole and
+  named channels takes a removal first.
+
+All three change or read only the local list, never Discord. The two writes
+are asked about, since every followed channel adds requests to each later
+sync run. A change applies from the next run; messages already in the mirror
+stay readable.
 
 `chats` is on by default and available with `read_only`. `discord_chat_read`
 takes a `method`:
@@ -369,7 +393,8 @@ Lists are comma-separated in a flag or a variable. Where each harness reads them
   the sync service. For Codex, list it in `env_vars` as above.
 - **A sync service keeps each label's mirror**, polling Discord every 5
   minutes in short, capped runs: DMs and group DMs always, servers only as the
-  sync list names them (at most 10 servers and 30 channels). A read uses the
+  sync list names them (at most 10 servers and 30 channels; the `sync` tools
+  change it). A read uses the
   mirror only while its channel was synced in the last 15 minutes, and reads
   Discord directly otherwise. The service sends nothing of its own: no
   presence, no typing, no read marks.

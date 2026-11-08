@@ -303,6 +303,13 @@ Every entry point takes the same settings:
   its 10 most active text channels. Only channels whose last message moved are
   fetched. The limits are code, not judgement, and a run's 60 requests go
   round them.
+- **The sync list changes through write tools the harness asks about.** A
+  change is local, but every channel it follows adds requests to each later
+  run, so the person sees it. A change is checked against the mirror and the
+  limits, written whole and atomically under a lock of its own, and never
+  waits for a sync run; a run reads the list once, at its start. Switching a
+  server between whole and named channels takes a removal first, so coverage
+  never shrinks silently.
 - **It sends nothing of its own**: no presence, no typing, no read marks, no
   messages. Nobody learns from the account that a tool is reading, and the
   user's phone keeps its notifications.

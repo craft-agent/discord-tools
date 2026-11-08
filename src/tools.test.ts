@@ -13,6 +13,25 @@ describe("the registry", () => {
     }
   })
 
+  test("sync read is a read tool selected by default and in read-only mode", () => {
+    const id = "discord_sync_read"
+    expect(ALL_TOOLS.find((spec) => spec.id === id)).toMatchObject({ toolset: "sync", class: "read" })
+    for (const settings of [{}, { read_only: true }]) {
+      expect(selectTools(ALL_TOOLS, settings, PROJECT_PROFILE.toolsets).map((spec) => spec.id)).toContain(id)
+    }
+  })
+
+  test.each([
+    ["discord_sync_add", "idempotent"],
+    ["discord_sync_remove", "overwrite"],
+  ])("%s is a %s write tool in the sync toolset, left out in read-only mode", (id, writeClass) => {
+    expect(ALL_TOOLS.find((spec) => spec.id === id)).toMatchObject({ toolset: "sync", class: writeClass })
+    expect(selectTools(ALL_TOOLS, {}, PROJECT_PROFILE.toolsets).map((spec) => spec.id)).toContain(id)
+    expect(selectTools(ALL_TOOLS, { read_only: true }, PROJECT_PROFILE.toolsets).map((spec) => spec.id)).not.toContain(
+      id,
+    )
+  })
+
   test("chat read is a read tool selected by default and in read-only mode", () => {
     const id = "discord_chat_read"
     expect(ALL_TOOLS.find((spec) => spec.id === id)).toMatchObject({ toolset: "chats", class: "read" })
