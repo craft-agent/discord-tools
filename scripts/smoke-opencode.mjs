@@ -12,7 +12,7 @@ const SERVER = fileURLToPath(new URL("../dist/mcp.js", import.meta.url))
 const ACCOUNT_READ = "discord_account_read"
 const CHAT_READ = "discord_chat_read"
 const SYNC_READ = "discord_sync_read"
-const SYNC_WRITES = ["discord_sync_add", "discord_sync_remove"]
+const WRITE_TOOLS = ["discord_sync_add", "discord_sync_remove", "discord_message_send"]
 const NO_ACCOUNT = "not_found: No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "opencode-smoke-"))
 
@@ -78,9 +78,10 @@ try {
     expect(skills.includes("discord-account"), "Expected setup to discover the account skill.")
     expect(skills.includes("discord-chats"), "Expected setup to discover the chats skill.")
     expect(skills.includes("discord-sync"), "Expected setup to discover the sync skill.")
+    expect(skills.includes("discord-sends"), "Expected setup to discover the sends skill.")
     expect(expected.includes(CHAT_READ), `Expected the MCP registry to include ${CHAT_READ}.`)
     expect(expected.includes(SYNC_READ), `Expected the MCP registry to include ${SYNC_READ}.`)
-    for (const name of SYNC_WRITES) {
+    for (const name of WRITE_TOOLS) {
       expect(
         expected.includes(name) === !readOnly,
         `Expected the MCP registry to ${readOnly ? "omit" : "include"} ${name} with read_only=${readOnly}.`,
