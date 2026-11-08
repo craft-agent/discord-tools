@@ -1,5 +1,5 @@
-import type { ToolRuntime, ToolSpec } from "../core"
-import { permissionDescription } from "../entry/description"
+import type { ToolRuntime, ToolSpec, Translator } from "../core"
+import { DESCRIBE_TIMEOUT_MS, permissionDescription } from "../entry/description"
 import { permissionResources } from "../entry/permission"
 import { createToolRuntime } from "../entry/runtime"
 import { loadSkills } from "./skills"
@@ -28,6 +28,7 @@ function v2Tool(
   ownDir: string | undefined,
   stateDir: string,
   runtime: ToolRuntime,
+  t: Translator,
 ): V2Tool {
   return {
     name: spec.id,
@@ -45,13 +46,13 @@ function v2Tool(
         const toolContext = { cwd: directory, ownDir, stateDir, runtime, signal }
         const [resources, description] = await Promise.all([
           permissionResources(spec, input, toolContext),
-          permissionDescription(spec, input, toolContext),
+          permissionDescription(spec, input, toolContext, DESCRIBE_TIMEOUT_MS, t),
         ])
         await ctx.permission.assert({
           action: spec.id,
           resources,
           save: persistableResources(resources),
-          metadata: permissionMetadata(spec, input, resources, description),
+          metadata: permissionMetadata(spec, input, resources, description, t),
           sessionID,
         })
       }
@@ -70,8 +71,10 @@ function v2Tool(
 export function createV2Setup(specs: ToolSpec[], deps: PluginDeps = {}): OpenCodePlugin["setup"] {
   const runtime = createToolRuntime(deps)
   return async function setup(ctx: V2Context): Promise<void> {
-    const selection = selectedTools(specs, ctx.options, deps.env, deps.profile)
-    const tools = selection.tools.map((spec) => v2Tool(ctx, spec, deps.ownDir, selection.stateDir, runtime))
+    const selection = selectedTools(specs, ctx.options, deps)
+    const tools = selection.tools.map((spec) =>
+      v2Tool(ctx, spec, deps.ownDir, selection.stateDir, runtime, selection.translator),
+    )
     const skills = deps.skillsDir === undefined ? [] : await loadSkills(deps.skillsDir)
 
     if (tools.length > 0) {
