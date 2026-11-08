@@ -16,6 +16,7 @@ export {
   toolMeta,
   type CallDescription,
   type CallFact,
+  type CallText,
   type ConfirmRequest,
   type ToolAnnotations,
   type ToolContext,
@@ -25,3 +26,4 @@ export {
   type WriteClass,
 } from "./tool"
 export { callDescription } from "./describe"
+export { sizeFact } from "./facts"
