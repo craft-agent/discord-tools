@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { existsSync } from "node:fs"
+import { existsSync, renameSync } from "node:fs"
 import { readFile, stat, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { createHarness, type Harness } from "./client.testing"
@@ -83,6 +83,18 @@ describe("changeSyncList", () => {
     expect(release).toBeFunction()
     release?.()
   })
+
+  test("an account removed during the change is not_found, not a raw file error", async () => {
+    const moved = `${h.paths.dir}-removed`
+    await expect(
+      changeSyncList(h.paths, () => {
+        renameSync(h.paths.dir, moved)
+        return { servers: [{ id: SERVER }] }
+      }),
+    ).rejects.toMatchObject({ code: "not_found" })
+    renameSync(moved, h.paths.dir)
+    expect(existsSync(file)).toBe(false)
+  })
 })
 
 describe("the list lock", () => {
@@ -129,6 +141,15 @@ describe("the list lock", () => {
     } finally {
       release()
     }
+  })
+
+  test("a call cancelled before it starts writes nothing, even with the lock free", async () => {
+    const controller = new AbortController()
+    controller.abort()
+    await expect(
+      changeSyncList(h.paths, () => ({ servers: [{ id: SERVER }] }), { signal: controller.signal }),
+    ).rejects.toMatchObject({ name: "AbortError" })
+    expect(existsSync(file)).toBe(false)
   })
 
   test("two changes at once both land", async () => {

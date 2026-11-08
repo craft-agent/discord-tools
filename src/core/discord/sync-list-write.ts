@@ -5,6 +5,7 @@ import { ToolError } from "../errors"
 import type { LabelPaths } from "./labels"
 import { writePrivateFile } from "./private-file"
 import { readSyncList, SYNC_LIST_FILE, validateSyncList, type SyncList } from "./sync-list"
+import { checkAbort } from "./sync-channels"
 import { acquireSyncLock } from "./sync-lock"
 
 /** The list's own lock, in the label's directory: never `sync.lock`, so a change never waits for a sync run. */
@@ -33,6 +34,7 @@ async function acquireListLock(paths: LabelPaths, options: ChangeSyncListOptions
   const { signal, retryMs = LOCK_RETRY_MS, waitMs = LOCK_WAIT_MS } = options
   const lockPath = join(paths.dir, SYNC_LIST_LOCK_FILE)
   for (let waited = 0; ; waited += retryMs) {
+    checkAbort(signal)
     const release = acquireSyncLock(lockPath)
     if (release) return release
     if (waited >= waitMs) {
@@ -61,7 +63,22 @@ export async function changeSyncList(
     const next = change(current)
     if (next === undefined || isDeepStrictEqual(next, current)) return { list: current, changed: false }
     const list = validateSyncList(next)
-    await writePrivateFile(join(paths.dir, SYNC_LIST_FILE), `${JSON.stringify(list, null, 2)}\n`)
+    checkAbort(options.signal)
+    try {
+      await writePrivateFile(join(paths.dir, SYNC_LIST_FILE), `${JSON.stringify(list, null, 2)}\n`)
+    } catch (error) {
+      // Removing the label moves its directory away under the sync lock, not this one.
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        throw new ToolError(
+          "not_found",
+          `Account "${paths.label}" was removed while its sync list was being changed.`,
+          {
+            cause: error,
+          },
+        )
+      }
+      throw error
+    }
     return { list, changed: true }
   } finally {
     release()
