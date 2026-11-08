@@ -25,10 +25,10 @@ export async function messagesFromDiscord(session: ChatSession, request: Message
 
   const ids = page.messages.map((message) => message.id as string).reverse()
   if (from !== undefined) {
-    return { ids, next_before: null, next_after: page.complete ? null : (ids.at(-1) ?? null) }
+    return { ids, next_before: null, next_after: page.last ? null : (ids.at(-1) ?? null) }
   }
   const floor = request.after === undefined ? undefined : BigInt(request.after)
   const kept = floor === undefined ? ids : ids.filter((id) => BigInt(id) > floor)
   const reachedFloor = kept.length < ids.length
-  return { ids: kept, next_before: page.complete || reachedFloor ? null : (kept[0] ?? null), next_after: null }
+  return { ids: kept, next_before: page.last || reachedFloor ? null : (kept[0] ?? null), next_after: null }
 }

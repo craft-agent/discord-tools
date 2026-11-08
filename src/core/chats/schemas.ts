@@ -208,7 +208,9 @@ export const chatReadOutput = z.object({
   complete: z
     .boolean()
     .optional()
-    .describe("Method `backfill`: whether the mirror now reaches the chat's first message."),
+    .describe(
+      "Method `backfill`: whether the mirror now reaches the chat's first message; stays false when Discord returned no older messages, which happens both before a history's start and when the account cannot read the history.",
+    ),
   oldest: z
     .string()
     .nullable()

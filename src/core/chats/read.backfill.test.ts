@@ -95,7 +95,7 @@ describe("method backfill", () => {
   test("a chat without a cursor, or one the sync has not filled, is refused without a request", async () => {
     expect((await failure(backfill())).message).toContain("the sync follows")
     f.seed((m) => m.prepare("INSERT INTO cursors (channel, complete) VALUES (?, 0)").run(BigInt(CHANNEL)))
-    expect((await failure(backfill())).message).toContain("has not stored")
+    expect((await failure(backfill())).message).toContain("the sync has stored no messages of this chat yet")
     expect(historyRequests(f)).toHaveLength(0)
   })
 
@@ -184,5 +184,25 @@ describe("method backfill and the vouched range", () => {
     expect(result.source).toBe("mirror")
     expect(messageIds(result)).toEqual(idsOf(...span(196, 200)))
     expect(historyRequests(f)).toHaveLength(requests)
+  })
+
+  test("an empty page deletes nothing, leaves complete false, stops at one page, and allows another call to request again", async () => {
+    f.seed((m) =>
+      ingestMessages(m, f.ingestContext(), [messageObject(msgId(50), CHANNEL)], {
+        reactions: true,
+      }),
+    )
+    followed({ current: true })
+    serveHistory(f, [])
+    const first = await backfill({ pages: 3 })
+    expect(first).toMatchObject({ pages: 1, stored: 0, deleted: 0, complete: false, oldest: msgId(FOLLOWED_OLDEST) })
+    expect(stored()).toEqual(idsOf(50, ...span(FOLLOWED_OLDEST, FIRST_NEWEST)))
+    expect(cursor()[0]).toMatchObject({ complete: 0, oldest: msgId(FOLLOWED_OLDEST) })
+    expect(historyRequests(f)).toHaveLength(1)
+
+    serveHistory(f, [])
+    const second = await backfill({ pages: 3 })
+    expect(second).toMatchObject({ pages: 1, stored: 0, deleted: 0, complete: false, oldest: msgId(FOLLOWED_OLDEST) })
+    expect(historyRequests(f)).toHaveLength(2)
   })
 })

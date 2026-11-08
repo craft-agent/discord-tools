@@ -123,7 +123,7 @@ export async function syncChannel(ctx: SyncContext, channel: SyncChannel, rechec
     const newest = pending?.newest ?? page.newest
     const caught =
       seed ||
-      page.complete ||
+      page.last ||
       (anchor !== undefined && anchor !== null && page.oldest !== undefined && BigInt(page.oldest) <= BigInt(anchor))
     const next: PendingCatchup | undefined =
       !caught && anchor && newest && page.oldest

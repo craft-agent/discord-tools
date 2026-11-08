@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { ingestHistoryPage } from "./ingest"
 import { CHANNEL, channelObject, ctxAt, messageObject, msgId, OTHER_CHANNEL, SERVER } from "./objects.testing"
-import { channelRecords, forwardPage } from "./sync-page"
+import { channelRecords, forwardPage, historyPage } from "./sync-page"
 import { createTestMirror, errorOf, storedMessageIds, type TestMirror } from "./mirror.testing"
 
 let t: TestMirror
@@ -32,12 +32,15 @@ describe("forwardPage", () => {
     expect(page.messages.map((m) => m.id)).toEqual([msgId(14), msgId(13), msgId(12)])
     expect(page.newest).toBe(msgId(14))
     expect(page.oldest).toBe(msgId(12))
+    expect(page.last).toBe(false)
     expect(page.complete).toBe(false)
     expect(page.range).toEqual({ after: msgId(10), before: msgId(15) })
   })
 
-  test("a short page is complete", () => {
-    expect(forwardPage([message(12)], CHANNEL, 3, msgId(10)).complete).toBe(true)
+  test("a short page is complete and last", () => {
+    const page = forwardPage([message(12)], CHANNEL, 3, msgId(10))
+    expect(page.last).toBe(true)
+    expect(page.complete).toBe(true)
   })
 
   test("a page deletes what is mirrored inside its range and returned nowhere, and nothing outside", () => {
@@ -61,6 +64,8 @@ describe("forwardPage", () => {
   test("an empty page vouches for nothing", () => {
     const page = forwardPage([], CHANNEL, 3, msgId(10))
     expect(page.messages).toEqual([])
+    expect(page.last).toBe(true)
+    expect(page.complete).toBe(false)
     expect(page.range).toEqual({ after: msgId(10), before: msgId(10) })
     t.write(() => {
       ingestHistoryPage(
@@ -90,5 +95,33 @@ describe("forwardPage", () => {
   ])("refuses %s", (_name, value) => {
     const error = errorOf(() => forwardPage(value, CHANNEL, 3, msgId(10)))
     expect(error).toMatchObject({ code: "upstream_error" })
+  })
+})
+
+describe("historyPage", () => {
+  test("empty page has last true, complete false, and zero-width range", () => {
+    const withBefore = historyPage([], CHANNEL, 3, msgId(10))
+    expect(withBefore.last).toBe(true)
+    expect(withBefore.complete).toBe(false)
+    expect(withBefore.range).toEqual({ after: msgId(10), before: msgId(10) })
+
+    const withoutBefore = historyPage([], CHANNEL, 3)
+    expect(withoutBefore.last).toBe(true)
+    expect(withoutBefore.complete).toBe(false)
+    expect(withoutBefore.range).toEqual({ after: "1", before: "1" })
+  })
+
+  test("short non-empty page has last true, complete true, and range from 0", () => {
+    const page = historyPage([message(12)], CHANNEL, 3, msgId(15))
+    expect(page.last).toBe(true)
+    expect(page.complete).toBe(true)
+    expect(page.range).toEqual({ after: "0", before: msgId(15) })
+  })
+
+  test("full page has neither last nor complete", () => {
+    const page = historyPage([message(14), message(13), message(12)], CHANNEL, 3, msgId(15))
+    expect(page.last).toBe(false)
+    expect(page.complete).toBe(false)
+    expect(page.range).toEqual({ after: msgId(11), before: msgId(15) })
   })
 })
