@@ -16,7 +16,11 @@ const PRIVATE_REFERER_SERVER = "@me"
 
 /** The channel the `channel` argument names, whatever its kind; `not_found` when the mirror has no such channel. */
 export function mirroredChannel(session: ChatSession, args: ChatReadInput): MirroredChannel {
-  const id = requireChannel(args)
+  return mirroredChannelId(session, requireChannel(args))
+}
+
+/** The channel with this id, whatever its kind; `not_found` when the mirror has no such channel. */
+function mirroredChannelId(session: ChatSession, id: string): MirroredChannel {
   const row = session.mirror
     .prepare("SELECT type, CAST(server AS TEXT) AS server, forum FROM channels WHERE id = ?")
     .get(BigInt(id)) as ChannelRow | undefined
@@ -41,7 +45,12 @@ export function mirroredChannel(session: ChatSession, args: ChatReadInput): Mirr
  * posts are threads).
  */
 export function knownChannel(session: ChatSession, args: ChatReadInput): ChannelTarget {
-  const { target, type } = mirroredChannel(session, args)
+  return knownChannelId(session, requireChannel(args))
+}
+
+/** The chat with this id, as the mirror knows it; refuses as `knownChannel` does. */
+export function knownChannelId(session: ChatSession, id: string): ChannelTarget {
+  const { target, type } = mirroredChannelId(session, id)
   const kind = channelKind(type)
   if (type === CATEGORY_TYPE || kind === "forum" || kind === "media") {
     const message =

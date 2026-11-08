@@ -16,6 +16,7 @@ const CHAT_READ = "discord_chat_read"
 const SYNC_READ = "discord_sync_read"
 const SYNC_ADD = "discord_sync_add"
 const SYNC_REMOVE = "discord_sync_remove"
+const MESSAGE_SEND = "discord_message_send"
 const NO_ACCOUNT = "No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "mcp-smoke-"))
 
@@ -84,8 +85,8 @@ async function listTools(settings) {
     console.log(`${SYNC_READ} is read-only and refuses offline under ${JSON.stringify(settings)}.`)
 
     if (settings.includes("--read-only")) {
-      for (const name of [SYNC_ADD, SYNC_REMOVE]) expectAbsent(tools, name, settings)
-      console.log(`${SYNC_ADD} and ${SYNC_REMOVE} are absent under ${JSON.stringify(settings)}.`)
+      for (const name of [SYNC_ADD, SYNC_REMOVE, MESSAGE_SEND]) expectAbsent(tools, name, settings)
+      console.log(`${SYNC_ADD}, ${SYNC_REMOVE} and ${MESSAGE_SEND} are absent under ${JSON.stringify(settings)}.`)
     } else {
       expectAnnotations(
         tools,
@@ -101,6 +102,14 @@ async function listTools(settings) {
       )
       await expectToolError(client, SYNC_ADD, { server: "general" }, "invalid_argument")
       console.log(`${SYNC_ADD} and ${SYNC_REMOVE} carry their write annotations; ${SYNC_ADD} refuses a name for an id.`)
+      expectAnnotations(
+        tools,
+        MESSAGE_SEND,
+        { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+        settings,
+      )
+      await expectToolError(client, MESSAGE_SEND, { channel: "general", text: "hi" }, "invalid_argument")
+      console.log(`${MESSAGE_SEND} carries its write annotations and refuses a name for an id.`)
     }
 
     const result = await client.callTool({ name: UNKNOWN_TOOL })

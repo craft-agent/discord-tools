@@ -15,7 +15,7 @@ const UNKNOWN_TOOL = "unknown_nonexistent_read"
 const ACCOUNT_READ = "discord_account_read"
 const CHAT_READ = "discord_chat_read"
 const SYNC_READ = "discord_sync_read"
-const SYNC_WRITES = { discord_sync_add: "idempotent", discord_sync_remove: "overwrite" }
+const WRITE_TOOLS = { discord_sync_add: "idempotent", discord_sync_remove: "overwrite", discord_message_send: "add" }
 const NO_ACCOUNT = "No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "cli-tools-smoke-"))
 
@@ -64,7 +64,7 @@ async function listsTheServersTools() {
       listed.some((tool) => tool.id === SYNC_READ && tool.class === "read"),
       `Expected ${label} to include ${SYNC_READ} as a read tool`,
     )
-    for (const [id, writeClass] of Object.entries(SYNC_WRITES)) {
+    for (const [id, writeClass] of Object.entries(WRITE_TOOLS)) {
       const tool = listed.find((entry) => entry.id === id)
       expect(
         settings.includes("--read-only") ? tool === undefined : tool?.class === writeClass,

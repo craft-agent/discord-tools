@@ -4,16 +4,19 @@ import { readAccount, writeAccount } from "./account-meta"
 import { createDiscordClient, type DiscordClientOptions } from "./client"
 import { ensureLabelDir, type LabelPaths } from "./labels"
 import { maskTokens } from "./mask"
-import { getMeta, openMirrorForRead } from "./mirror"
-import { ACCOUNT_ID_META } from "./mirror-meta"
 import { isSnowflake } from "./snowflake"
+import { existingBinding } from "./sync-identity"
 import { acquireSyncLock, LOCK_HELD_REASON } from "./sync-lock"
 import { clearRejected, writeTokenFile, type TokenSource } from "./token"
 
 /** Includes build discovery and at most one API read retry. */
 const LOGIN_REQUEST_BUDGET = 4
 
-/** Checks a legacy mirror without creating or migrating it. */
+/**
+ * Checks a legacy mirror without creating or migrating it. A mirror of an
+ * older version is read too: a sync run migrates it only after signing in,
+ * so refusing it here would leave a rejected token no way back.
+ */
 async function mirrorAccountId(paths: LabelPaths): Promise<string | undefined> {
   const stat = await lstat(paths.mirror).catch((error: unknown) => {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined
@@ -23,16 +26,11 @@ async function mirrorAccountId(paths: LabelPaths): Promise<string | undefined> {
   if (!stat.isFile() || stat.isSymbolicLink()) {
     throw new ToolError("stale", "The account's mirror is not a regular file; restore it before signing in.")
   }
-  const mirror = openMirrorForRead(paths.mirror)
-  try {
-    const id = getMeta(mirror)[ACCOUNT_ID_META]
-    if (id !== undefined && !isSnowflake(id)) {
-      throw new ToolError("stale", "The mirror's account identity is malformed; restore it before signing in.")
-    }
-    return id
-  } finally {
-    mirror.close()
+  const id = existingBinding(paths.mirror)
+  if (id !== undefined && !isSnowflake(id)) {
+    throw new ToolError("stale", "The mirror's account identity is malformed; restore it before signing in.")
   }
+  return id
 }
 
 /**

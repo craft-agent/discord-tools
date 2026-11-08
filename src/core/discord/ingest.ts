@@ -10,4 +10,5 @@ export { deleteMessage, ingestHistoryPage, ingestOlderHistory } from "./ingest-h
 export { ingestMessages } from "./ingest-messages"
 export { emojiKey } from "./ingest-parts"
 export { ingestServerList, ingestServers } from "./ingest-servers"
+export { getSend, recordSend, SEND_LEDGER_DAYS, settleSend, textHash } from "./ingest-sends"
 export { ingestUsers } from "./ingest-users"
