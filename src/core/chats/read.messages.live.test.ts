@@ -70,6 +70,15 @@ describe("method messages from Discord, backward", () => {
     expect(f.inspect((m) => storedMessageIds(m, OTHER_CHANNEL))).toEqual(idsOf(4))
   })
 
+  test("an empty page served for a request with before deletes nothing and ends paging with null next_before", async () => {
+    seedHistory(f, [1, 2, 3], { complete: true })
+    serveHistory(f, [])
+    const result = await messages({ before: idsOf(4)[0], limit: 5 })
+    expect(result.next_before).toBeNull()
+    expect(result.messages).toEqual([])
+    expect(stored()).toEqual(idsOf(1, 2, 3))
+  })
+
   test("the after floor drops what is not above it and ends the paging", async () => {
     serveHistory(f, history(1, 2, 3, 4, 5))
     const top = idsOf(6)[0]

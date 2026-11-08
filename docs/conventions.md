@@ -368,7 +368,10 @@ Every entry point takes the same settings:
   and deletions a user account can poll, so every page of a channel's history
   overwrites what it returns and drops mirrored messages inside its range that
   it did not return: those were deleted. Search, pin and mention results are
-  not contiguous and drop nothing.
+  not contiguous and drop nothing. **An empty page vouches for nothing**:
+  Discord answers an account that cannot read a channel's history with an
+  empty list, so it deletes nothing and never marks a history complete; only a
+  short page with messages reaches a history's start.
 - **Things are ids.** Channels, messages, servers, users and roles are
   Discord's snowflake ids, and names are never accepted as a target: anyone
   can choose any name.

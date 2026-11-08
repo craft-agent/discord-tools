@@ -51,10 +51,12 @@ describe("ingestOlderHistory", () => {
     expect(getCursor(t.mirror, CHANNEL)).toMatchObject({ oldest: msgId(4), complete: true })
   })
 
-  test("an empty page keeps oldest and sets complete", () => {
-    seedFollowed()
-    t.write(() => ingestOlderHistory(t.mirror, ctxAt(), CHANNEL, older(5, 6)))
-    expect(getCursor(t.mirror, CHANNEL)).toMatchObject({ oldest: msgId(6), complete: true })
+  test("an empty page keeps oldest and leaves complete false, deleting nothing", () => {
+    seedFollowed(4)
+    const counts = t.write(() => ingestOlderHistory(t.mirror, ctxAt(), CHANNEL, older(5, 6)))
+    expect(counts).toEqual({ stored: 0, deleted: 0, skipped: 0 })
+    expect(getCursor(t.mirror, CHANNEL)).toMatchObject({ oldest: msgId(6), complete: false })
+    expect(storedMessageIds(t.mirror, CHANNEL)).toEqual([4, 6, 7, 8, 9].map(msgId))
   })
 
   test("deletes only inside the page's range", () => {

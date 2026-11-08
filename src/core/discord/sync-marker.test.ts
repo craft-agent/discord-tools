@@ -54,18 +54,15 @@ test("a deleted last-sent marker completes, skips unchanged history, and remains
   expect(h.discord.api.at(-1)?.query.get("limit")).toBe("50")
 })
 
-test("deleting all messages while retaining the last-sent marker completes and then avoids refetching", async () => {
+test("an empty recheck while retaining the last-sent marker deletes nothing and keeps rows", async () => {
   const messages = await recentSeed()
   h.advance(31 * 60_000)
   h.discord.route("GET", history, { status: 200, json: [] })
-  expect(await h.run()).toMatchObject({ status: "complete", requests: 3, deleted: 6 })
-  expect(h.inspect((m) => getCursor(m, SYNC_CHANNEL))).toMatchObject({ newest: null, oldest: null, complete: true })
-  expect(h.inspect((m) => storedMessageIds(m, SYNC_CHANNEL))).toEqual([])
+  expect(await h.run()).toMatchObject({ status: "partial", requests: 3, deleted: 0 })
+  expect(h.inspect((m) => getCursor(m, SYNC_CHANNEL))).toMatchObject({ newest: messages[0]!.id })
+  expect(h.inspect((m) => storedMessageIds(m, SYNC_CHANNEL))).toEqual(messages.map((m) => m.id).reverse())
   expect(h.inspect((m) => getMeta(m)[markerKey])).toBe(messages[0]!.id)
-  expect(h.inspect((m) => getMeta(m)[coveredHeadKey(SYNC_CHANNEL)])).toBe("0")
-  expect(await h.run()).toMatchObject({ status: "complete", requests: 2 })
-  h.advance(31 * 60_000)
-  expect(await h.run()).toMatchObject({ status: "complete", requests: 3 })
+  expect(await h.run()).toMatchObject({ status: "partial", requests: 3, deleted: 0 })
 })
 
 test("a continuation with the same deleted marker completes despite its older surviving head", async () => {

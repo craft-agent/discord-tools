@@ -6,6 +6,9 @@ export type HistoryPage = {
   messages: JsonRecord[]
   newest?: string
   oldest?: string
+  /** No further page to request: the page was shorter than asked, empty included. */
+  last: boolean
+  /** Whether the page reached the history's first message (a short non-empty page). */
   complete: boolean
   range: { after: string; before: string }
 }
@@ -55,7 +58,11 @@ export function forwardPage(value: unknown, channel: string, limit: number, afte
   return { ...page, range: { after, before } }
 }
 
-/** Validates the entire newest-first history response before it can vouch for a deletion range. */
+/**
+ * Validates the entire newest-first history response before it can vouch for a
+ * deletion range. An empty page vouches for nothing (Discord returns an empty
+ * list to an account that cannot read the history).
+ */
 export function historyPage(
   value: unknown,
   channel: string,
@@ -84,7 +91,8 @@ export function historyPage(
   }
   const newest = messages[0]?.id as string | undefined
   const oldest = messages.at(-1)?.id as string | undefined
-  const complete = messages.length < limit
+  const last = messages.length < limit
+  const complete = messages.length > 0 && messages.length < limit
   // Latest pages also vouch for deleted heads observed before dispatch, never for later arrivals.
   const returned = BigInt(newest ?? "0")
   const observed = BigInt(observedThrough ?? "0")
@@ -94,7 +102,11 @@ export function historyPage(
     messages,
     newest,
     oldest,
+    last,
     complete,
-    range: { after: complete ? "0" : String(BigInt(oldest!) - 1n), before: upper },
+    range:
+      messages.length === 0
+        ? { after: upper, before: upper }
+        : { after: complete ? "0" : String(BigInt(oldest!) - 1n), before: upper },
   }
 }

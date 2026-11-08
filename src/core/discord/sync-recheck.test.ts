@@ -67,7 +67,7 @@ test("only two due channels are rechecked, with the remaining channel served nex
   expect(h.discord.api.slice(next).filter((request) => request.path.endsWith("/messages"))).toHaveLength(1)
 })
 
-test("empty latest history removes only the observed range and never falsely stamps a deleted cursor head", async () => {
+test("empty latest history vouches for nothing, deletes no messages, and never falsely stamps a deleted cursor head", async () => {
   h.dm("100")
   h.discord.route("GET", history, { status: 200, json: syncMessages(100, 95) })
   await h.run()
@@ -77,8 +77,13 @@ test("empty latest history removes only the observed range and never falsely sta
     h.write((m) => ingestMessages(m, { me: SYNC_ME, now: h.now() }, [syncMessage("200")], { reactions: false }))
     return { status: 200, json: [] }
   })
-  expect(await h.run()).toMatchObject({ status: "partial", deleted: 6, requests: 3 })
-  expect(h.inspect((m) => storedMessageIds(m, SYNC_CHANNEL))).toEqual(["200"])
+  expect(await h.run()).toMatchObject({ status: "partial", deleted: 0, requests: 3 })
+  expect(h.inspect((m) => storedMessageIds(m, SYNC_CHANNEL))).toEqual([
+    ...syncMessages(100, 95)
+      .map((m) => m.id)
+      .reverse(),
+    "200",
+  ])
   expect(h.inspect((m) => getCursor(m, SYNC_CHANNEL)?.syncedAt)).toBe(synced)
 })
 
@@ -117,13 +122,36 @@ test("a short continuation proves the start and prunes deleted messages up to th
   h.dm("300")
   h.discord.route("GET", history, (request) => ({
     status: 200,
-    json: request.query.has("before") ? [] : syncMessages(300, 201),
+    json: request.query.has("before") ? [syncMessage("1")] : syncMessages(300, 201),
   }))
   expect(await h.run()).toMatchObject({ status: "complete", deleted: 50 })
-  expect(h.inspect((m) => storedMessageIds(m, SYNC_CHANNEL))).toEqual(
-    syncMessages(300, 201)
+  expect(h.inspect((m) => storedMessageIds(m, SYNC_CHANNEL))).toEqual([
+    "1",
+    ...syncMessages(300, 201)
       .map((m) => m.id)
       .reverse(),
-  )
+  ])
   expect(h.inspect((m) => getCursor(m, SYNC_CHANNEL))).toMatchObject({ newest: "300", complete: true })
+})
+
+test("an empty continuation ends catch-up without deleting messages or setting complete", async () => {
+  h.dm("100")
+  h.discord.route("GET", history, { status: 200, json: syncMessages(100, 51) })
+  await h.run()
+  h.dm("300")
+  h.discord.route("GET", history, (request) => ({
+    status: 200,
+    json: request.query.has("before") ? [] : syncMessages(300, 201),
+  }))
+  expect(await h.run()).toMatchObject({ status: "complete", deleted: 0 })
+  expect(h.inspect((m) => storedMessageIds(m, SYNC_CHANNEL))).toEqual([
+    ...syncMessages(100, 51)
+      .map((m) => m.id)
+      .reverse(),
+    ...syncMessages(300, 201)
+      .map((m) => m.id)
+      .reverse(),
+  ])
+  expect(h.inspect((m) => getCursor(m, SYNC_CHANNEL))).toMatchObject({ newest: "300", complete: false })
+  expect(h.inspect((m) => getMeta(m)[pendingKey(SYNC_CHANNEL)])).toBeUndefined()
 })

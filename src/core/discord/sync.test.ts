@@ -25,15 +25,16 @@ test("seeds only the newest 50 and unchanged metadata makes no history request",
   expect(h.discord.api.filter((request) => request.path === history).length).toBe(count)
 })
 
-test("short seed and a truly empty channel reach the start", async () => {
+test("a truly empty channel becomes current without marking complete, then short seed reaches the start", async () => {
   h.dm(null)
   h.discord.route("GET", history, { status: 200, json: [] })
   expect((await h.run()).status).toBe("complete")
-  expect(h.inspect((m) => getCursor(m, SYNC_CHANNEL))).toMatchObject({ newest: null, oldest: null, complete: true })
+  expect(h.inspect((m) => getCursor(m, SYNC_CHANNEL))).toMatchObject({ newest: null, oldest: null, complete: false })
   h.dm("10")
   h.discord.route("GET", history, { status: 200, json: syncMessages(10, 1) })
   expect((await h.run()).status).toBe("complete")
   expect(h.inspect((m) => storedMessageIds(m, SYNC_CHANNEL))).toHaveLength(10)
+  expect(h.inspect((m) => getCursor(m, SYNC_CHANNEL))).toMatchObject({ newest: "10", oldest: "1", complete: true })
 })
 
 test("budget cut commits page and pending progress together, then resumes before the saved boundary", async () => {

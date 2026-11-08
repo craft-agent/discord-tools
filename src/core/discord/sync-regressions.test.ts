@@ -31,14 +31,17 @@ test("deleting the newest message reconciles backwards and later stable runs nee
   for (let run = 0; run < 3; run += 1) expect(await h.run()).toMatchObject({ status: "complete", requests: 2 })
 })
 
-test("deleting all messages clears edges and stable empty runs no longer refetch", async () => {
-  await seed()
+test("an empty page for a channel with mirrored history deletes nothing and keeps rows", async () => {
+  h.dm("100")
+  h.discord.route("GET", history, { status: 200, json: syncMessages(100, 51) })
+  expect((await h.run()).status).toBe("complete")
+  expect(h.inspect((m) => getCursor(m, SYNC_CHANNEL))).toMatchObject({ newest: "100", oldest: "51", complete: false })
+
   h.dm(null)
   h.discord.route("GET", history, { status: 200, json: [] })
-  expect(await h.run()).toMatchObject({ status: "complete", deleted: 6, requests: 3 })
-  expect(h.inspect((m) => getCursor(m, SYNC_CHANNEL))).toMatchObject({ newest: null, oldest: null, complete: true })
-  expect(h.inspect((m) => storedMessageIds(m, SYNC_CHANNEL))).toEqual([])
-  for (let run = 0; run < 3; run += 1) expect(await h.run()).toMatchObject({ status: "complete", requests: 2 })
+  expect(await h.run()).toMatchObject({ status: "partial", deleted: 0, requests: 3 })
+  expect(h.inspect((m) => getCursor(m, SYNC_CHANNEL))).toMatchObject({ newest: "100", oldest: "51", complete: false })
+  expect(h.inspect((m) => storedMessageIds(m, SYNC_CHANNEL))).toHaveLength(50)
 })
 
 test("a newer message ingested while awaiting latest history survives without false freshness", async () => {
@@ -122,7 +125,7 @@ test("incomplete catch-up preserves its anchor and continuation never stamps a c
     return { status: 200, json: [] }
   })
   expect((await h.run()).status).toBe("partial")
-  expect(h.inspect((m) => getCursor(m, SYNC_CHANNEL))).toMatchObject({ newest: "301", oldest: "201", syncedAt: synced })
+  expect(h.inspect((m) => getCursor(m, SYNC_CHANNEL))).toMatchObject({ newest: "301", oldest: "95", syncedAt: synced })
   expect(h.inspect((m) => getMeta(m)[pendingKey(SYNC_CHANNEL)])).toBeUndefined()
 })
 

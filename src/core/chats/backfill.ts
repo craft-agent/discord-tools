@@ -20,7 +20,10 @@ function followedCursor(session: ChatSession, channel: string) {
     )
   }
   if (cursor.oldest === null && !cursor.complete) {
-    throw new ToolError("invalid_argument", "the sync has not stored this chat's history yet.")
+    throw new ToolError(
+      "invalid_argument",
+      "the sync has stored no messages of this chat yet, so there is nothing to pull older history from.",
+    )
   }
   return cursor
 }
@@ -57,6 +60,8 @@ export const readBackfill: ChatHandler = async (session, args) => {
       const counts = session.store((ctx) => ingestOlderHistory(session.mirror, ctx, channel, page))
       stored += counts.stored
       deleted += counts.deleted
+      cursor = getCursor(session.mirror, channel) ?? cursor
+      if (page.last && !page.complete) break
     } catch (error) {
       if (firstPage || isAbortError(error) || session.signal?.aborted || !isToolError(error)) throw error
       stopped = { code: error.code, message: error.message }
