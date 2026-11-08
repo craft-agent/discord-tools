@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, test } from "bun:test"
 import { existsSync } from "node:fs"
 import { readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
+import { DatabaseSync } from "node:sqlite"
 import { ToolError } from "../errors"
 import { readAccount, writeAccount } from "./account-meta"
 import { loginAccount } from "./client-login"
@@ -9,6 +10,7 @@ import { loginFixture } from "./client-login.testing"
 import { fakeToken } from "./fake-token.testing"
 import { getMeta, openMirrorForRead, openMirrorForWrite, setMeta } from "./mirror"
 import { ACCOUNT_ID_META } from "./mirror-meta"
+import { MIGRATIONS } from "./mirror-schema"
 import { acquireSyncLock } from "./sync-lock"
 
 let fixture: Awaited<ReturnType<typeof loginFixture>>
@@ -58,17 +60,34 @@ test("a matching legacy mirror accepts login without modifying its metadata", as
   }
 })
 
-test("login never migrates or initializes an existing older mirror", async () => {
+test("login signs in over an older mirror without migrating or initializing it", async () => {
   const { harness, options } = fixture
   const mirror = openMirrorForWrite(harness.paths.mirror)
   mirror.exec("PRAGMA user_version = 0")
-  await expect(loginAccount(options)).rejects.toMatchObject({ code: "not_found" })
+  await loginAccount(options)
   try {
     expect(mirror.prepare("PRAGMA user_version").get()).toEqual({ user_version: 0 })
-    expect(harness.discord.requests).toHaveLength(0)
-    expect(existsSync(harness.paths.token)).toBe(false)
+    expect(existsSync(harness.paths.token)).toBe(true)
   } finally {
     mirror.close()
+  }
+})
+
+test("an older mirror's binding still refuses another account, so a rejected token can be replaced", async () => {
+  const { harness, options } = fixture
+  const raw = new DatabaseSync(harness.paths.mirror)
+  raw.exec(MIGRATIONS[0]!)
+  raw.exec(`INSERT INTO meta (key, value) VALUES ('${ACCOUNT_ID_META}', '101'); PRAGMA user_version = 1`)
+  raw.close()
+  await loginAccount(options)
+  expect(await readAccount(harness.paths)).toMatchObject({ id: "101" })
+  harness.discord.route("GET", "/users/@me", { status: 200, json: { id: "202", username: "other" } })
+  await expect(loginAccount(options)).rejects.toMatchObject({ code: "invalid_argument" })
+  const check = new DatabaseSync(harness.paths.mirror)
+  try {
+    expect(check.prepare("PRAGMA user_version").get()).toEqual({ user_version: 1 })
+  } finally {
+    check.close()
   }
 })
 

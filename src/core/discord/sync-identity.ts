@@ -9,8 +9,12 @@ import { isSnowflake } from "./snowflake"
 import { checkAbort } from "./sync-channels"
 import { invalidResponse } from "./sync-page"
 
-/** Reads the binding without creating or migrating a mirror, including an older schema's meta table. */
-function existingBinding(path: string): string | undefined {
+/**
+ * Reads the account a mirror is bound to without creating or migrating it,
+ * whatever its schema version, so an older mirror never stands between an
+ * account and signing in or syncing again.
+ */
+export function existingBinding(path: string): string | undefined {
   if (!existsSync(path)) return undefined
   // Query-only permits SQLite to reopen a WAL mirror whose last writer removed its shared-memory file.
   const mirror = new DatabaseSync(path)
