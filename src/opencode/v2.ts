@@ -1,4 +1,5 @@
 import type { ToolRuntime, ToolSpec } from "../core"
+import { permissionDescription } from "../entry/description"
 import { permissionResources } from "../entry/permission"
 import { createToolRuntime } from "../entry/runtime"
 import { loadSkills } from "./skills"
@@ -41,12 +42,16 @@ function v2Tool(
             `invalid_argument: The session's directory could not be read, so ${spec.id} cannot tell what it changes; retry.`,
           )
         }
-        const resources = await permissionResources(spec, input, { cwd: directory, ownDir, stateDir, runtime, signal })
+        const toolContext = { cwd: directory, ownDir, stateDir, runtime, signal }
+        const [resources, description] = await Promise.all([
+          permissionResources(spec, input, toolContext),
+          permissionDescription(spec, input, toolContext),
+        ])
         await ctx.permission.assert({
           action: spec.id,
           resources,
           save: persistableResources(resources),
-          metadata: permissionMetadata(spec, input, resources),
+          metadata: permissionMetadata(spec, input, resources, description),
           sessionID,
         })
       }
