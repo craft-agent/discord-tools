@@ -403,7 +403,14 @@ Every entry point takes the same settings:
   without the message) throws `uncertain`, never retried, with what a
   read-back saw as a hint. A resend that guessed wrong posts twice.
 - **A send carries a fresh nonce with `enforce_nonce`**, recorded before it
-  leaves, so a request that reaches Discord twice posts once.
+  leaves, so a request that reaches Discord twice posts once. The record is a
+  row of the mirror's send ledger, written through the ingest and settled with
+  the outcome; it holds a hash of the text, never the text, and is pruned
+  after 30 days.
+- **A send notifies only whom a person's would.** The text arrives as
+  written, but `@everyone`, `@here` and role mentions notify only when an
+  argument asks for it, and a silent send is one argument away: a mass ping
+  reaches many phones and cannot be taken back.
 - **Nothing marks a chat read but the tool for it.** A read mark clears the
   unread state on every device the user has, so it is a call the harness asks
   about, never a side effect of looking.

@@ -27,6 +27,14 @@ function writeNewerMirror(): void {
   raw.close()
 }
 
+/** A version-1 mirror with a row the migration must keep. */
+function writeOlderMirror(): void {
+  const raw = new DatabaseSync(path)
+  raw.exec(MIGRATIONS[0])
+  raw.exec("INSERT INTO meta (key, value) VALUES ('kept', 'yes'); PRAGMA user_version = 1")
+  raw.close()
+}
+
 beforeEach(() => {
   dir = makeTempDir()
   path = join(dir, "mirror.sqlite")
@@ -61,12 +69,20 @@ describe("openMirrorForWrite", () => {
     expect(version(mirror)).toBe(MIRROR_VERSION)
     expect(MIGRATIONS).toHaveLength(MIRROR_VERSION)
     const tables = columnOf(mirror, "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
-    expect(tables).toEqual(["channels", "cursors", "messages", "meta", "servers", "users"])
+    expect(tables).toEqual(["channels", "cursors", "messages", "meta", "sends", "servers", "users"])
     const indexes = columnOf(
       mirror,
       "SELECT name FROM sqlite_master WHERE type = 'index' AND sql IS NOT NULL ORDER BY name",
     )
-    expect(indexes).toEqual(["channels_server", "messages_author", "messages_channel"])
+    expect(indexes).toEqual(["channels_server", "messages_author", "messages_channel", "sends_created"])
+  })
+
+  test("migrates a version-1 mirror to version 2 and keeps its rows", () => {
+    writeOlderMirror()
+    const mirror = tracked(openMirrorForWrite(path))
+    expect(version(mirror)).toBe(2)
+    expect(getMeta(mirror)).toEqual({ kept: "yes" })
+    expect(rowsOf(mirror, "SELECT * FROM sends")).toEqual([])
   })
 
   test("a mirror already at the current version is opened as it is", () => {
@@ -138,6 +154,20 @@ describe("openMirrorForRead", () => {
     const error = errorOf(() => openMirrorForRead(path))
     expect(isToolError(error) && error.code).toBe("upstream_error")
     expect(error.message).toBe("This mirror was written by a newer version of these tools; update them.")
+    expect(existsSync(`${path}-wal`)).toBe(false)
+  })
+
+  test("refuses a version-1 mirror without migrating it", () => {
+    writeOlderMirror()
+    const error = errorOf(() => openMirrorForRead(path))
+    expect(isToolError(error) && error.code).toBe("upstream_error")
+    expect(error.message).toBe(
+      "This mirror is from an older version of these tools; run the account's sync once to bring it up to date.",
+    )
+    const raw = new DatabaseSync(path)
+    expect(raw.prepare("PRAGMA user_version").get()).toEqual({ user_version: 1 })
+    expect(raw.prepare("SELECT * FROM meta").all()).toEqual([{ key: "kept", value: "yes" }])
+    raw.close()
     expect(existsSync(`${path}-wal`)).toBe(false)
   })
 })

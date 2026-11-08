@@ -1,5 +1,5 @@
 /** The schema version a current mirror has: the number of `MIGRATIONS`. */
-export const MIRROR_VERSION = 1
+export const MIRROR_VERSION = 2
 
 /**
  * `MIGRATIONS[i]` takes a mirror from version `i` to `i + 1`; entry 0 creates
@@ -12,6 +12,8 @@ export const MIRROR_VERSION = 1
  * `mentions`, `mention_roles`, `attachments`, `embeds`, `stickers` and
  * `reactions` hold JSON text, and `raw` the object exactly as Discord sent it,
  * so a later tool can read a field without fetching history again.
+ * The send ledger holds a SHA-256 hex of the text, never the text; `code`
+ * is the error code of a `not_sent` or `uncertain` send.
  */
 export const MIGRATIONS: readonly string[] = [
   `
@@ -91,5 +93,19 @@ CREATE TABLE meta (
   key TEXT PRIMARY KEY,
   value TEXT
 );
+`,
+  `
+CREATE TABLE sends (
+  nonce INTEGER PRIMARY KEY,
+  channel INTEGER NOT NULL,
+  reply_to INTEGER,
+  text_hash TEXT NOT NULL,
+  created INTEGER NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('pending', 'sent', 'not_sent', 'uncertain')),
+  message INTEGER,
+  code TEXT,
+  settled INTEGER
+);
+CREATE INDEX sends_created ON sends (created);
 `,
 ]
