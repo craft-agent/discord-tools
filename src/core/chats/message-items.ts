@@ -21,7 +21,8 @@ const SYSTEM_EVENTS: Readonly<Record<number, string>> = {
 /** The event of a system message type without a name of its own. */
 const OTHER_SYSTEM_EVENT = "system"
 
-type ItemRow = {
+/** The columns `ITEM_COLUMNS` selects. */
+export type ItemRow = {
   id: string
   type: number
   from_me: number
@@ -44,7 +45,8 @@ type ItemRow = {
   edited_at: number | null
 }
 
-const ITEM_COLUMNS = `CAST(m.id AS TEXT) AS id, m.type, m.from_me, CAST(m.author AS TEXT) AS author, m.author_nick,
+/** What a query selects to build items: from `messages m LEFT JOIN users u ON u.id = m.author`. */
+export const ITEM_COLUMNS = `CAST(m.id AS TEXT) AS id, m.type, m.from_me, CAST(m.author AS TEXT) AS author, m.author_nick,
   u.username, u.global_name, m.content, m.ref_kind, CAST(m.ref_message AS TEXT) AS ref_message,
   CAST(m.ref_channel AS TEXT) AS ref_channel, m.mentions, m.mention_everyone, m.attachments, m.embeds,
   m.stickers, m.reactions, m.pinned, m.created_at, m.edited_at`
@@ -60,7 +62,8 @@ function storedList<T>(schema: z.ZodType<T[]>, json: string | null): T[] {
   }
 }
 
-function itemOf(row: ItemRow, me: string): MessageItem {
+/** The item of a row, as seen by the user `me`. */
+export function itemOf(row: ItemRow, me: string): MessageItem {
   const reference = { message: row.ref_message, channel: row.ref_channel }
   const mentions = storedList(z.array(z.string()), row.mentions)
   return {

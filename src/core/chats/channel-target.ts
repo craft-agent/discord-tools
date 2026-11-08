@@ -20,7 +20,7 @@ export function mirroredChannel(session: ChatSession, args: ChatReadInput): Mirr
 }
 
 /** The channel with this id, whatever its kind; `not_found` when the mirror has no such channel. */
-function mirroredChannelId(session: ChatSession, id: string): MirroredChannel {
+export function mirroredChannelId(session: ChatSession, id: string): MirroredChannel {
   const row = session.mirror
     .prepare("SELECT type, CAST(server AS TEXT) AS server, forum FROM channels WHERE id = ?")
     .get(BigInt(id)) as ChannelRow | undefined
