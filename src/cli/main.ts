@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url"
 import { packageRoot } from "../entry/package-root"
 import { PROJECT } from "../project"
 import { ALL_TOOLS } from "../tools"
+import { ALL_TRANSLATIONS } from "../words"
 import { EXIT_FAILED, runCli } from "./cli"
 import { readSecretInput } from "./secret-input"
 
@@ -25,6 +26,7 @@ async function main(): Promise<void> {
   const argv = process.argv.slice(2)
   process.exitCode = await runCli(argv, {
     specs: ALL_TOOLS,
+    translations: ALL_TRANSLATIONS,
     env: process.env,
     ownDir: packageRoot(import.meta.url),
     readStdin: () => readStdin(controller.signal),
