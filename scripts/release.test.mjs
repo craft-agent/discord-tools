@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test"
 import { spawnSync } from "node:child_process"
-import { mkdtempSync, readFileSync, rmSync } from "node:fs"
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
+import { forwardedVariables, settingVariables } from "../src/entry/settings"
 import { PROJECT } from "../src/project"
+import { CODEX_MANIFEST } from "./codex-env.mjs"
 import { PLUGIN_NAME } from "./package-name.mjs"
 import { DESCRIPTION_LIMIT, serverJson } from "./server-json.mjs"
 import { VERSION_FILES } from "./version-files.mjs"
@@ -15,7 +17,6 @@ const CLI_ENTRY = "dist/cli.js"
 
 /** Each MCP configuration and the variable its harness expands to the plugin's install directory. */
 const MCP_CONFIGS = {
-  "mcp.json": "${PLUGIN_ROOT}",
   ".claude-plugin/plugin.json": "${CLAUDE_PLUGIN_ROOT}",
   "mcp_config.json": "${PLUGIN_ROOT}",
   ".mcp.json": "${CLAUDE_PLUGIN_ROOT}",
@@ -77,8 +78,23 @@ describe("MCP configurations", () => {
     })
   })
 
+  test("Codex's legacy manifest launches dist/mcp.js from the plugin root and forwards every variable the server reads", () => {
+    const manifest = readJson(CODEX_MANIFEST)
+    expect(manifest.mcpServers).toEqual({
+      [SERVER_NAME]: { command: "node", args: [MCP_ENTRY], cwd: ".", env_vars: forwardedVariables() },
+    })
+    expect(manifest.skills).toBe("./skills")
+  })
+
+  // Codex reads a root plugin.json with an agent-plugins.org $schema first and
+  // then applies the Agent Plugin tool budget to the plugin.
+  test("no root manifest makes Codex load the plugin as an Agent Plugin", () => {
+    expect(existsSync(join(ROOT, "plugin.json"))).toBe(false)
+    expect(existsSync(join(ROOT, "mcp.json"))).toBe(false)
+  })
+
   test("every MCP configuration declares exactly one server and all use the same name", () => {
-    for (const file of Object.keys(MCP_CONFIGS)) {
+    for (const file of [...Object.keys(MCP_CONFIGS), CODEX_MANIFEST]) {
       const servers = Object.keys(readJson(file).mcpServers ?? {})
       expect(servers).toEqual([SERVER_NAME])
     }
@@ -93,6 +109,14 @@ describe("MCP configurations", () => {
   test("src/project.ts gives the program the names package.json does", () => {
     expect(PROJECT.name).toBe(PLUGIN_NAME)
     expect(PROJECT.cli).toBe(CLI_NAME)
+  })
+
+  test("every tool variable is a variable name, listed once and not a setting's", () => {
+    for (const variable of PROJECT.toolVariables) {
+      expect(variable).toMatch(/^[A-Za-z_][A-Za-z0-9_]*$/)
+      expect(settingVariables()).not.toContain(variable)
+    }
+    expect(new Set(PROJECT.toolVariables).size).toBe(PROJECT.toolVariables.length)
   })
 })
 

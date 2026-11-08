@@ -1,12 +1,39 @@
 import { describe, expect, test } from "bun:test"
 import { PROJECT } from "../project"
 import type { EntryProfile } from "./profile"
-import { parseSettings, parseToolSettings } from "./settings"
+import { forwardedVariables, parseSettings, parseToolSettings, settingVariables } from "./settings"
 import { failure, profile } from "./settings.testing"
 
 const parse = (argv: string[], env: Record<string, string | undefined> = {}) => parseSettings(argv, env, profile)
 const parseTool = (argv: string[], env: Record<string, string | undefined> = {}) =>
   parseToolSettings(argv, env, profile)
+
+describe("settingVariables", () => {
+  test("names each setting's variable under the profile's prefix", () => {
+    expect(settingVariables(profile)).toEqual([
+      "DEMO_TOOLSETS",
+      "DEMO_READ_ONLY",
+      "DEMO_TOOLS",
+      "DEMO_EXCLUDE_TOOLS",
+      "DEMO_CONFIRM",
+      "DEMO_STATE_DIR",
+    ])
+  })
+
+  test("uses the package's own prefix by default", () => {
+    expect(settingVariables()).toEqual(settingVariables({ ...profile, envPrefix: PROJECT.envPrefix }))
+  })
+})
+
+describe("forwardedVariables", () => {
+  test("lists the settings' variables, then the tool variables", () => {
+    expect(forwardedVariables(profile, ["XDG_STATE_HOME"])).toEqual([...settingVariables(profile), "XDG_STATE_HOME"])
+  })
+
+  test("uses the package's own prefix and toolVariables by default", () => {
+    expect(forwardedVariables()).toEqual([...settingVariables(), ...PROJECT.toolVariables])
+  })
+})
 
 describe("parseSettings", () => {
   test("defaults to the harness confirming and no other setting", () => {
