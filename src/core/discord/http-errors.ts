@@ -48,7 +48,8 @@ function detailOf(status: number, body: unknown, token: string | undefined): str
 
 /**
  * Maps a non-2xx answer to the error it stands for, with Discord's code and
- * message (masked) in the text. A 401 that is not a two-factor challenge means
+ * message (masked) in the text, and the code as `details.discord_code` when the
+ * body carries a numeric one. A 401 that is not a two-factor challenge means
  * the token was rejected; recording that is the caller's.
  */
 export function httpError(status: number, headers: Record<string, string>, body: unknown, token?: string): ToolError {
@@ -69,8 +70,10 @@ export function httpError(status: number, headers: Record<string, string>, body:
     const seconds = Math.ceil(retryAfter(headers, body))
     return new ToolError("rate_limited", `Discord rate-limited the request; retry after ${seconds}s.`)
   }
-  if (status === 400) return new ToolError("invalid_argument", detail)
-  if (status === 403) return new ToolError("forbidden", detail)
-  if (status === 404) return new ToolError("not_found", detail)
-  return new ToolError("upstream_error", detail)
+  const code = asObject(body)?.code
+  const options = typeof code === "number" ? { details: { discord_code: code } } : undefined
+  if (status === 400) return new ToolError("invalid_argument", detail, options)
+  if (status === 403) return new ToolError("forbidden", detail, options)
+  if (status === 404) return new ToolError("not_found", detail, options)
+  return new ToolError("upstream_error", detail, options)
 }
