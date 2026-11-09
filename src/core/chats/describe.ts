@@ -73,10 +73,16 @@ export async function withMirror<T>(
   }
 }
 
-/** The name of a channel, or its id when the mirror holds none. */
-function channelName(mirror: Mirror, id: string): string {
+/** A server channel as `#name`, or its id when the mirror holds no name for it. */
+export function channelName(mirror: Mirror, id: string): string {
   const row = mirror.prepare("SELECT name FROM channels WHERE id = ?").get(BigInt(id)) as NameRow | undefined
   return row?.name ? `#${row.name}` : id
+}
+
+/** A server's name, or its id when the mirror holds no name for it (a server the account has left). */
+export function serverName(mirror: Mirror, id: string): string {
+  const row = mirror.prepare("SELECT name FROM servers WHERE id = ?").get(BigInt(id)) as NameRow | undefined
+  return row?.name || id
 }
 
 /** The name of a chat as people see it (see `describeChat`). */
@@ -106,11 +112,7 @@ export function describeChat(mirror: Mirror, channel: string): DescribedChat {
     throw new ToolError("not_found", `The mirror holds no channel ${channel}.`)
   }
   const facts: CallFact[] = [{ label: "Chat", value: { text: CHAT_KINDS[row.type] ?? OTHER_KIND } }]
-  if (row.server !== null) {
-    const server = mirror.prepare("SELECT name FROM servers WHERE id = ?").get(BigInt(row.server)) as
-      NameRow | undefined
-    facts.push({ label: "Server", value: server?.name || row.server })
-  }
+  if (row.server !== null) facts.push({ label: "Server", value: serverName(mirror, row.server) })
   if (row.type in THREAD_KINDS && row.parent !== null) {
     facts.push({ label: "Channel", value: channelName(mirror, row.parent) })
   }
