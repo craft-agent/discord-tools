@@ -3,6 +3,7 @@ import { createChatFixture } from "../chats/read.testing"
 import { ingestMessages } from "../discord/ingest"
 import { CHANNEL, ME, messageObject, msgId, OTHER_CHANNEL, userObject } from "../discord/objects.testing"
 import { invoke, type ToolContext } from "../tool"
+import { discordMessageDelete } from "./delete-tool"
 import { discordMessageEdit } from "./edit-tool"
 
 /** The channel's messages path, which a read-back reads. */
@@ -58,6 +59,8 @@ export async function createActionsFixture() {
     ...f,
     /** Runs `discord_message_edit` as an entry point does: strict arguments, a result checked against its schema. */
     edit: (args: unknown, ctx: ToolContext = f.ctx) => invoke(discordMessageEdit, args, ctx),
+    /** Runs `discord_message_delete` the same way. */
+    remove: (args: unknown, ctx: ToolContext = f.ctx) => invoke(discordMessageDelete, args, ctx),
     /** The requests that changed something: everything but reads. */
     writes: () => f.discord.api.filter((request) => request.method !== "GET"),
     /** The requests that read the channel's messages. */

@@ -57,17 +57,17 @@ describe("the registry", () => {
     )
   })
 
-  test.each([["discord_message_edit", "overwrite"]])(
-    "%s is a %s tool in the off-by-default actions toolset, left out in read-only mode",
-    (id, writeClass) => {
-      const ids = (settings: Parameters<typeof selectTools>[1]) =>
-        selectTools(ALL_TOOLS, settings, PROJECT_PROFILE.toolsets).map((spec) => spec.id)
-      expect(ALL_TOOLS.find((spec) => spec.id === id)).toMatchObject({ toolset: "actions", class: writeClass })
-      expect(ids({})).not.toContain(id)
-      expect(ids({ toolsets: ["actions"] })).toContain(id)
-      expect(ids({ toolsets: ["actions"], read_only: true })).not.toContain(id)
-    },
-  )
+  test.each([
+    ["discord_message_edit", "overwrite"],
+    ["discord_message_delete", "administrative"],
+  ])("%s is a %s tool in the off-by-default actions toolset, left out in read-only mode", (id, writeClass) => {
+    const ids = (settings: Parameters<typeof selectTools>[1]) =>
+      selectTools(ALL_TOOLS, settings, PROJECT_PROFILE.toolsets).map((spec) => spec.id)
+    expect(ALL_TOOLS.find((spec) => spec.id === id)).toMatchObject({ toolset: "actions", class: writeClass })
+    expect(ids({})).not.toContain(id)
+    expect(ids({ toolsets: ["actions"] })).toContain(id)
+    expect(ids({ toolsets: ["actions"], read_only: true })).not.toContain(id)
+  })
 
   test("every tool id is unique", () => {
     const ids = ALL_TOOLS.map((spec) => spec.id)

@@ -32,6 +32,11 @@ export const editInput = z.object({
 /** The arguments of `discord_message_edit` after validation. */
 export type EditInput = z.output<typeof editInput>
 
+export const deleteInput = z.object(actionFields)
+
+/** The arguments of `discord_message_delete` after validation. */
+export type DeleteInput = z.output<typeof deleteInput>
+
 const errorsField = z
   .record(z.string(), z.string())
   .optional()
@@ -47,3 +52,14 @@ export const editOutput = z.object({
 
 /** The result of `discord_message_edit`. */
 export type EditResult = z.infer<typeof editOutput>
+
+export const deleteOutput = z.object({
+  id: z.string().describe("The id of the message that was deleted."),
+  channel: z.string(),
+  already: z.boolean().describe("True when Discord no longer had the message, so nothing was deleted by this call."),
+  note: z.string(),
+  errors: errorsField,
+})
+
+/** The result of `discord_message_delete`. */
+export type DeleteResult = z.infer<typeof deleteOutput>
