@@ -11,6 +11,7 @@ const PLUGIN = fileURLToPath(new URL("../dist/opencode.js", import.meta.url))
 const SERVER = fileURLToPath(new URL("../dist/mcp.js", import.meta.url))
 const ACCOUNT_READ = "discord_account_read"
 const CHAT_READ = "discord_chat_read"
+const SEARCH_READ = "discord_search_read"
 const SYNC_READ = "discord_sync_read"
 const WRITE_TOOLS = ["discord_sync_add", "discord_sync_remove", "discord_message_send"]
 const NO_ACCOUNT = "not_found: No Discord account is signed in yet"
@@ -79,7 +80,9 @@ try {
     expect(skills.includes("discord-chats"), "Expected setup to discover the chats skill.")
     expect(skills.includes("discord-sync"), "Expected setup to discover the sync skill.")
     expect(skills.includes("discord-sends"), "Expected setup to discover the sends skill.")
+    expect(skills.includes("discord-search"), "Expected setup to discover the search skill.")
     expect(expected.includes(CHAT_READ), `Expected the MCP registry to include ${CHAT_READ}.`)
+    expect(expected.includes(SEARCH_READ), `Expected the MCP registry to include ${SEARCH_READ}.`)
     expect(expected.includes(SYNC_READ), `Expected the MCP registry to include ${SYNC_READ}.`)
     for (const name of WRITE_TOOLS) {
       expect(
