@@ -9,6 +9,8 @@ import { createActionsFixture, OWN } from "./actions.testing"
 import { messageFacts } from "./describe"
 import { discordMessageDelete } from "./delete-tool"
 import { discordMessageEdit } from "./edit-tool"
+import { discordPinAdd, discordPinRemove } from "./pin-tool"
+import { discordReactionAdd, discordReactionRemove } from "./reaction-tool"
 import { ACTION_TRANSLATIONS } from "./words"
 
 const ja = translator(ACTION_TRANSLATIONS, "ja")
@@ -24,6 +26,10 @@ const TOOLS: [Pick<ToolSpec, "title" | "intent" | "input" | "describe">, Record<
     ],
   ],
   [discordMessageDelete, [TARGET]],
+  [discordReactionAdd, [{ ...TARGET, emoji: "👍" }]],
+  [discordReactionRemove, [{ ...TARGET, emoji: "party:1400000000000000050" }]],
+  [discordPinAdd, [TARGET]],
+  [discordPinRemove, [TARGET]],
 ]
 
 /** The English words a description writes: the headline, the fact labels and value templates, and the text label. */

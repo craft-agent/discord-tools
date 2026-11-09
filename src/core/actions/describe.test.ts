@@ -5,10 +5,13 @@ import { ingestMessages } from "../discord/ingest"
 import { CHANNEL, messageObject, msgId, SERVER, userObject, ME } from "../discord/objects.testing"
 import { callDescription } from "../describe"
 import { lengthFact } from "../sends/describe"
-import { createActionsFixture, OWN, OWN_TEXT } from "./actions.testing"
+import type { CallHeadline, ToolSpec } from "../tool"
+import { createActionsFixture, OWN, OWN_TEXT, THEIRS } from "./actions.testing"
 import { messageFacts, textHash } from "./describe"
 import { discordMessageDelete } from "./delete-tool"
 import { discordMessageEdit } from "./edit-tool"
+import { discordPinAdd, discordPinRemove } from "./pin-tool"
+import { discordReactionAdd, discordReactionRemove } from "./reaction-tool"
 
 const CHAT_FACT = { label: "Chat", value: { text: "Text channel" } }
 const SERVER_FACT = { label: "Server", value: SERVER }
@@ -106,6 +109,55 @@ describe("discord_message_delete description", () => {
     const f = await createActionsFixture()
     const args = { channel: CHANNEL, message: msgId(999) }
     expect(await callDescription(discordMessageDelete, args, f.ctx)).toBeUndefined()
+    expect(f.discord.api).toEqual([])
+  })
+})
+
+const ON_MESSAGE: [string, ToolSpec, Record<string, unknown>, CallHeadline][] = [
+  [
+    "discord_reaction_add",
+    discordReactionAdd,
+    { emoji: "👍" },
+    { text: "About to react with {emoji} in {chat}", values: { emoji: "👍", chat: "#general" } },
+  ],
+  [
+    "discord_reaction_remove",
+    discordReactionRemove,
+    { emoji: "party:1400000000000000050" },
+    { text: "About to remove your {emoji} reaction in {chat}", values: { emoji: ":party:", chat: "#general" } },
+  ],
+  ["discord_pin_add", discordPinAdd, {}, { text: "About to pin a message in {chat}", values: { chat: "#general" } }],
+  [
+    "discord_pin_remove",
+    discordPinRemove,
+    {},
+    { text: "About to unpin a message in {chat}", values: { chat: "#general" } },
+  ],
+]
+
+describe.each(ON_MESSAGE)("%s description", (_id, spec, extra, headline) => {
+  test("names the chat and shows the author and start of the message, without text or pins", async () => {
+    const f = await createActionsFixture()
+    const own = await callDescription(spec, { channel: CHANNEL, message: OWN, ...extra }, f.ctx)
+    expect(own).toEqual({
+      headline,
+      facts: [
+        CHAT_FACT,
+        SERVER_FACT,
+        { label: "Author", value: { text: "You" } },
+        { label: "Message", value: OWN_TEXT },
+      ],
+    })
+    const theirs = await callDescription(spec, { channel: CHANNEL, message: THEIRS, ...extra }, f.ctx)
+    expect(theirs?.facts.slice(0, 3)).toEqual([CHAT_FACT, SERVER_FACT, { label: "Author", value: expect.any(String) }])
+    expect(theirs).not.toHaveProperty("text")
+    expect(theirs).not.toHaveProperty("pins")
+  })
+
+  test("gives no description for a message the mirror lacks, and sends no request", async () => {
+    const f = await createActionsFixture()
+    const args = { channel: CHANNEL, message: msgId(999), ...extra }
+    expect(await callDescription(spec, args, f.ctx)).toBeUndefined()
     expect(f.discord.api).toEqual([])
   })
 })

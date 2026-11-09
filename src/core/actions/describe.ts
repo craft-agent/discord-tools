@@ -10,8 +10,9 @@ import {
 import { ToolError } from "../errors"
 import type { Mirror } from "../discord/mirror"
 import { lengthFact } from "../sends/describe"
-import type { CallDescription, CallFact, ToolContext } from "../tool"
-import type { ActionInput, DeleteInput, EditInput } from "./schemas"
+import type { CallDescription, CallFact, CallHeadline, ToolContext } from "../tool"
+import { shownEmoji } from "./emoji"
+import type { ActionInput, DeleteInput, EditInput, PinInput, ReactionInput } from "./schemas"
 
 /** The chat and the message an action on a message targets, as the mirror holds them. */
 export type DescribedAction = { chat: DescribedChat; message: MirroredMessage }
@@ -85,4 +86,44 @@ export async function describeDelete(args: DeleteInput, ctx: ToolContext): Promi
       text: { label: "Message to delete", body: message.content },
     }
   })
+}
+
+/** An action that changes nothing in the message: the chat and the message it is on, under the headline `headline` names from the chat. */
+function describeOnMessage(
+  args: ActionInput,
+  ctx: ToolContext,
+  headline: (chat: string) => CallHeadline,
+): Promise<CallDescription> {
+  return withMirror(args.account, ctx, (mirror) => {
+    const { chat, message } = describedAction(mirror, args)
+    return { headline: headline(chat.name), facts: [...chat.facts, ...messageFacts(message)] }
+  })
+}
+
+/** What adding a reaction will do: the chat, the emoji (a custom one by its name) and the message reacted to. */
+export function describeReactionAdd(args: ReactionInput, ctx: ToolContext): Promise<CallDescription> {
+  const emoji = shownEmoji(args.emoji)
+  return describeOnMessage(args, ctx, (chat) => ({
+    text: "About to react with {emoji} in {chat}",
+    values: { emoji, chat },
+  }))
+}
+
+/** What taking back a reaction will do: the chat, the emoji (a custom one by its name) and the message it is on. */
+export function describeReactionRemove(args: ReactionInput, ctx: ToolContext): Promise<CallDescription> {
+  const emoji = shownEmoji(args.emoji)
+  return describeOnMessage(args, ctx, (chat) => ({
+    text: "About to remove your {emoji} reaction in {chat}",
+    values: { emoji, chat },
+  }))
+}
+
+/** What a pin will do: the chat and the message pinned, whose author and start the person sees. */
+export function describePinAdd(args: PinInput, ctx: ToolContext): Promise<CallDescription> {
+  return describeOnMessage(args, ctx, (chat) => ({ text: "About to pin a message in {chat}", values: { chat } }))
+}
+
+/** What an unpin will do: the chat and the message unpinned, whose author and start the person sees. */
+export function describePinRemove(args: PinInput, ctx: ToolContext): Promise<CallDescription> {
+  return describeOnMessage(args, ctx, (chat) => ({ text: "About to unpin a message in {chat}", values: { chat } }))
 }

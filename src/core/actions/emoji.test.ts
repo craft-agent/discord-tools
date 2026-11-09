@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { msgId } from "../discord/objects.testing"
-import { reactionEmoji } from "./emoji"
+import { reactionEmoji, shownEmoji } from "./emoji"
 import type { ActionMessage } from "./target"
 
 const PARTY = msgId(50)
@@ -27,6 +27,19 @@ const refusal = (input: string, target = onMessage) => {
   }
   throw new Error("expected a refusal")
 }
+
+describe("shownEmoji", () => {
+  test.each([
+    ["👍", "👍"],
+    [`party:${PARTY}`, ":party:"],
+    [`<:party:${PARTY}>`, ":party:"],
+    [`<a:party:${PARTY}>`, ":party:"],
+    [":thumbsup:", ":thumbsup:"],
+    ["not an emoji", "not an emoji"],
+  ])("shows %s as %s", (input, shown) => {
+    expect(shownEmoji(input)).toBe(shown)
+  })
+})
 
 describe("a Unicode emoji", () => {
   test.each(["👍", "❤️", "👍🏽", "👨‍👩‍👧", "🇯🇵", "1️⃣", "#️⃣"])("%s is accepted as it is", (emoji) => {

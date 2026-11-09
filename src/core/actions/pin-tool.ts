@@ -1,4 +1,5 @@
 import { defineTool } from "../tool"
+import { describePinAdd, describePinRemove } from "./describe"
 import { addPin, removePin } from "./pin"
 import { pinInput, pinOutput } from "./schemas"
 import { actionTargets } from "./targets"
@@ -14,23 +15,27 @@ const ONCE_AND_UNCERTAIN =
 export const discordPinAdd = defineTool({
   id: "discord_pin_add",
   title: "Pin a Discord message",
+  intent: "About to pin a Discord message",
   description: `Pins a message ${WHERE_AND_WHO} Only a plain message or a reply can be pinned; a system message is refused without a request. Pinning a message that is already pinned is harmless. ${ONCE_AND_UNCERTAIN} The person approves every pin.`,
   toolset: "actions",
   class: "idempotent",
   input: pinInput,
   output: pinOutput,
   targets: actionTargets,
+  describe: describePinAdd,
   execute: addPin,
 })
 
 export const discordPinRemove = defineTool({
   id: "discord_pin_remove",
   title: "Unpin a Discord message",
+  intent: "About to unpin a Discord message",
   description: `Unpins a message ${WHERE_AND_WHO} Unpinning a message that is not pinned is sent all the same. ${ONCE_AND_UNCERTAIN} The person approves every unpin.`,
   toolset: "actions",
   class: "overwrite",
   input: pinInput,
   output: pinOutput,
   targets: actionTargets,
+  describe: describePinRemove,
   execute: removePin,
 })
