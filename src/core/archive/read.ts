@@ -1,5 +1,6 @@
 import type { ArchiveFormat } from "./kinds"
-import { ArchiveUnreadable, type ArchiveEntry } from "./entry"
+import type { ArchiveEntry } from "./entry"
+import { readTar } from "./tar"
 import { readZip } from "./zip"
 
 export { ArchiveUnreadable, type ArchiveEntry, type EntryKind } from "./entry"
@@ -11,6 +12,5 @@ export { ArchiveUnreadable, type ArchiveEntry, type EntryKind } from "./entry"
  * Aborting `signal` ends it with an `AbortError`.
  */
 export function readEntries(path: string, format: ArchiveFormat, signal?: AbortSignal): AsyncIterable<ArchiveEntry> {
-  if (format !== "zip") throw new ArchiveUnreadable(`${format} archives cannot be read yet`)
-  return readZip(path, signal)
+  return format === "zip" ? readZip(path, signal) : readTar(path, format === "tar.gz", signal)
 }
