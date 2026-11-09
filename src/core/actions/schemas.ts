@@ -49,6 +49,11 @@ export const reactionInput = z.object({
 /** The arguments of `discord_reaction_add` and `discord_reaction_remove` after validation. */
 export type ReactionInput = z.output<typeof reactionInput>
 
+export const pinInput = z.object(actionFields)
+
+/** The arguments of `discord_pin_add` and `discord_pin_remove` after validation. */
+export type PinInput = z.output<typeof pinInput>
+
 const errorsField = z
   .record(z.string(), z.string())
   .optional()
@@ -86,3 +91,14 @@ export const reactionOutput = z.object({
 
 /** The result of `discord_reaction_add` and `discord_reaction_remove`. */
 export type ReactionResult = z.infer<typeof reactionOutput>
+
+export const pinOutput = z.object({
+  id: z.string().describe("The id of the message that was pinned or unpinned."),
+  channel: z.string(),
+  pinned: z.boolean().describe("Whether the message is pinned now."),
+  note: z.string(),
+  errors: errorsField,
+})
+
+/** The result of `discord_pin_add` and `discord_pin_remove`. */
+export type PinResult = z.infer<typeof pinOutput>

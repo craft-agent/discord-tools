@@ -5,6 +5,7 @@ import { CHANNEL, ME, messageObject, msgId, OTHER_CHANNEL, userObject } from "..
 import { invoke, type ToolContext } from "../tool"
 import { discordMessageDelete } from "./delete-tool"
 import { discordMessageEdit } from "./edit-tool"
+import { discordPinAdd, discordPinRemove } from "./pin-tool"
 import { discordReactionAdd, discordReactionRemove } from "./reaction-tool"
 
 /** The channel's messages path, which a read-back reads. */
@@ -20,6 +21,10 @@ export const THEIRS = msgId(2)
 /** The account's own message in `OTHER_CHANNEL`, which is not a channel the mirror knows. */
 export const ELSEWHERE = msgId(20)
 
+/** A system message (a pin notice) in `CHANNEL`, which the mirror holds and which cannot be pinned. */
+export const SYSTEM = msgId(12)
+export const SYSTEM_TYPE = 6
+
 /** When Discord says the edit happened, as it writes it and as the tool reports it. */
 export const EDITED_TIMESTAMP = "2026-01-02T03:04:05.000000+00:00"
 export const EDITED_AT = "2026-01-02T03:04:05.000Z"
@@ -30,6 +35,9 @@ export const messagePath = (id = OWN) => `${MESSAGES_PATH}/${id}`
 /** The path of the request that adds (`rest` is `/@me`) or takes back (`/0/@me`) the account's own reaction `key`, which it percent-encodes. */
 export const reactionPath = (key: string, rest: string, id = OWN) =>
   `${messagePath(id)}/reactions/${encodeURIComponent(key)}${rest}`
+
+/** The path of the request that pins (`PUT`) or unpins (`DELETE`) a message of `CHANNEL`. */
+export const pinPath = (id = OWN) => `${MESSAGES_PATH}/pins/${id}`
 
 /** Arguments naming a message the tool must refuse before any request, with the code it refuses with. */
 export const REFUSED_TARGETS: [string, Record<string, string>, string][] = [
@@ -56,6 +64,7 @@ export async function createActionsFixture() {
       [
         own(OWN, CHANNEL, { content: OWN_TEXT, reactions: [{ emoji: { id: null, name: "👍" }, count: 2, me: false }] }),
         own(ELSEWHERE, OTHER_CHANNEL, {}),
+        messageObject(SYSTEM, CHANNEL, { type: SYSTEM_TYPE }),
       ],
       { reactions: true },
     ),
@@ -70,6 +79,19 @@ export async function createActionsFixture() {
     react: (args: unknown, ctx: ToolContext = f.ctx) => invoke(discordReactionAdd, args, ctx),
     /** Runs `discord_reaction_remove` the same way. */
     unreact: (args: unknown, ctx: ToolContext = f.ctx) => invoke(discordReactionRemove, args, ctx),
+    /** Runs `discord_pin_add` the same way. */
+    pin: (args: unknown, ctx: ToolContext = f.ctx) => invoke(discordPinAdd, args, ctx),
+    /** Runs `discord_pin_remove` the same way. */
+    unpin: (args: unknown, ctx: ToolContext = f.ctx) => invoke(discordPinRemove, args, ctx),
+    /** Whether the mirror shows a message as pinned. */
+    isPinned: (id = OWN) =>
+      f.inspect(
+        (m) =>
+          (m.prepare("SELECT pinned FROM messages WHERE id = ?").get(BigInt(id)) as { pinned: number }).pinned === 1,
+      ),
+    /** Marks a stored message as pinned or not, as a read would have left it. */
+    setPinnedRow: (id: string, pinned: boolean) =>
+      f.seed((m) => m.prepare("UPDATE messages SET pinned = ? WHERE id = ?").run(pinned ? 1 : 0, BigInt(id))),
     /** Replaces the reactions the mirror holds on a message (`null`: none known). */
     setReactions: (id: string, reactions: StoredReaction[] | null) =>
       f.seed((m) =>
