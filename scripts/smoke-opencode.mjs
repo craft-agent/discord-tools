@@ -22,6 +22,7 @@ const ACTION_TOOLS = [
   "discord_pin_add",
   "discord_pin_remove",
 ]
+const FILE_SAVE = "discord_file_save"
 const NO_ACCOUNT = "not_found: No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "opencode-smoke-"))
 
@@ -105,7 +106,8 @@ try {
     expect(skills.includes("discord-sends"), "Expected setup to discover the sends skill.")
     expect(skills.includes("discord-search"), "Expected setup to discover the search skill.")
     expect(skills.includes("discord-actions"), "Expected setup to discover the actions skill.")
-    for (const name of ACTION_TOOLS) {
+    expect(skills.includes("discord-files"), "Expected setup to discover the files skill.")
+    for (const name of [...ACTION_TOOLS, FILE_SAVE]) {
       expect(
         expected.includes(name) === (allToolsets && !readOnly),
         `Expected the MCP registry to ${allToolsets && !readOnly ? "include" : "omit"} ${name} with read_only=${readOnly}.`,

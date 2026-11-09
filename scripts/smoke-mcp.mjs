@@ -25,6 +25,7 @@ const REACTION_REMOVE = "discord_reaction_remove"
 const PIN_ADD = "discord_pin_add"
 const PIN_REMOVE = "discord_pin_remove"
 const ACTION_TOOLS = [MESSAGE_EDIT, MESSAGE_DELETE, REACTION_ADD, REACTION_REMOVE, PIN_ADD, PIN_REMOVE]
+const FILE_SAVE = "discord_file_save"
 const REQUIRES_USER_INTERACTION = "anthropic/requiresUserInteraction"
 const NO_ACCOUNT = "No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "mcp-smoke-"))
@@ -150,9 +151,12 @@ async function listTools(settings) {
       }
       await expectToolError(client, MESSAGE_EDIT, { channel: "general", message: "1", text: "hi" }, "invalid_argument")
       console.log(`The actions tools carry their write annotations; ${MESSAGE_EDIT} refuses a name for an id.`)
+      expectAnnotations(tools, FILE_SAVE, { readOnlyHint: false, destructiveHint: false }, settings)
+      await expectToolError(client, FILE_SAVE, { channel: "general", message: "1" }, "invalid_argument")
+      console.log(`${FILE_SAVE} carries its write annotations and refuses a name for an id.`)
     } else {
-      for (const name of ACTION_TOOLS) expectAbsent(tools, name, settings)
-      console.log(`The actions tools are absent under ${JSON.stringify(settings)}.`)
+      for (const name of [...ACTION_TOOLS, FILE_SAVE]) expectAbsent(tools, name, settings)
+      console.log(`The actions and files tools are absent under ${JSON.stringify(settings)}.`)
     }
 
     const result = await client.callTool({ name: UNKNOWN_TOOL })
