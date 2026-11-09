@@ -11,7 +11,7 @@ import { ToolError } from "../errors"
 import type { Mirror } from "../discord/mirror"
 import { lengthFact } from "../sends/describe"
 import type { CallDescription, CallFact, ToolContext } from "../tool"
-import type { ActionInput, EditInput } from "./schemas"
+import type { ActionInput, DeleteInput, EditInput } from "./schemas"
 
 /** The chat and the message an action on a message targets, as the mirror holds them. */
 export type DescribedAction = { chat: DescribedChat; message: MirroredMessage }
@@ -67,6 +67,22 @@ export async function describeEdit(args: EditInput, ctx: ToolContext): Promise<C
       facts,
       text: { label: "New text", body: args.text },
       pins: { current_text: textHash(message.content) },
+    }
+  })
+}
+
+/**
+ * What a delete will do, from the mirror alone: the chat and the whole text it
+ * removes. The text is never quoted, since a delete cannot be undone and the
+ * person should see all of what is lost before approving.
+ */
+export async function describeDelete(args: DeleteInput, ctx: ToolContext): Promise<CallDescription> {
+  return withMirror(args.account, ctx, (mirror) => {
+    const { chat, message } = describedAction(mirror, args)
+    return {
+      headline: { text: "About to delete your message in {chat}", values: { chat: chat.name } },
+      facts: chat.facts,
+      text: { label: "Message to delete", body: message.content },
     }
   })
 }

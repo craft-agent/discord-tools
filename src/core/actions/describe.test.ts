@@ -7,6 +7,7 @@ import { callDescription } from "../describe"
 import { lengthFact } from "../sends/describe"
 import { createActionsFixture, OWN, OWN_TEXT } from "./actions.testing"
 import { messageFacts, textHash } from "./describe"
+import { discordMessageDelete } from "./delete-tool"
 import { discordMessageEdit } from "./edit-tool"
 
 const CHAT_FACT = { label: "Chat", value: { text: "Text channel" } }
@@ -80,6 +81,31 @@ describe("discord_message_edit description", () => {
     const args = { channel: CHANNEL, message: OWN, text: "new" }
     const first = await callDescription(discordMessageEdit, args, f.ctx)
     expect(await callDescription(discordMessageEdit, args, f.ctx)).toEqual(first)
+    expect(f.discord.api).toEqual([])
+  })
+})
+
+describe("discord_message_delete description", () => {
+  test("describes a delete with the chat and the whole text, not quoted", async () => {
+    const f = await createActionsFixture()
+    const content = `first line\n${"b".repeat(QUOTE_LENGTH + 20)}`
+    f.seed((m) =>
+      ingestMessages(m, f.ingestContext(), [messageObject(OWN, CHANNEL, { author: userObject(ME), content })], {
+        reactions: true,
+      }),
+    )
+    const description = await callDescription(discordMessageDelete, { channel: CHANNEL, message: OWN }, f.ctx)
+    expect(description).toEqual({
+      headline: { text: "About to delete your message in {chat}", values: { chat: "#general" } },
+      facts: [CHAT_FACT, SERVER_FACT],
+      text: { label: "Message to delete", body: content },
+    })
+  })
+
+  test("gives no description for a message the mirror lacks, and sends no request", async () => {
+    const f = await createActionsFixture()
+    const args = { channel: CHANNEL, message: msgId(999) }
+    expect(await callDescription(discordMessageDelete, args, f.ctx)).toBeUndefined()
     expect(f.discord.api).toEqual([])
   })
 })

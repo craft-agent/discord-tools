@@ -7,6 +7,7 @@ import { translator } from "../words"
 import { CHANNEL } from "../discord/objects.testing"
 import { createActionsFixture, OWN } from "./actions.testing"
 import { messageFacts } from "./describe"
+import { discordMessageDelete } from "./delete-tool"
 import { discordMessageEdit } from "./edit-tool"
 import { ACTION_TRANSLATIONS } from "./words"
 
@@ -22,6 +23,7 @@ const TOOLS: [Pick<ToolSpec, "title" | "intent" | "input" | "describe">, Record<
       { ...TARGET, text: "xx", mass_mentions: true },
     ],
   ],
+  [discordMessageDelete, [TARGET]],
 ]
 
 /** The English words a description writes: the headline, the fact labels and value templates, and the text label. */
@@ -56,6 +58,7 @@ describe("ACTION_TRANSLATIONS", () => {
     expect(ja.template("About to edit your message in {chat}")).toBe(
       "{chat} の自分のメッセージを編集しようとしています",
     )
+    expect(ja.template("About to delete your message in {chat}")).toContain("{chat}")
     expect(ja.word(discordMessageEdit.title)).not.toBe(discordMessageEdit.title)
   })
 })
