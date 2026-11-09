@@ -556,6 +556,36 @@ Every entry point takes the same settings:
   unread state on every device the user has, so it is a call the harness asks
   about, never a side effect of looking.
 
+## Approval prompts
+
+- **Every write tool states its intent and describes its call** (see Write
+  classes above), so a person answers on the chat's name and the text rather
+  than on ids.
+- **A description is read from the mirror alone**, on a connection that
+  writes nothing, and never from Discord: drawing a prompt sends no request
+  and leaves no trace, and gives the same answer for the same mirror. A chat
+  or a message the mirror does not know gives no description, and the call
+  is then refused when it runs.
+- **A chat is named as people see it.** A server channel is `#name`, a
+  thread its name, a DM the other person's display name, a group DM its name
+  or else its members' display names; one without a name is its id. The name
+  is the mirror's, never one a model gave, and a rename before the call runs
+  makes it `stale`.
+- **A message is quoted short.** Where a fact quotes a message, it is the
+  first 80 characters, with each run of whitespace as one space, so the
+  facts stay within the head of the prompt.
+- **The facts the tools add**, in the order they are shown:
+
+  | Label           | Value                                                             | Shown              |
+  | --------------- | ----------------------------------------------------------------- | ------------------ |
+  | `Chat`          | the kind of chat: `Direct message`, `Group DM`, `Text channel`, … | always             |
+  | `Server`        | the server's name                                                 | a chat in a server |
+  | `Channel`       | the channel a thread belongs to, as `#name`                       | a thread           |
+  | `Reply to`      | the message replied to, quoted short                              | a reply            |
+  | `Mass mentions` | `Notify`                                                          | `mass_mentions`    |
+  | `Notifications` | `Silent`                                                          | `silent`           |
+  | `Length`        | `{count} characters`, in code points                              | a text sent        |
+
 ## Toolsets
 
 - **One per domain**: `account`, `sync` (the sync list), `chats`, `search`,
