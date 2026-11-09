@@ -141,15 +141,21 @@ Add the server to the host's MCP configuration. Flags go in `args`:
 
 Each toolset comes with a skill that tells an agent how to use its tools.
 
-| Toolset | Tool                   | Skill                                              | Does                                       |
-| ------- | ---------------------- | -------------------------------------------------- | ------------------------------------------ |
-| account | `discord_account_read` | [discord-account](skills/discord-account/SKILL.md) | reads local account, token and sync health |
-| sync    | `discord_sync_read`    | [discord-sync](skills/discord-sync/SKILL.md)       | shows the sync list and suggests changes   |
-| sync    | `discord_sync_add`     | [discord-sync](skills/discord-sync/SKILL.md)       | follows a server or named channels         |
-| sync    | `discord_sync_remove`  | [discord-sync](skills/discord-sync/SKILL.md)       | stops following a server or channels       |
-| chats   | `discord_chat_read`    | [discord-chats](skills/discord-chats/SKILL.md)     | reads servers, channels, DMs and messages  |
-| search  | `discord_search_read`  | [discord-search](skills/discord-search/SKILL.md)   | searches the mirror or Discord's search    |
-| sends   | `discord_message_send` | [discord-sends](skills/discord-sends/SKILL.md)     | sends a text, optionally as a reply        |
+| Toolset | Tool                      | Skill                                              | Does                                       |
+| ------- | ------------------------- | -------------------------------------------------- | ------------------------------------------ |
+| account | `discord_account_read`    | [discord-account](skills/discord-account/SKILL.md) | reads local account, token and sync health |
+| sync    | `discord_sync_read`       | [discord-sync](skills/discord-sync/SKILL.md)       | shows the sync list and suggests changes   |
+| sync    | `discord_sync_add`        | [discord-sync](skills/discord-sync/SKILL.md)       | follows a server or named channels         |
+| sync    | `discord_sync_remove`     | [discord-sync](skills/discord-sync/SKILL.md)       | stops following a server or channels       |
+| chats   | `discord_chat_read`       | [discord-chats](skills/discord-chats/SKILL.md)     | reads servers, channels, DMs and messages  |
+| search  | `discord_search_read`     | [discord-search](skills/discord-search/SKILL.md)   | searches the mirror or Discord's search    |
+| sends   | `discord_message_send`    | [discord-sends](skills/discord-sends/SKILL.md)     | sends a text, optionally as a reply        |
+| actions | `discord_message_edit`    | [discord-actions](skills/discord-actions/SKILL.md) | edits the account's own message            |
+| actions | `discord_message_delete`  | [discord-actions](skills/discord-actions/SKILL.md) | deletes the account's own message          |
+| actions | `discord_reaction_add`    | [discord-actions](skills/discord-actions/SKILL.md) | adds the account's reaction                |
+| actions | `discord_reaction_remove` | [discord-actions](skills/discord-actions/SKILL.md) | takes back the account's reaction          |
+| actions | `discord_pin_add`         | [discord-actions](skills/discord-actions/SKILL.md) | pins a message                             |
+| actions | `discord_pin_remove`      | [discord-actions](skills/discord-actions/SKILL.md) | unpins a message                           |
 
 `account` is on by default and available with `read_only`. Call
 `discord_account_read` with `{}` to list every label, sorted, or with
@@ -245,6 +251,30 @@ text. The result is the message Discord returned, stored in the mirror. A
 refusal is its error. Anything else is `uncertain`: the message may have been
 sent, and `details.matches` lists the account's messages with the same text
 from one read-back of the chat. Check the chat before sending again.
+
+`actions` is off by default, because it changes what others already read; turn
+it on with `toolsets` (for example `--toolsets all`, or the defaults plus
+`actions`). `read_only` leaves it out. Every call names a chat and a message by
+id, and the message must be in the mirror. Every action is asked about.
+
+- `discord_message_edit` replaces the text of the account's own message, sent
+  exactly as given; `discord_message_delete` removes the account's own
+  message, which cannot be undone, and counts a message Discord no longer has
+  as deleted (`already`).
+- `discord_reaction_add` and `discord_reaction_remove` add or take back the
+  account's own reaction on any message: one Unicode emoji, or a custom emoji
+  already on the message; never a super reaction.
+- `discord_pin_add` and `discord_pin_remove` pin or unpin any message; Discord
+  decides whether the account may, and caps a chat at 250 pins.
+
+Before a request, the tool refuses what it can know is wrong: a name for an
+id, a message the mirror does not hold, someone else's message to edit or
+delete, an unusable emoji, an edit that changes nothing, a system message to
+pin, a reaction to take back that is not the account's. Each action is sent
+once and never retried, and followed in the mirror. Anything that may have
+reached Discord is `uncertain`: `details.applied` says whether one read-back of
+the chat saw the new state (`null` when it could not tell). Repeating an
+action is harmless, but check the chat and ask first.
 
 ## Local account commands
 

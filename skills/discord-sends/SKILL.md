@@ -1,6 +1,6 @@
 ---
 name: discord-sends
-description: 'Use when sending a text to one of the user''s Discord chats as the user: answering a DM, a group chat, a server channel or a thread, or replying to a specific message ("reply to Alice that I''ll be late", "post this in #general", "answer that message"). Covers finding the chat and message ids, mentions, silent sends and what to do when a send is uncertain. Not for sending files, editing or deleting messages, reactions, creating threads, starting a new DM, or reading chats.'
+description: 'Use when sending a text to one of the user''s Discord chats as the user: answering a DM, a group chat, a server channel or a thread, or replying to a specific message ("reply to Alice that I''ll be late", "post this in #general", "answer that message"). Covers finding the chat and message ids, mentions, silent sends and what to do when a send is uncertain. Not for sending files, creating threads, starting a new DM, or reading chats; editing or deleting a message, reactions and pins are discord-actions.'
 ---
 
 # Sending a text
