@@ -51,21 +51,21 @@ export const searchReadInput = z.object({
     .min(1)
     .optional()
     .describe(
-      "Only messages that have all of these, each listed once: `link` (an http:// or https:// address in the text), `file` (any attachment), `image`, `video`, `sound` (an attachment of that kind, by its MIME type), `embed`, `sticker`, `poll`.",
+      "Only messages that have all of these, each listed once: `link` (an http:// or https:// address in the text), `file` (any attachment), `image`, `video`, `sound` (an attachment of that kind, by its MIME type), `embed`, `sticker`, `poll`. Method `discord` uses Discord's meanings, which can differ (its `image` also counts image embeds).",
     ),
   pinned: z.boolean().optional().describe("true: only pinned messages; false: only messages that are not pinned."),
   reacted: z
     .boolean()
     .optional()
     .describe(
-      "Method `mirror`: true keeps only messages the account has reacted to; false only those it has not. As of the last time each message was read.",
+      "Method `mirror`: true keeps only messages the account has reacted to; false only those it has not. As of the last time each message's chat was read; a message stored only from a search has no reactions on record, so it counts as not reacted to.",
     ),
   emoji: z
     .string()
     .min(1)
     .optional()
     .describe(
-      "Method `mirror`: only messages with a reaction of this emoji: the character itself, or `name:id` (also `<:name:id>`) for a custom one.",
+      "Method `mirror`: only messages with a reaction of this emoji: the character itself, or `name:id` (also `<:name:id>`) for a custom one. A message stored only from a search has no reactions on record and is not found.",
     ),
   threads: z
     .boolean()
