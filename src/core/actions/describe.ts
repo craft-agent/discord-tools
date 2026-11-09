@@ -1,0 +1,72 @@
+import { createHash } from "node:crypto"
+import {
+  describeChat,
+  mirroredMessage,
+  quote,
+  withMirror,
+  type DescribedChat,
+  type MirroredMessage,
+} from "../chats/describe"
+import { ToolError } from "../errors"
+import type { Mirror } from "../discord/mirror"
+import { lengthFact } from "../sends/describe"
+import type { CallDescription, CallFact, ToolContext } from "../tool"
+import type { ActionInput, EditInput } from "./schemas"
+
+/** The chat and the message an action on a message targets, as the mirror holds them. */
+export type DescribedAction = { chat: DescribedChat; message: MirroredMessage }
+
+/**
+ * The chat and the message of an action from the mirror. `not_found` when the
+ * mirror lacks either, which the action itself refuses.
+ */
+export function describedAction(mirror: Mirror, { channel, message }: ActionInput): DescribedAction {
+  const chat = describeChat(mirror, channel)
+  const found = mirroredMessage(mirror, channel, message)
+  if (!found) throw new ToolError("not_found", `The mirror holds no message ${message} in channel ${channel}.`)
+  return { chat, message: found }
+}
+
+/**
+ * The `Author` and `Message` facts of a message, so an approval prompt shows
+ * whose message it is and how it starts. The author is left out when the
+ * mirror has no name for someone else's message, the quote when it is empty.
+ */
+export function messageFacts(message: MirroredMessage): CallFact[] {
+  const author = message.fromMe ? { text: "You" } : message.author
+  const quoted = quote(message.content)
+  return [
+    ...(author === null ? [] : [{ label: "Author", value: author }]),
+    ...(quoted === "" ? [] : [{ label: "Message", value: quoted }]),
+  ]
+}
+
+/** The SHA-256 of a text as hex, which a pin holds in place of the text itself. */
+export function textHash(text: string): string {
+  return createHash("sha256").update(text, "utf8").digest("hex")
+}
+
+/**
+ * What an edit will do, from the mirror alone: the chat, the text it replaces,
+ * the notification flag, the new text's length and the new text. The
+ * `current_text` pin holds a hash of the whole stored text, so an edit that
+ * changed it past the quoted part is still caught when the call runs.
+ */
+export async function describeEdit(args: EditInput, ctx: ToolContext): Promise<CallDescription> {
+  return withMirror(args.account, ctx, (mirror) => {
+    const { chat, message } = describedAction(mirror, args)
+    const current = quote(message.content)
+    const facts: CallFact[] = [
+      ...chat.facts,
+      ...(current === "" ? [] : [{ label: "Current text", value: current }]),
+      ...(args.mass_mentions === true ? [{ label: "Mass mentions", value: { text: "Notify" } }] : []),
+      lengthFact(args.text),
+    ]
+    return {
+      headline: { text: "About to edit your message in {chat}", values: { chat: chat.name } },
+      facts,
+      text: { label: "New text", body: args.text },
+      pins: { current_text: textHash(message.content) },
+    }
+  })
+}
