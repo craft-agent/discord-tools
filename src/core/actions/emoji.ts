@@ -26,6 +26,17 @@ function isUnicodeEmoji(text: string): boolean {
 }
 
 /**
+ * An emoji as an approval prompt shows it: a custom emoji (`name:id`,
+ * `<:name:id>`, `<a:name:id>`) as `:name:`, anything else as given. Its id
+ * means nothing to a person, its name does. It checks nothing; the run
+ * refuses what is not an emoji.
+ */
+export function shownEmoji(input: string): string {
+  const form = MENTION_FORM.exec(input)?.[1] ?? input
+  return CUSTOM_EMOJI.test(form) ? `:${form.slice(0, form.lastIndexOf(":"))}:` : input
+}
+
+/**
  * The emoji of a reaction as the API path and the mirror spell it (the
  * character, or `name:id`), from what the caller wrote. A custom emoji is
  * accepted only when the message's stored reactions already hold it, and the

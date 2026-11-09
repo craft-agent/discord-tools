@@ -11,15 +11,15 @@ import type { DmItem } from "./schemas"
 import type { ChatHandler } from "./session"
 
 /** The channel types of a DM and of a group DM. */
-const DM_TYPE = 1
-const GROUP_DM_TYPE = 3
+export const DM_TYPE = 1
+export const GROUP_DM_TYPE = 3
 
 type DmRow = { id: string; type: number; name: string | null; recipients: string | null; last_message: string | null }
 type UserRow = { username: string | null; global_name: string | null }
 type LastRow = UserRow & { id: string; from_me: number; author: string | null; content: string; created_at: number }
 
 /** The recipient ids a stored `recipients` column holds. */
-function recipientIds(json: string | null): string[] {
+export function recipientIds(json: string | null): string[] {
   if (json === null) return []
   try {
     return listOf(JSON.parse(json) as unknown).flatMap((id) => idText(id) ?? [])
@@ -29,7 +29,7 @@ function recipientIds(json: string | null): string[] {
 }
 
 /** Looks users up by id in the mirror. */
-function userLookup(mirror: Mirror): (id: string) => UserRow {
+export function userLookup(mirror: Mirror): (id: string) => UserRow {
   const statement = mirror.prepare("SELECT username, global_name FROM users WHERE id = ?")
   return (id) => (statement.get(BigInt(id)) as UserRow | undefined) ?? { username: null, global_name: null }
 }

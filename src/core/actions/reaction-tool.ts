@@ -1,4 +1,5 @@
 import { defineTool } from "../tool"
+import { describeReactionAdd, describeReactionRemove } from "./describe"
 import { addReaction, removeReaction } from "./reaction"
 import { reactionInput, reactionOutput } from "./schemas"
 import { actionTargets } from "./targets"
@@ -14,23 +15,27 @@ const ONCE_AND_UNCERTAIN =
 export const discordReactionAdd = defineTool({
   id: "discord_reaction_add",
   title: "Add a Discord reaction",
+  intent: "About to add a Discord reaction",
   description: `Adds the signed-in user's own reaction ${WHERE_AND_WHAT} Adding a reaction the user already has is harmless. ${ONCE_AND_UNCERTAIN} The person approves every reaction.`,
   toolset: "actions",
   class: "idempotent",
   input: reactionInput,
   output: reactionOutput,
   targets: actionTargets,
+  describe: describeReactionAdd,
   execute: addReaction,
 })
 
 export const discordReactionRemove = defineTool({
   id: "discord_reaction_remove",
   title: "Remove a Discord reaction",
+  intent: "About to remove a Discord reaction",
   description: `Takes back the signed-in user's own reaction ${WHERE_AND_WHAT} Only the user's own reaction is taken back, never other people's; one the mirror shows the user did not make is refused without a request. ${ONCE_AND_UNCERTAIN} The person approves every removal.`,
   toolset: "actions",
   class: "overwrite",
   input: reactionInput,
   output: reactionOutput,
   targets: actionTargets,
+  describe: describeReactionRemove,
   execute: removeReaction,
 })
