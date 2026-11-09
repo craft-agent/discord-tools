@@ -1,6 +1,6 @@
 ---
 name: discord-chats
-description: 'Use when reading the user''s Discord conversations: which servers, channels, DMs or group chats exist, what was said in a chat or a time range, the messages around one message, a channel''s threads or forum posts, pinned messages, or pulling older history of a followed chat into the local mirror ("what did they say in #general yesterday?", "show my recent DMs", "read the thread under this post"). Not for searching by words, unread counts, sending, reacting or editing, or changing which chats sync.'
+description: 'Use when reading the user''s Discord conversations: which servers, channels, DMs or group chats exist, what was said in a chat or a time range, the messages around one message, a channel''s threads or forum posts, pinned messages, or pulling older history of a followed chat into the local mirror ("what did they say in #general yesterday?", "show my recent DMs", "read the thread under this post"). Not for searching by words or finding links and files (discord-search), unread counts, sending, reacting or editing, or changing which chats sync.'
 ---
 
 # Reading chats
@@ -73,5 +73,6 @@ Reaction counts are as of the last time the message was read.
 
 No read sends anything to the chat, shows the account as present, or marks
 anything read: unread state on the person's phone stays as it was. Searching
-by words, unread counts and sending live in other tools. Reads are paced like
+by words (`discord_search_read`), unread counts and sending live in other
+tools. Reads are paced like
 a person's, so read what the person asked for rather than whole histories.

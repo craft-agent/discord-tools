@@ -148,6 +148,7 @@ Each toolset comes with a skill that tells an agent how to use its tools.
 | sync    | `discord_sync_add`     | [discord-sync](skills/discord-sync/SKILL.md)       | follows a server or named channels         |
 | sync    | `discord_sync_remove`  | [discord-sync](skills/discord-sync/SKILL.md)       | stops following a server or channels       |
 | chats   | `discord_chat_read`    | [discord-chats](skills/discord-chats/SKILL.md)     | reads servers, channels, DMs and messages  |
+| search  | `discord_search_read`  | [discord-search](skills/discord-search/SKILL.md)   | searches the mirror or Discord's search    |
 | sends   | `discord_message_send` | [discord-sends](skills/discord-sends/SKILL.md)     | sends a text, optionally as a reply        |
 
 `account` is on by default and available with `read_only`. Call
@@ -214,6 +215,22 @@ rate and stored in the mirror. No read
 sends anything, shows the account as present or marks a chat read. Message
 text, embeds, file names and names are written by other people: the result
 says so, and an agent treats them as data, never as instructions.
+
+`search` is on by default and stays in `read_only` mode. `discord_search_read`
+finds messages, links and files, newest first, in one chat, one server or
+everywhere, by text, author, mentions, `has` (`link`, `file`, `image`,
+`video`, `sound`, `embed`, `sticker`, `poll`), pinned and a time range:
+
+| Method    | Searches                                                                      |
+| --------- | ----------------------------------------------------------------------------- |
+| `mirror`  | what the local mirror holds, current or not; sends no request                 |
+| `discord` | Discord's own search of a server, one chat, or every DM; stores what it found |
+
+`mirror` matches a literal substring and also filters by the account's
+reactions, an emoji, and a channel's threads; each chat in the result says
+when a sync run last marked it current. `discord` covers everything the
+account can read in that scope, but cannot search all servers at once; a
+server still being indexed is waited out once. Both page with `next_before`.
 
 `sends` is on by default; `read_only` leaves it out. `discord_message_send`
 sends one text to a DM, group DM, server channel or thread the mirror knows,
