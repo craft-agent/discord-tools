@@ -573,18 +573,27 @@ Every entry point takes the same settings:
   makes it `stale`.
 - **A message is quoted short.** Where a fact quotes a message, it is the
   first 80 characters, with each run of whitespace as one space, so the
-  facts stay within the head of the prompt.
+  facts stay within the head of the prompt. A delete is the exception: the
+  text it removes is shown whole, as the prompt's text, since it cannot be
+  read again once the call runs.
+- **An edit pins the text it replaces.** The quote of the current text can
+  stay the same while the text past it changes, so an edit pins a hash of
+  the whole current text, and a message edited after the prompt makes the
+  call `stale`.
 - **The facts the tools add**, in the order they are shown:
 
-  | Label           | Value                                                             | Shown              |
-  | --------------- | ----------------------------------------------------------------- | ------------------ |
-  | `Chat`          | the kind of chat: `Direct message`, `Group DM`, `Text channel`, … | always             |
-  | `Server`        | the server's name                                                 | a chat in a server |
-  | `Channel`       | the channel a thread belongs to, as `#name`                       | a thread           |
-  | `Reply to`      | the message replied to, quoted short                              | a reply            |
-  | `Mass mentions` | `Notify`                                                          | `mass_mentions`    |
-  | `Notifications` | `Silent`                                                          | `silent`           |
-  | `Length`        | `{count} characters`, in code points                              | a text sent        |
+  | Label           | Value                                                             | Shown                                |
+  | --------------- | ----------------------------------------------------------------- | ------------------------------------ |
+  | `Chat`          | the kind of chat: `Direct message`, `Group DM`, `Text channel`, … | always                               |
+  | `Server`        | the server's name                                                 | a chat in a server                   |
+  | `Channel`       | the channel a thread belongs to, as `#name`                       | a thread                             |
+  | `Author`        | who wrote the message, `You` for the user's own                   | a reaction, a pin                    |
+  | `Message`       | the message, quoted short                                         | a reaction, a pin                    |
+  | `Current text`  | the text an edit replaces, quoted short                           | an edit                              |
+  | `Reply to`      | the message replied to, quoted short                              | a reply                              |
+  | `Mass mentions` | `Notify`                                                          | `mass_mentions` of a send or an edit |
+  | `Notifications` | `Silent`                                                          | `silent`                             |
+  | `Length`        | `{count} characters`, in code points                              | a send, an edit's new text           |
 
 ## Toolsets
 
