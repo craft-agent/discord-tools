@@ -1,10 +1,11 @@
 import { CATEGORY, FORUM, seedChannels, seedHistory } from "../chats/read.messages.testing"
 import { createChatFixture } from "../chats/read.testing"
-import { ingestMessages } from "../discord/ingest"
+import { ingestMessages, type StoredReaction } from "../discord/ingest"
 import { CHANNEL, ME, messageObject, msgId, OTHER_CHANNEL, userObject } from "../discord/objects.testing"
 import { invoke, type ToolContext } from "../tool"
 import { discordMessageDelete } from "./delete-tool"
 import { discordMessageEdit } from "./edit-tool"
+import { discordReactionAdd, discordReactionRemove } from "./reaction-tool"
 
 /** The channel's messages path, which a read-back reads. */
 export const MESSAGES_PATH = `/channels/${CHANNEL}/messages`
@@ -25,6 +26,10 @@ export const EDITED_AT = "2026-01-02T03:04:05.000Z"
 
 /** The path of the request that edits or deletes a message of `CHANNEL`. */
 export const messagePath = (id = OWN) => `${MESSAGES_PATH}/${id}`
+
+/** The path of the request that adds (`rest` is `/@me`) or takes back (`/0/@me`) the account's own reaction `key`, which it percent-encodes. */
+export const reactionPath = (key: string, rest: string, id = OWN) =>
+  `${messagePath(id)}/reactions/${encodeURIComponent(key)}${rest}`
 
 /** Arguments naming a message the tool must refuse before any request, with the code it refuses with. */
 export const REFUSED_TARGETS: [string, Record<string, string>, string][] = [
@@ -61,6 +66,17 @@ export async function createActionsFixture() {
     edit: (args: unknown, ctx: ToolContext = f.ctx) => invoke(discordMessageEdit, args, ctx),
     /** Runs `discord_message_delete` the same way. */
     remove: (args: unknown, ctx: ToolContext = f.ctx) => invoke(discordMessageDelete, args, ctx),
+    /** Runs `discord_reaction_add` the same way. */
+    react: (args: unknown, ctx: ToolContext = f.ctx) => invoke(discordReactionAdd, args, ctx),
+    /** Runs `discord_reaction_remove` the same way. */
+    unreact: (args: unknown, ctx: ToolContext = f.ctx) => invoke(discordReactionRemove, args, ctx),
+    /** Replaces the reactions the mirror holds on a message (`null`: none known). */
+    setReactions: (id: string, reactions: StoredReaction[] | null) =>
+      f.seed((m) =>
+        m
+          .prepare("UPDATE messages SET reactions = ? WHERE id = ?")
+          .run(reactions === null ? null : JSON.stringify(reactions), BigInt(id)),
+      ),
     /** The requests that changed something: everything but reads. */
     writes: () => f.discord.api.filter((request) => request.method !== "GET"),
     /** The requests that read the channel's messages. */

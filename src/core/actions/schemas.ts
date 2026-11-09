@@ -37,6 +37,18 @@ export const deleteInput = z.object(actionFields)
 /** The arguments of `discord_message_delete` after validation. */
 export type DeleteInput = z.output<typeof deleteInput>
 
+export const reactionInput = z.object({
+  ...actionFields,
+  emoji: z
+    .string()
+    .describe(
+      "One Unicode emoji (👍, ❤️, 👍🏽), or a custom emoji that is already on the message as `name:id` (see its reactions in a live read); never a shortcode like `:thumbsup:`.",
+    ),
+})
+
+/** The arguments of `discord_reaction_add` and `discord_reaction_remove` after validation. */
+export type ReactionInput = z.output<typeof reactionInput>
+
 const errorsField = z
   .record(z.string(), z.string())
   .optional()
@@ -63,3 +75,14 @@ export const deleteOutput = z.object({
 
 /** The result of `discord_message_delete`. */
 export type DeleteResult = z.infer<typeof deleteOutput>
+
+export const reactionOutput = z.object({
+  id: z.string().describe("The id of the message the reaction is on."),
+  channel: z.string(),
+  emoji: z.string().describe("The emoji as used: the character, or `name:id` for a custom emoji."),
+  note: z.string(),
+  errors: errorsField,
+})
+
+/** The result of `discord_reaction_add` and `discord_reaction_remove`. */
+export type ReactionResult = z.infer<typeof reactionOutput>

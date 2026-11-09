@@ -9,6 +9,8 @@ provides_tools:
   - discord_message_delete
   - discord_message_edit
   - discord_message_send
+  - discord_reaction_add
+  - discord_reaction_remove
   - discord_search_read
   - discord_sync_add
   - discord_sync_read

@@ -60,6 +60,8 @@ describe("the registry", () => {
   test.each([
     ["discord_message_edit", "overwrite"],
     ["discord_message_delete", "administrative"],
+    ["discord_reaction_add", "idempotent"],
+    ["discord_reaction_remove", "overwrite"],
   ])("%s is a %s tool in the off-by-default actions toolset, left out in read-only mode", (id, writeClass) => {
     const ids = (settings: Parameters<typeof selectTools>[1]) =>
       selectTools(ALL_TOOLS, settings, PROJECT_PROFILE.toolsets).map((spec) => spec.id)
