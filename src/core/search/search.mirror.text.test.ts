@@ -139,8 +139,8 @@ describe("the arguments", () => {
     expect(f.discord.requests).toHaveLength(0)
   })
 
-  test("Discord's own search is not a method yet, and an unknown argument is refused", async () => {
-    expect((await failure(f.search({ method: "discord", query: "a" }))).code).toBe("invalid_argument")
+  test("an unknown method and an unknown argument are refused", async () => {
+    expect((await failure(f.search({ method: "web", query: "a" }))).code).toBe("invalid_argument")
     expect((await failure(search({ query: "a", color: "red" }))).code).toBe("invalid_argument")
     expect((await failure(f.search({ query: "a" }))).code).toBe("invalid_argument")
   })

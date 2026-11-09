@@ -3,7 +3,7 @@ import { messageItem } from "../chats/message-schemas"
 import type { ChatSession } from "../chats/session"
 
 /** The methods of `discord_search_read`; a method is added here, in `args.ts` and in the dispatch table of `read.ts`. */
-export const SEARCH_METHODS = ["mirror"] as const
+export const SEARCH_METHODS = ["mirror", "discord"] as const
 
 /** One method of `discord_search_read`. */
 export type SearchMethod = (typeof SEARCH_METHODS)[number]
@@ -22,7 +22,7 @@ export const searchReadInput = z.object({
   method: z
     .enum(SEARCH_METHODS)
     .describe(
-      "Where to search: `mirror` searches the messages the local mirror holds, current or not, and makes no request to Discord.",
+      "Where to search: `mirror` searches the messages the local mirror holds, current or not, and makes no request to Discord; `discord` asks Discord's own search, which covers everything the account can read in the scope, and stores the hits in the mirror.",
     ),
   query: z
     .string()
@@ -30,19 +30,19 @@ export const searchReadInput = z.object({
     .max(SEARCH_QUERY_MAX_LENGTH)
     .optional()
     .describe(
-      "The text to look for. Method `mirror`: a literal substring of the message text (nothing in it is special), ignoring case for A–Z only.",
+      "The text to look for. Method `mirror`: a literal substring of the message text (nothing in it is special), ignoring case for A–Z only. Method `discord`: matched by Discord's own search, by words.",
     ),
   channel: z
     .string()
     .optional()
     .describe(
-      "Only this chat: its id, from `discord_chat_read` method `dms`, `channels` or `threads`; never a name. Not with `server`. A forum or media channel needs `threads: true`.",
+      "Only this chat: its id, from `discord_chat_read` method `dms`, `channels` or `threads`; never a name. Not with `server`. Method `mirror`: a forum or media channel needs `threads: true`. Method `discord`: a thread is searched by its own id; a category, forum or media channel cannot be searched.",
     ),
   server: z
     .string()
     .optional()
     .describe(
-      "Only this server's chats: its id, from `discord_chat_read` method `servers`; never a name. Not with `channel`. Left out together with `channel`, everything is searched, DMs included.",
+      "Only this server's chats: its id, from `discord_chat_read` method `servers`; never a name. Not with `channel`. Left out together with `channel`, method `mirror` searches everything, DMs included; method `discord` searches every DM and group DM (Discord cannot search all servers at once).",
     ),
   author: z.string().optional().describe("Only messages by this user: the user's id."),
   mentions: z.string().optional().describe("Only messages that mention this user: the user's id."),
@@ -90,7 +90,7 @@ export const searchReadInput = z.object({
     .int()
     .min(1)
     .optional()
-    .describe("The most messages to return: method `mirror` default 25, at most 100."),
+    .describe("The most messages to return: default 25; at most 100 for method `mirror`, 25 for method `discord`."),
 })
 
 /** The arguments of `discord_search_read` after validation. */
@@ -114,16 +114,24 @@ const searchChatItem = z.object({
 
 export const searchReadOutput = z.object({
   method: z.enum(SEARCH_METHODS),
-  source: z.enum(["mirror"]).describe("Where the messages were searched: the local mirror."),
+  source: z.enum(["mirror", "discord"]).describe("Where the messages were searched: the local mirror, or Discord."),
   note: z.string(),
   messages: z.array(searchMessageItem).describe("Newest first."),
   chats: z
     .array(searchChatItem)
     .describe("The chats the messages are in, in the order they first appear, with how fresh each is."),
+  total: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe("Method `discord`: how many messages Discord says match; an estimate, not a count."),
   next_before: z
     .string()
     .optional()
-    .describe("Present when the page is full: pass as `before` for the next older page."),
+    .describe(
+      "Pass as `before` for the next older page. Method `mirror`: present when the page is full. Method `discord`: present whenever the page held a message, since Discord's pages can be short; an empty page ends the search.",
+    ),
   reactions_note: z.string().optional().describe("Present when a message has reactions."),
 })
 

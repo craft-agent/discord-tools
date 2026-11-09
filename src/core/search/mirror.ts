@@ -2,12 +2,13 @@ import { ToolError } from "../errors"
 import { CATEGORY_TYPE } from "../chats/channels"
 import { mirroredChannelId } from "../chats/channel-target"
 import { parseBounds } from "../chats/bounds"
-import { channelKind, isoOrNull, UNTRUSTED_NOTE } from "../chats/format"
-import { ITEM_COLUMNS, type ItemRow, itemOf, reactionsNote } from "../chats/message-items"
+import { channelKind, UNTRUSTED_NOTE } from "../chats/format"
+import { reactionsNote } from "../chats/message-items"
 import type { ChatSession } from "../chats/session"
-import { getCursor, isChannelCurrent } from "../discord/mirror-cursors"
 import { SEARCH_LIMIT_DEFAULT } from "./args"
-import type { SearchChatItem, SearchHandler, SearchHas, SearchMessageItem, SearchReadInput } from "./schemas"
+import { itemsOf, SEARCH_ROWS_SELECT, type SearchRow } from "./items"
+import type { SearchHandler, SearchHas, SearchReadInput } from "./schemas"
+import { checkServer } from "./scope"
 
 /** What the result of a search of the mirror tells about its reach and its text matching. */
 const MIRROR_NOTE =
@@ -30,8 +31,6 @@ type Param = string | bigint | number
 
 /** The conditions of one search, joined with AND, and the values their `?` stand for in order. */
 type Conditions = { sql: string[]; params: Param[] }
-
-type SearchRow = ItemRow & { channel: string; server: string | null; channel_name: string | null }
 
 /** `text` as a `LIKE` pattern that finds it anywhere, with its backslashes and wildcards taken literally. */
 function likeContaining(text: string): string {
@@ -77,16 +76,6 @@ function hasCondition(has: SearchHas): { sql: string; params: Param[] } {
         ),
         params: [`${ATTACHMENT_TYPE_PREFIX[has]}%`],
       }
-  }
-}
-
-/** The server the mirror knows; `not_found` otherwise. */
-function checkServer(session: ChatSession, server: string): void {
-  if (!session.mirror.prepare("SELECT 1 FROM servers WHERE id = ?").get(BigInt(server))) {
-    throw new ToolError(
-      "not_found",
-      `This account has no server ${server} in its mirror: list its servers with discord_chat_read method servers first.`,
-    )
   }
 }
 
@@ -153,22 +142,6 @@ function conditionsOf(session: ChatSession, args: SearchReadInput): Conditions {
   return conditions
 }
 
-/** One entry for each chat the rows are in, in the order they first appear, with when a sync run last marked it current. */
-function chatsOf(session: ChatSession, rows: readonly SearchRow[]): SearchChatItem[] {
-  const chats = new Map<string, SearchChatItem>()
-  for (const row of rows) {
-    if (chats.has(row.channel)) continue
-    chats.set(row.channel, {
-      id: row.channel,
-      name: row.channel_name,
-      server: row.server,
-      synced_at: isoOrNull(getCursor(session.mirror, row.channel)?.syncedAt ?? null),
-      current: isChannelCurrent(session.mirror, row.channel, session.now()),
-    })
-  }
-  return [...chats.values()]
-}
-
 /**
  * Method `mirror`: the newest messages the local mirror holds that match every
  * condition, whether or not their chat is current, and the chats they are in.
@@ -179,27 +152,15 @@ export const searchMirror: SearchHandler = async (session, args) => {
   const { sql, params } = conditionsOf(session, args)
   const limit = args.limit ?? SEARCH_LIMIT_DEFAULT
   const rows = session.mirror
-    .prepare(
-      `SELECT ${ITEM_COLUMNS}, CAST(m.channel AS TEXT) AS channel, CAST(COALESCE(m.server, c.server) AS TEXT) AS server,
-              c.name AS channel_name
-       FROM messages m
-       LEFT JOIN users u ON u.id = m.author
-       LEFT JOIN channels c ON c.id = m.channel
-       WHERE ${sql.join(" AND ")}
-       ORDER BY m.id DESC LIMIT ?`,
-    )
+    .prepare(`${SEARCH_ROWS_SELECT} WHERE ${sql.join(" AND ")} ORDER BY m.id DESC LIMIT ?`)
     .all(...params, limit) as SearchRow[]
-  const messages: SearchMessageItem[] = rows.map((row) => ({
-    ...itemOf(row, session.me),
-    channel: row.channel,
-    server: row.server,
-  }))
+  const { messages, chats } = itemsOf(session, rows)
   const oldest = messages.at(-1)
   return {
     source: "mirror",
     note: `${MIRROR_NOTE} ${UNTRUSTED_NOTE}`,
     messages,
-    chats: chatsOf(session, rows),
+    chats,
     ...(oldest && messages.length === limit ? { next_before: oldest.id } : {}),
     ...reactionsNote(messages),
   }

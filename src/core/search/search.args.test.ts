@@ -78,7 +78,7 @@ describe("the arguments of method mirror", () => {
       { has: [] },
       { has: ["gif"] },
       { emoji: "" },
-      { method: "discord", query: "a" },
+      { method: "web", query: "a" },
       { query: "a", color: "red" },
     ]) {
       expect(() => searchReadInput.strict().parse({ method: "mirror", ...args })).toThrow()

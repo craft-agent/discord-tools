@@ -1,7 +1,7 @@
 import { invalid } from "../chats/args"
 import { parseBounds } from "../chats/bounds"
 import { isSnowflake } from "../discord/snowflake"
-import type { SearchMethod, SearchReadInput } from "./schemas"
+import { SEARCH_METHODS, type SearchMethod, type SearchReadInput } from "./schemas"
 
 /** How many messages a search returns when `limit` is left out. */
 export const SEARCH_LIMIT_DEFAULT = 25
@@ -13,7 +13,7 @@ export const MIRROR_LIMIT_MAX = 100
 export const DISCORD_LIMIT_MAX = 25
 
 /** The most messages each method returns in one call. */
-const LIMIT_MAX: Record<SearchMethod, number> = { mirror: MIRROR_LIMIT_MAX }
+const LIMIT_MAX: Record<SearchMethod, number> = { mirror: MIRROR_LIMIT_MAX, discord: DISCORD_LIMIT_MAX }
 
 /** The arguments every method takes. */
 const ALWAYS: readonly (keyof SearchReadInput)[] = ["account", "method"]
@@ -35,9 +35,10 @@ const ALLOWED: Record<SearchMethod, readonly (keyof SearchReadInput)[]> = {
     "after",
     "limit",
   ],
+  discord: ["query", "channel", "server", "author", "mentions", "has", "pinned", "before", "after", "limit"],
 }
 
-/** The arguments that narrow a search to messages with a property; a search needs at least one. */
+/** The arguments that narrow a search to messages with a property; a search needs at least one the method takes. */
 const FILTER_ARGUMENTS: readonly (keyof SearchReadInput)[] = [
   "query",
   "author",
@@ -56,13 +57,16 @@ const ID_ARGUMENTS = ["channel", "server", "author", "mentions"] as const
  * the method does not take, an id that is not a snowflake, `channel` together
  * with `server`, `threads` without `channel`, a repeated `has`, a bound that is
  * not an id, a date or a timestamp, a search with no filter, and a `limit` over
- * the method's maximum.
+ * the method's maximum. The message for an argument only another method takes
+ * names that method.
  */
 export function checkArgs(args: SearchReadInput): void {
   const takes = [...ALWAYS, ...ALLOWED[args.method]]
   for (const [field, value] of Object.entries(args)) {
     if (value !== undefined && !takes.includes(field as keyof SearchReadInput)) {
-      invalid(`${field} is not an argument of method ${args.method}; it takes: ${takes.join(", ")}.`)
+      const takenBy = SEARCH_METHODS.filter((method) => ALLOWED[method].includes(field as keyof SearchReadInput))
+      const only = takenBy.length > 0 ? ` Only method ${takenBy.join(" and ")} takes it.` : ""
+      invalid(`${field} is not an argument of method ${args.method}; it takes: ${takes.join(", ")}.${only}`)
     }
   }
   for (const field of ID_ARGUMENTS) {
@@ -81,9 +85,10 @@ export function checkArgs(args: SearchReadInput): void {
     invalid("`has` lists each of its values once.")
   }
   parseBounds(args.before, args.after)
-  if (FILTER_ARGUMENTS.every((field) => args[field] === undefined)) {
+  const filters = FILTER_ARGUMENTS.filter((field) => takes.includes(field))
+  if (filters.every((field) => args[field] === undefined)) {
     invalid(
-      `A search needs at least one of ${FILTER_ARGUMENTS.join(", ")}; to read a chat without a search, use discord_chat_read method messages.`,
+      `A search needs at least one of ${filters.join(", ")}; to read a chat without a search, use discord_chat_read method messages.`,
     )
   }
   const max = LIMIT_MAX[args.method]
