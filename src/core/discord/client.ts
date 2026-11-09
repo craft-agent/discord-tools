@@ -1,6 +1,15 @@
+import { type FileHandle, unlink } from "node:fs/promises"
 import { ToolError } from "../errors"
 import { abortError } from "../exec"
 import { buildNumber } from "./build-number"
+import {
+  type DownloadOptions,
+  type DownloadResult,
+  NOT_MEDIA_URL,
+  createDownloadFile,
+  mediaUrl,
+  receiveDownload,
+} from "./download"
 import { httpError, parseJson, requiresTwoFactor, retryAfter } from "./http-errors"
 import {
   type ClientHints,
@@ -16,11 +25,19 @@ import {
 import type { LabelPaths } from "./labels"
 import { maskTokens } from "./mask"
 import { createPacer } from "./pacing"
-import { DEFAULT_REFERER, REQUEST_HEADER_ORDER, requestHeaders } from "./request-headers"
+import { DEFAULT_REFERER, REQUEST_HEADER_ORDER, mediaHeaders, requestHeaders } from "./request-headers"
 import { readToken, recordRejected, rejectedAt } from "./token"
-import { type Transport, type TransportRequest, type TransportResponse, TransportFailure } from "./transport"
+import {
+  type DownloadTransport,
+  type Transport,
+  type TransportRequest,
+  type TransportResponse,
+  TransportFailure,
+} from "./transport"
 
 export { REQUEST_HEADER_ORDER }
+export { isMediaUrl } from "./download"
+export type { DownloadOptions, DownloadResult }
 
 /** Where every API request goes. */
 export const API_BASE = "https://discord.com/api/v9"
@@ -82,6 +99,8 @@ export type DiscordClientOptions = {
   transport?: Transport
   /** Internal: overrides loading the native transport on first use. */
   loadTransport?: (os: ClientOs) => Promise<Transport>
+  /** Sends the downloads; by default Chrome's fingerprint through wreq, loaded on first use. */
+  download?: DownloadTransport
   os?: ClientOs
   now?: () => number
   sleep?: (ms: number) => Promise<void>
@@ -96,7 +115,14 @@ export type DiscordClient = {
   read<T = unknown>(method: string, path: string, options?: RequestOptions): Promise<T>
   /** A write: sent once, never retried; whatever may have reached Discord throws `uncertain`. */
   write<T = unknown>(method: string, path: string, options?: RequestOptions): Promise<T>
-  /** The requests sent so far, the build number page included. */
+  /**
+   * Saves a file from Discord's media hosts to `options.to`: paced and counted
+   * like any request, but without the token, a build number or the API's
+   * headers, never retried and never following a redirect. Only a `saved`
+   * result leaves a file. See `DownloadResult` for the other outcomes.
+   */
+  download(url: string, options: DownloadOptions): Promise<DownloadResult>
+  /** The requests sent so far, the build number page and the downloads included. */
   readonly requests: number
 }
 
@@ -125,15 +151,23 @@ function sanitizedError(error: unknown, token: string): Error {
   return safe
 }
 
+/** The result for a download that failed below HTTP or on the disk; its text is masked like any error's. */
+function failedDownload(prefix: string, error: unknown): DownloadResult {
+  const detail = maskTokens(error instanceof Error ? error.message : String(error)).slice(0, MAX_ERROR_DETAIL_LENGTH)
+  return { status: "failed", why: `${prefix}: ${detail}` }
+}
+
 function checkAbort(signal?: AbortSignal): void {
   if (signal?.aborted) throw abortError(signal)
 }
 
-function lazyWreqTransport(os: ClientOs, loadTransport: NonNullable<DiscordClientOptions["loadTransport"]>): Transport {
-  let loaded: Promise<Transport> | undefined
+function lazyWreq<Answer>(
+  load: () => Promise<(request: TransportRequest) => Promise<Answer>>,
+): (request: TransportRequest) => Promise<Answer> {
+  let loaded: Promise<(request: TransportRequest) => Promise<Answer>> | undefined
   return async (request) => {
     loaded ??= Promise.resolve()
-      .then(() => loadTransport(os))
+      .then(load)
       .catch((error: unknown) => {
         loaded = undefined
         const detail = maskTokens(error instanceof Error ? error.message : String(error)).split(/\r?\n/, 1)[0]
@@ -183,10 +217,11 @@ export function createDiscordClient(options: DiscordClientOptions): DiscordClien
   const random = options.random ?? Math.random
   const transport =
     options.transport ??
-    lazyWreqTransport(
-      os,
-      options.loadTransport ?? ((os) => import("./transport-wreq").then((module) => module.wreqTransport(os))),
+    lazyWreq(() =>
+      (options.loadTransport ?? ((os) => import("./transport-wreq").then((module) => module.wreqTransport(os))))(os),
     )
+  const sendDownload =
+    options.download ?? lazyWreq(() => import("./transport-wreq").then((module) => module.wreqDownload(os)))
   const systemLocale = locale()
   const discordTag = discordLocale(systemLocale)
   const zone = timeZone()
@@ -214,11 +249,11 @@ export function createDiscordClient(options: DiscordClientOptions): DiscordClien
     }
   }
 
-  const dispatch = async (
+  const dispatchWith = async <Answer>(
     request: TransportRequest,
-    send: Transport = transport,
+    send: (request: TransportRequest) => Promise<Answer>,
     token?: string,
-  ): Promise<TransportResponse> => {
+  ): Promise<Answer> => {
     const turn = dispatchQueue.then(async () => {
       checkAbort(request.signal)
       assertBudget()
@@ -235,6 +270,12 @@ export function createDiscordClient(options: DiscordClientOptions): DiscordClien
     )
     return (await turn).response
   }
+
+  const dispatch = (
+    request: TransportRequest,
+    send: Transport = transport,
+    token?: string,
+  ): Promise<TransportResponse> => dispatchWith(request, send, token)
 
   const prepare = async (signal?: AbortSignal): Promise<Session> => {
     checkAbort(signal)
@@ -421,9 +462,58 @@ export function createDiscordClient(options: DiscordClientOptions): DiscordClien
     })
   }
 
+  const downloadFile = async (url: string, request: DownloadOptions): Promise<DownloadResult> => {
+    checkAbort(request.signal)
+    const target = mediaUrl(url)
+    if (!target) return { status: "refused", why: NOT_MEDIA_URL }
+    if (request.declaredSize !== undefined && request.declaredSize > request.maxBytes) return { status: "too_large" }
+    let file: FileHandle
+    try {
+      file = await createDownloadFile(request.to)
+    } catch (error) {
+      return failedDownload("Could not create the file", error)
+    }
+    const expired = new AbortController()
+    const signal = request.signal ? AbortSignal.any([request.signal, expired.signal]) : expired.signal
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let saved = false
+    try {
+      const response = await dispatchWith(
+        {
+          method: "GET",
+          url: target.href,
+          headers: mediaHeaders({ os, hints: clientHints(os), locale: discordTag }),
+          timeoutMs: request.timeoutMs,
+          signal,
+        },
+        (outgoing) => {
+          // The limit counts from the send, not from the wait for the turn.
+          timer = setTimeout(() => expired.abort(), request.timeoutMs)
+          return sendDownload(outgoing)
+        },
+      )
+      const result = await receiveDownload(response, file, request.maxBytes)
+      await file.close()
+      saved = result.status === "saved"
+      return result
+    } catch (error) {
+      if (request.signal?.aborted) throw abortError(request.signal)
+      if (error instanceof BudgetSpent || error instanceof ToolError) throw error
+      if (expired.signal.aborted) {
+        return { status: "failed", why: `The download took longer than ${request.timeoutMs / MS_PER_SECOND} seconds.` }
+      }
+      return failedDownload("Could not download the file", error)
+    } finally {
+      clearTimeout(timer)
+      await file.close().catch(() => {})
+      if (!saved) await unlink(request.to).catch(() => {})
+    }
+  }
+
   return {
     read,
     write,
+    download: downloadFile,
     get requests() {
       return requests
     },

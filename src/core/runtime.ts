@@ -10,5 +10,5 @@ export type ToolRuntime = {
   serviceHost: ServiceHost
   now: () => number
   /** Test and entry-point overrides for the one HTTP client; production leaves it unset. */
-  discord?: Pick<DiscordClientOptions, "transport" | "os" | "sleep" | "random">
+  discord?: Pick<DiscordClientOptions, "transport" | "download" | "os" | "sleep" | "random">
 }
