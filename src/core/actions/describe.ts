@@ -9,7 +9,7 @@ import {
 } from "../chats/describe"
 import { ToolError } from "../errors"
 import type { Mirror } from "../discord/mirror"
-import { lengthFact } from "../sends/describe"
+import { lengthFact, massMentionsFacts } from "../sends/describe"
 import type { CallDescription, CallFact, CallHeadline, ToolContext } from "../tool"
 import { shownEmoji } from "./emoji"
 import type { ActionInput, DeleteInput, EditInput, PinInput, ReactionInput } from "./schemas"
@@ -60,7 +60,7 @@ export async function describeEdit(args: EditInput, ctx: ToolContext): Promise<C
     const facts: CallFact[] = [
       ...chat.facts,
       ...(current === "" ? [] : [{ label: "Current text", value: current }]),
-      ...(args.mass_mentions === true ? [{ label: "Mass mentions", value: { text: "Notify" } }] : []),
+      ...massMentionsFacts(args.mass_mentions),
       lengthFact(args.text),
     ]
     return {

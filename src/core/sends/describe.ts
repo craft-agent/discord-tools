@@ -12,6 +12,11 @@ export function lengthFact(text: string): CallFact {
   }
 }
 
+/** The `Mass mentions` fact, only when the call lets `@everyone`, `@here` and role mentions notify. */
+export function massMentionsFacts(massMentions: boolean | undefined): CallFact[] {
+  return massMentions === true ? [{ label: "Mass mentions", value: { text: "Notify" } }] : []
+}
+
 /** The headline of a send: to the chat, or a reply to its author when the mirror names one. */
 function headlineOf(chat: string, reply?: { author: string | null }): CallHeadline {
   if (!reply) return { text: "About to send a message to {chat}", values: { chat } }
@@ -36,7 +41,7 @@ export async function describeSend(args: SendInput, ctx: ToolContext): Promise<C
     const facts: CallFact[] = [
       ...chat.facts,
       ...(quoted === "" ? [] : [{ label: "Reply to", value: quoted }]),
-      ...(args.mass_mentions === true ? [{ label: "Mass mentions", value: { text: "Notify" } }] : []),
+      ...massMentionsFacts(args.mass_mentions),
       ...(args.silent === true ? [{ label: "Notifications", value: { text: "Silent" } }] : []),
       lengthFact(args.text),
     ]
