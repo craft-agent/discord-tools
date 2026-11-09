@@ -611,6 +611,11 @@ Every entry point takes the same settings:
   stay the same while the text past it changes, so an edit pins a hash of
   the whole current text, and a message edited after the prompt makes the
   call `stale`.
+- **A save lists what the mirror holds.** Its prompt's text, under the label
+  `Attachments`, is the attachment names the mirror stores for the message,
+  one to a line; link previews and stickers are read from Discord when the call
+  runs, so the prompt cannot list them, and a message whose attachments the
+  mirror does not hold has no text. Every name is another person's data.
 - **A change to the sync list names the server and its channels.** The
   server is its name in the mirror, else its id, since a server the account
   has left can still be removed; a channel is `#name`, else its id. The
@@ -622,8 +627,9 @@ Every entry point takes the same settings:
   | `Chat`          | the kind of chat: `Direct message`, `Group DM`, `Text channel`, … | always                               |
   | `Server`        | the server's name                                                 | a chat in a server                   |
   | `Channel`       | the channel a thread belongs to, as `#name`                       | a thread                             |
-  | `Author`        | who wrote the message, `You` for the user's own                   | a reaction, a pin                    |
-  | `Message`       | the message, quoted short                                         | a reaction, a pin                    |
+  | `Author`        | who wrote the message, `You` for the user's own                   | a reaction, a pin, a save            |
+  | `Message`       | the message, quoted short                                         | a reaction, a pin, a save            |
+  | `Unpack`        | the entries named, joined with `, `, or `Every archive`           | `unpack` of a save                   |
   | `Current text`  | the text an edit replaces, quoted short                           | an edit                              |
   | `Reply to`      | the message replied to, quoted short                              | a reply                              |
   | `Mass mentions` | `Notify`                                                          | `mass_mentions` of a send or an edit |
