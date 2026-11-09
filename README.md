@@ -150,6 +150,7 @@ Each toolset comes with a skill that tells an agent how to use its tools.
 | chats   | `discord_chat_read`       | [discord-chats](skills/discord-chats/SKILL.md)     | reads servers, channels, DMs and messages  |
 | search  | `discord_search_read`     | [discord-search](skills/discord-search/SKILL.md)   | searches the mirror or Discord's search    |
 | sends   | `discord_message_send`    | [discord-sends](skills/discord-sends/SKILL.md)     | sends a text, optionally as a reply        |
+| files   | `discord_file_save`       | [discord-files](skills/discord-files/SKILL.md)     | saves the files of a message to disk       |
 | actions | `discord_message_edit`    | [discord-actions](skills/discord-actions/SKILL.md) | edits the account's own message            |
 | actions | `discord_message_delete`  | [discord-actions](skills/discord-actions/SKILL.md) | deletes the account's own message          |
 | actions | `discord_reaction_add`    | [discord-actions](skills/discord-actions/SKILL.md) | adds the account's reaction                |
@@ -275,6 +276,28 @@ once and never retried, and followed in the mirror. Anything that may have
 reached Discord is `uncertain`: `details.applied` says whether one read-back of
 the chat saw the new state (`null` when it could not tell). Repeating an
 action is harmless, but check the chat and ask first.
+
+`files` is off by default, because it writes files to disk; turn it on with
+`toolsets` (for example `--toolsets all`, or the defaults plus `files`).
+`read_only` leaves it out. `discord_file_save` takes a chat and a message by
+id, the message being one the mirror holds, and saves its attachments, the
+images of its link previews and its stickers to
+`<download_dir>/<channel>-<message>/`. Every save is asked about.
+
+Nothing is overwritten: the same name with the same bytes is reported
+`already`, any other gets `name-2.ext`. Files come only from Discord's own
+CDN and media proxy, without the token, never from the site behind a link. Each file is
+checked by its name, its declared type and its bytes before it is kept:
+programs, installers, scripts and archives that cannot be read are `refused`,
+and a file over `download_max_mb` is `too_large`. The others go on, each with
+its outcome. Files carry no execute bit and, on macOS, are marked as
+downloaded.
+
+An archive (`.zip`, `.tar`, `.tar.gz`, `.tgz`) is saved packed, with a listing
+of what it holds. With `unpack: true`, and only when asked, it is also
+unpacked into a new folder beside it, all of it or only the `entries` named
+from the listing. Where files go and their size limit are the `download_dir`
+and `download_max_mb` [settings](#settings).
 
 ## Local account commands
 
