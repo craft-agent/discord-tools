@@ -67,6 +67,11 @@ describe("a write", () => {
     }
   })
 
+  test("keeps Discord's code of a refusal in the details", async () => {
+    harness.discord.route("POST", "/channels/2/messages", { status: 404, json: { code: 10008, message: "Unknown" } })
+    await expect(send()).rejects.toMatchObject({ code: "not_found", details: { discord_code: 10008 } })
+  })
+
   test("is rate_limited on a 429, without waiting or retrying", async () => {
     harness.discord.route("POST", "/channels/2/messages", { status: 429, json: { retry_after: 1.2 } })
     await expect(send()).rejects.toMatchObject({

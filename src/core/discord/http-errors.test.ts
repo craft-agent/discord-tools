@@ -27,6 +27,13 @@ describe("httpError", () => {
     expect(httpError(404, {}, undefined).message).toBe("Discord answered 404")
   })
 
+  test("carries a numeric Discord code as details.discord_code", () => {
+    expect(httpError(404, {}, { code: 10008, message: "Unknown Message" }).details).toEqual({ discord_code: 10008 })
+    expect(httpError(403, {}, { code: 50013 }).details).toEqual({ discord_code: 50013 })
+    expect(httpError(404, {}, { code: "10008" }).details).toBeUndefined()
+    expect(httpError(500, {}, "<html>").details).toBeUndefined()
+  })
+
   test("maps a 401 to a rejected token", () => {
     const error = httpError(401, {}, { code: 0, message: "401: Unauthorized" })
     expect(error.code).toBe("unauthenticated")

@@ -18,6 +18,9 @@ const NONCE_RANDOM_RANGE = 2 ** 22
 const PLAIN_MENTIONS = ["users"]
 const MASS_MENTIONS = ["users", "roles", "everyone"]
 
+/** The `allowed_mentions` of a request that carries message text. */
+export type AllowedMentions = { parse: readonly string[]; replied_user: false }
+
 /** The body of the request that sends a message, as the web client builds it. */
 export type SendBody = {
   mobile_network_type: "unknown"
@@ -26,7 +29,7 @@ export type SendBody = {
   tts: false
   enforce_nonce: true
   flags: number
-  allowed_mentions: { parse: readonly string[]; replied_user: false }
+  allowed_mentions: AllowedMentions
   message_reference?: { channel_id: string; message_id: string; guild_id?: string; fail_if_not_exists: true }
 }
 
@@ -44,6 +47,11 @@ export function newNonce(now: number): string {
   return String(BigInt(snowflakeAt(now)) | BigInt(randomInt(0, NONCE_RANDOM_RANGE)))
 }
 
+/** Who the text may notify: users always, roles and `@everyone`/`@here` only with `massMentions`; a reply never pings its author. */
+export function allowedMentions(massMentions: boolean): AllowedMentions {
+  return { parse: massMentions ? MASS_MENTIONS : PLAIN_MENTIONS, replied_user: false }
+}
+
 /** The request body of a send. A reply never pings its author, and the text is sent exactly as given. */
 export function sendBody({ text, nonce, silent, massMentions, reply }: SendSpec): SendBody {
   return {
@@ -53,7 +61,7 @@ export function sendBody({ text, nonce, silent, massMentions, reply }: SendSpec)
     tts: false,
     enforce_nonce: true,
     flags: silent ? SUPPRESS_NOTIFICATIONS : 0,
-    allowed_mentions: { parse: massMentions ? MASS_MENTIONS : PLAIN_MENTIONS, replied_user: false },
+    allowed_mentions: allowedMentions(massMentions),
     ...(reply
       ? {
           message_reference: {

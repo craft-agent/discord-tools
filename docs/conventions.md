@@ -415,6 +415,15 @@ Every entry point takes the same settings:
   written, but `@everyone`, `@here` and role mentions notify only when an
   argument asks for it, and a silent send is one argument away: a mass ping
   reaches many phones and cannot be taken back.
+- **An action on a message sets a state, checked before it leaves.** An
+  edit or a delete reaches only the user's own messages, a custom emoji only
+  one already on the message, a pin only a plain message or a reply, and
+  taking back a reaction only one the mirror shows the user made; a request
+  that fails a check is refused without being sent. Discord decides the rest
+  (the right to pin, the caps on reactions and pins). Deleting a message
+  Discord no longer has is done, marked `already`, since the state asked for
+  holds. A done action is followed in the mirror through the ingest, without
+  another request.
 - **Nothing marks a chat read but the tool for it.** A read mark clears the
   unread state on every device the user has, so it is a call the harness asks
   about, never a side effect of looking.
@@ -423,8 +432,9 @@ Every entry point takes the same settings:
 
 - **One per domain**: `account`, `sync` (the sync list), `chats`, `search`,
   `inbox`, `people` (people and server info), `sends`, `history` (counts and
-  the export), `files` (saving received files), `actions` (on the user's own
-  messages), `threads` (creating threads and forum posts) and `roles`.
+  the export), `files` (saving received files), `actions` (the user's own
+  messages, reactions and pins), `threads` (creating threads and forum posts)
+  and `roles`.
 - **`account`, `sync`, `chats`, `search`, `inbox`, `people` and `sends` are on
   by default.** They cover reading a chat and answering it. `history` and
   `files` write files to disk; `actions` changes messages other people have

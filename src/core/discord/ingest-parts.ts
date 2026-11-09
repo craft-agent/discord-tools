@@ -94,3 +94,27 @@ export function reactionsJson(value: unknown): string | null {
     }),
   )
 }
+
+/** One entry of the stored reactions: `emoji` is the `emojiKey` spelling. */
+export type StoredReaction = { emoji: string; count: number; me: boolean }
+
+/** The reactions a `reactionsJson` column holds (none for `null`), or `null` when the text is not shaped as `reactionsJson` writes it. */
+export function storedReactions(json: string | null): StoredReaction[] | null {
+  if (json === null) return []
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(json)
+  } catch {
+    return null
+  }
+  if (!Array.isArray(parsed)) return null
+  const reactions: StoredReaction[] = []
+  for (const entry of parsed) {
+    const emoji = textOrNull(fieldOf(entry, "emoji"))
+    const count = intOrNull(fieldOf(entry, "count"))
+    const me = fieldOf(entry, "me")
+    if (emoji === null || count === null || typeof me !== "boolean") return null
+    reactions.push({ emoji, count, me })
+  }
+  return reactions
+}

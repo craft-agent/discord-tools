@@ -117,7 +117,9 @@ function sanitizedError(error: unknown, token: string): Error {
     error instanceof Error && error.cause !== undefined
       ? { cause: new Error(maskTokens(String(error.cause), token)) }
       : undefined
-  if (error instanceof ToolError) return new ToolError(error.code, message, cause)
+  if (error instanceof ToolError) {
+    return new ToolError(error.code, message, { ...cause, ...(error.details ? { details: error.details } : {}) })
+  }
   const safe = new Error(message, cause)
   safe.name = error instanceof Error ? maskTokens(error.name, token) : "Error"
   return safe

@@ -14,6 +14,14 @@ const CHAT_READ = "discord_chat_read"
 const SEARCH_READ = "discord_search_read"
 const SYNC_READ = "discord_sync_read"
 const WRITE_TOOLS = ["discord_sync_add", "discord_sync_remove", "discord_message_send"]
+const ACTION_TOOLS = [
+  "discord_message_edit",
+  "discord_message_delete",
+  "discord_reaction_add",
+  "discord_reaction_remove",
+  "discord_pin_add",
+  "discord_pin_remove",
+]
 const NO_ACCOUNT = "not_found: No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "opencode-smoke-"))
 
@@ -35,13 +43,19 @@ async function expectRejects(call, label) {
 }
 
 /** The tool names the MCP server lists with matching settings; it draws on the same registry as the plugin. */
-async function mcpToolNames(readOnly) {
+async function mcpToolNames(readOnly, allToolsets) {
   const client = new Client({ name: "smoke", version: "0.0.0" })
   try {
     await client.connect(
       new StdioClientTransport({
         command: process.execPath,
-        args: [SERVER, "--state-dir", stateDir, ...(readOnly ? ["--read-only"] : [])],
+        args: [
+          SERVER,
+          "--state-dir",
+          stateDir,
+          ...(allToolsets ? ["--toolsets", "all"] : []),
+          ...(readOnly ? ["--read-only"] : []),
+        ],
       }),
     )
     return (await client.listTools()).tools.map((tool) => tool.name).sort()
@@ -59,10 +73,19 @@ try {
   expect(plugin.id === PLUGIN_NAME, `Expected the plugin to be named ${PLUGIN_NAME}, got ${plugin.id}.`)
   console.log(`The OpenCode plugin ${plugin.id} exports setup and server.`)
 
-  for (const readOnly of [false, true]) {
-    const expected = await mcpToolNames(readOnly)
+  for (const [readOnly, allToolsets] of [
+    [false, false],
+    [true, false],
+    [false, true],
+    [true, true],
+  ]) {
+    const expected = await mcpToolNames(readOnly, allToolsets)
     expect(expected.includes(ACCOUNT_READ), `Expected the MCP registry to include ${ACCOUNT_READ}.`)
-    const options = { state_dir: stateDir, ...(readOnly ? { read_only: true } : {}) }
+    const options = {
+      state_dir: stateDir,
+      ...(readOnly ? { read_only: true } : {}),
+      ...(allToolsets ? { toolsets: "all" } : {}),
+    }
     const added = new Map()
     const skills = []
     const noPermission = async () => {
@@ -81,6 +104,13 @@ try {
     expect(skills.includes("discord-sync"), "Expected setup to discover the sync skill.")
     expect(skills.includes("discord-sends"), "Expected setup to discover the sends skill.")
     expect(skills.includes("discord-search"), "Expected setup to discover the search skill.")
+    expect(skills.includes("discord-actions"), "Expected setup to discover the actions skill.")
+    for (const name of ACTION_TOOLS) {
+      expect(
+        expected.includes(name) === (allToolsets && !readOnly),
+        `Expected the MCP registry to ${allToolsets && !readOnly ? "include" : "omit"} ${name} with read_only=${readOnly}.`,
+      )
+    }
     expect(expected.includes(CHAT_READ), `Expected the MCP registry to include ${CHAT_READ}.`)
     expect(expected.includes(SEARCH_READ), `Expected the MCP registry to include ${SEARCH_READ}.`)
     expect(expected.includes(SYNC_READ), `Expected the MCP registry to include ${SYNC_READ}.`)

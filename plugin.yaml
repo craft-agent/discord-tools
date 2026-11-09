@@ -6,7 +6,13 @@ requires_hermes: ">=0.22"
 provides_tools:
   - discord_account_read
   - discord_chat_read
+  - discord_message_delete
+  - discord_message_edit
   - discord_message_send
+  - discord_pin_add
+  - discord_pin_remove
+  - discord_reaction_add
+  - discord_reaction_remove
   - discord_search_read
   - discord_sync_add
   - discord_sync_read

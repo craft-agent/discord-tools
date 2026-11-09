@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { isSnowflake } from "../discord/snowflake"
+import { snowflakeId } from "../discord/id-schema"
 
 /**
  * The longest `text`, in UTF-16 units. Discord allows 2000 without Nitro and
@@ -7,11 +7,9 @@ import { isSnowflake } from "../discord/snowflake"
  */
 export const SEND_TEXT_MAX = 4000
 
-const id = (what: string) => z.string().refine(isSnowflake, `must be ${what}: a number of up to 20 digits, not a name`)
-
 export const sendInput = z.object({
   account: z.string().optional().describe("The account label; left out, the only signed-in account."),
-  channel: id("a channel id").describe(
+  channel: snowflakeId("a channel id").describe(
     "The chat to send to: the id of a DM, group DM, server channel or thread the mirror knows, from discord_chat_read; never a name.",
   ),
   text: z
@@ -22,7 +20,7 @@ export const sendInput = z.object({
     .describe(
       `The message text, sent exactly as given (never trimmed or rewritten), at most ${SEND_TEXT_MAX} characters; Discord itself refuses more than 2000 without Nitro.`,
     ),
-  reply_to: id("a message id")
+  reply_to: snowflakeId("a message id")
     .optional()
     .describe(
       "The id of a message in this chat, already in the mirror (read the chat first), to reply to. A reply never pings its author.",
