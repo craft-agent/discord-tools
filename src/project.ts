@@ -11,7 +11,7 @@ export const PROJECT = {
   /** Every setting's environment variable is `<envPrefix>_<SETTING>`. */
   envPrefix: "DISCORD_TOOLS",
   /** The toolsets, in the order `all` lists them. */
-  toolsets: ["account", "sync", "chats", "search", "sends"] as readonly string[],
+  toolsets: ["account", "sync", "chats", "search", "sends", "actions"] as readonly string[],
   /** The toolsets on when a setting names none. */
   defaultToolsets: ["account", "sync", "chats", "search", "sends"] as readonly string[],
   /** The environment variables the tools read besides the settings, which Codex forwards to the server after them. */

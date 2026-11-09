@@ -1,5 +1,6 @@
 import type { ToolSpec } from "./core"
 import { discordAccountRead } from "./core/account/read"
+import { discordMessageEdit } from "./core/actions/edit-tool"
 import { discordChatRead } from "./core/chats/read"
 import { discordSearchRead } from "./core/search/read"
 import { discordMessageSend } from "./core/sends/send-tool"
@@ -16,4 +17,5 @@ export const ALL_TOOLS: ToolSpec[] = [
   discordChatRead,
   discordSearchRead,
   discordMessageSend,
+  discordMessageEdit,
 ]
