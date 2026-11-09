@@ -17,8 +17,10 @@ const KEY_OVERLAP = 64
 const FORMAT_HEAD_BYTES = 512
 const PRIVATE_KEY = /-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----/
 /** Control, line-separator, bidi-override and invisible characters: names are written by whoever sent the archive. */
-const ODD_CHARACTERS = /[\u0000-\u001f\u007f-\u009f\u061c\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff\ufff9-\ufffb]/g
-const UNREADABLE = "it cannot be read as an archive"
+export const ODD_CHARACTERS =
+  /[\u0000-\u001f\u007f-\u009f\u061c\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff\ufff9-\ufffb]/g
+/** The refusal for a file that cannot be read as an archive. */
+export const UNREADABLE = "it cannot be read as an archive"
 
 /** The caps of an inspection. */
 export const ARCHIVE_LIMITS = { entries: 500, unpacked: 500 * MIB, listing: 50, nameShown: 80 }
@@ -66,12 +68,18 @@ function refuse(shown: string, why: string): ArchiveRefused {
   return new ArchiveRefused(`${shown} ${why}`)
 }
 
-function tooBig(limit: number): ArchiveRefused {
+/** The refusal for more bytes than `limit`. */
+export function tooBig(limit: number): ArchiveRefused {
   return new ArchiveRefused(`it would unpack to more than ${Math.round((limit / MIB) * 100) / 100} MiB`)
 }
 
+/** The refusal for more entries than `limit`. */
+export function tooManyEntries(limit: number): ArchiveRefused {
+  return new ArchiveRefused(`it has more than ${limit} entries`)
+}
+
 /** The parts of a plain relative path (none for `./`), or undefined when the name is anything else. */
-function plainParts(name: string): string[] | undefined {
+export function plainParts(name: string): string[] | undefined {
   if (!name || name.includes("\0") || name.includes("\\") || name.startsWith("/") || /^[A-Za-z]:/.test(name)) {
     return undefined
   }
@@ -152,7 +160,7 @@ async function walk(
   let unpacked = 0
   for await (const entry of readEntries(path, format, options.signal)) {
     entries += 1
-    if (entries > limits.entries) throw new ArchiveRefused(`it has more than ${limits.entries} entries`)
+    if (entries > limits.entries) throw tooManyEntries(limits.entries)
     const shown = shownName(entry.name, limits.nameShown)
     const parts = plainParts(entry.name)
     if (!parts || (parts.length === 0 && entry.kind !== "directory"))
