@@ -18,6 +18,14 @@ const SYNC_READ = "discord_sync_read"
 const SYNC_ADD = "discord_sync_add"
 const SYNC_REMOVE = "discord_sync_remove"
 const MESSAGE_SEND = "discord_message_send"
+const MESSAGE_EDIT = "discord_message_edit"
+const MESSAGE_DELETE = "discord_message_delete"
+const REACTION_ADD = "discord_reaction_add"
+const REACTION_REMOVE = "discord_reaction_remove"
+const PIN_ADD = "discord_pin_add"
+const PIN_REMOVE = "discord_pin_remove"
+const ACTION_TOOLS = [MESSAGE_EDIT, MESSAGE_DELETE, REACTION_ADD, REACTION_REMOVE, PIN_ADD, PIN_REMOVE]
+const REQUIRES_USER_INTERACTION = "anthropic/requiresUserInteraction"
 const NO_ACCOUNT = "No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "mcp-smoke-"))
 
@@ -122,6 +130,31 @@ async function listTools(settings) {
       console.log(`${MESSAGE_SEND} carries its write annotations and refuses a name for an id.`)
     }
 
+    if (settings.includes("all") && !settings.includes("--read-only")) {
+      const hints = {
+        [MESSAGE_EDIT]: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
+        [MESSAGE_DELETE]: { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
+        [REACTION_ADD]: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+        [REACTION_REMOVE]: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
+        [PIN_ADD]: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+        [PIN_REMOVE]: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
+      }
+      for (const [name, expected] of Object.entries(hints)) expectAnnotations(tools, name, expected, settings)
+      for (const name of ACTION_TOOLS) {
+        const meta = tools.find((tool) => tool.name === name)?._meta?.[REQUIRES_USER_INTERACTION]
+        if ((meta === true) !== (name === MESSAGE_DELETE)) {
+          throw new Error(
+            `Expected ${name} ${name === MESSAGE_DELETE ? "with" : "without"} ${REQUIRES_USER_INTERACTION}`,
+          )
+        }
+      }
+      await expectToolError(client, MESSAGE_EDIT, { channel: "general", message: "1", text: "hi" }, "invalid_argument")
+      console.log(`The actions tools carry their write annotations; ${MESSAGE_EDIT} refuses a name for an id.`)
+    } else {
+      for (const name of ACTION_TOOLS) expectAbsent(tools, name, settings)
+      console.log(`The actions tools are absent under ${JSON.stringify(settings)}.`)
+    }
+
     const result = await client.callTool({ name: UNKNOWN_TOOL })
     const [block] = result.content
     const code = block?.type === "text" ? JSON.parse(block.text).error?.code : undefined
@@ -147,7 +180,9 @@ function rejectsBadSettings() {
 }
 
 try {
-  for (const settings of [[], ["--read-only"]]) await listTools(settings)
+  for (const settings of [[], ["--read-only"], ["--toolsets", "all"], ["--toolsets", "all", "--read-only"]]) {
+    await listTools(settings)
+  }
   rejectsBadSettings()
   deepStrictEqual(readdirSync(stateDir), [])
 } catch (error) {

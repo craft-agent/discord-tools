@@ -17,6 +17,14 @@ const CHAT_READ = "discord_chat_read"
 const SEARCH_READ = "discord_search_read"
 const SYNC_READ = "discord_sync_read"
 const WRITE_TOOLS = { discord_sync_add: "idempotent", discord_sync_remove: "overwrite", discord_message_send: "add" }
+const ACTION_TOOLS = {
+  discord_message_edit: "overwrite",
+  discord_message_delete: "administrative",
+  discord_reaction_add: "idempotent",
+  discord_reaction_remove: "overwrite",
+  discord_pin_add: "idempotent",
+  discord_pin_remove: "overwrite",
+}
 const NO_ACCOUNT = "No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "cli-tools-smoke-"))
 
@@ -74,6 +82,14 @@ async function listsTheServersTools() {
       expect(
         settings.includes("--read-only") ? tool === undefined : tool?.class === writeClass,
         `Expected ${label} to ${settings.includes("--read-only") ? "omit" : `include as ${writeClass}`} ${id}`,
+      )
+    }
+    for (const [id, writeClass] of Object.entries(ACTION_TOOLS)) {
+      const tool = listed.find((entry) => entry.id === id)
+      const on = settings.includes("all") && !settings.includes("--read-only")
+      expect(
+        on ? tool?.class === writeClass : tool === undefined,
+        `Expected ${label} to ${on ? `include as ${writeClass}` : "omit"} ${id}`,
       )
     }
     const expected = await mcpToolNames(settings)
