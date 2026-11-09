@@ -107,12 +107,19 @@ function conditionsOf(session: ChatSession, args: SearchReadInput): Conditions {
   if (args.channel !== undefined) {
     checkChannel(session, args.channel, args.threads === true)
     const channel = BigInt(args.channel)
-    if (args.threads === true) add("(m.channel = ? OR c.parent = ?)", channel, channel)
+    // A subquery of chats keeps the lookup on the messages' channel index.
+    if (args.threads === true)
+      add("m.channel IN (SELECT id FROM channels WHERE id = ? OR parent = ?)", channel, channel)
     else add("m.channel = ?", channel)
   }
   if (args.server !== undefined) {
     checkServer(session, args.server)
-    add("COALESCE(m.server, c.server) = ?", BigInt(args.server))
+    const server = BigInt(args.server)
+    add(
+      "(m.server = ? OR (m.server IS NULL AND m.channel IN (SELECT id FROM channels WHERE server = ?)))",
+      server,
+      server,
+    )
   }
   if (args.query !== undefined) add(`m.content LIKE ? ${LIKE_ESCAPE}`, likeContaining(args.query))
   if (args.author !== undefined) add("m.author = ?", BigInt(args.author))
