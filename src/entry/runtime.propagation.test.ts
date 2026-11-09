@@ -33,6 +33,8 @@ function probe() {
   })
   function check(ctx: ToolContext) {
     expect(ctx.stateDir).toBe("/runtime/state")
+    expect(ctx.downloadDir).toBe("/runtime/downloads")
+    expect(ctx.downloadMaxMb).toBe(42)
     expect(ctx.runtime?.envPrefix).toBe(options.profile.envPrefix)
     expect(ctx.runtime?.cli).toBe(options.profile.cli)
     expect(ctx.runtime?.serviceId).toBe(options.profile.serviceId)
@@ -60,7 +62,7 @@ test("MCP uses the injected profile name, default toolsets and execution runtime
   const p = probe()
   const { client } = await connect(
     [p.spec],
-    settings({ state_dir: "/runtime/state" }),
+    settings({ state_dir: "/runtime/state", download_dir: "/runtime/downloads", download_max_mb: 42 }),
     {},
     {
       ...p.options,

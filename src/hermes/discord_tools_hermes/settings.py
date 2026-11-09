@@ -35,6 +35,41 @@ def state_dir_flags(ctx: PluginContext) -> list[str]:
     return ["--state-dir", state_dir]
 
 
+def download_dir_flags(ctx: PluginContext) -> list[str]:
+    """Read ``download_dir`` and return ``["--download-dir", value]``, or ``[]`` when absent.
+
+    Raises:
+        SettingsError: the setting is present but not a non-empty string.
+    """
+    download_dir = ctx.get_config("download_dir")
+    if download_dir is None:
+        return []
+    if not isinstance(download_dir, str) or not download_dir.strip():
+        raise SettingsError('setting "download_dir" must be a path')
+    return ["--download-dir", download_dir]
+
+
+def download_max_mb_flags(ctx: PluginContext) -> list[str]:
+    """Read ``download_max_mb`` and return ``["--download-max-mb", value]``, or ``[]`` when absent.
+
+    The range (1 to 500) is the command line's to check.
+
+    Raises:
+        SettingsError: the setting is present but not a whole number.
+    """
+    download_max_mb = ctx.get_config("download_max_mb")
+    if download_max_mb is None:
+        return []
+    if not isinstance(download_max_mb, int) or isinstance(download_max_mb, bool):
+        raise SettingsError('setting "download_max_mb" must be a whole number')
+    return ["--download-max-mb", str(download_max_mb)]
+
+
+def target_flags(ctx: PluginContext) -> list[str]:
+    """The flags ``target`` takes: the settings that say where files are, not which tools run."""
+    return state_dir_flags(ctx) + download_dir_flags(ctx)
+
+
 def language_setting(ctx: PluginContext) -> str | None:
     """The ``language`` setting, stripped; ``None`` when it is absent, blank or not a string.
 
@@ -73,6 +108,7 @@ def settings_flags(ctx: PluginContext) -> list[str]:
         if value is not None and (names := _names(key, value)):
             flags += [flag, names]
 
-    flags += state_dir_flags(ctx)
+    flags += target_flags(ctx)
+    flags += download_max_mb_flags(ctx)
 
     return flags

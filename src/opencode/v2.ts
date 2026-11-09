@@ -2,6 +2,7 @@ import type { ToolRuntime, ToolSpec, Translator } from "../core"
 import { DESCRIBE_TIMEOUT_MS } from "../entry/description"
 import { approvalOf } from "../entry/pin"
 import { createToolRuntime } from "../entry/runtime"
+import type { StorageContext } from "../entry/settings"
 import { loadSkills } from "./skills"
 import {
   needsPermission,
@@ -26,7 +27,7 @@ function v2Tool(
   ctx: V2Context,
   spec: ToolSpec,
   ownDir: string | undefined,
-  stateDir: string,
+  storage: StorageContext,
   runtime: ToolRuntime,
   t: Translator,
 ): V2Tool {
@@ -37,7 +38,7 @@ function v2Tool(
     output: spec.output,
     async execute(input: unknown, { sessionID, signal }: V2ToolContext): Promise<V2ToolResult> {
       const directory = await sessionDirectory(ctx, sessionID)
-      const toolContext = { cwd: directory ?? process.cwd(), ownDir, stateDir, runtime, signal }
+      const toolContext = { cwd: directory ?? process.cwd(), ownDir, ...storage, runtime, signal }
       let pin: string | undefined
       if (needsPermission(spec)) {
         if (directory === undefined) {
@@ -73,7 +74,7 @@ export function createV2Setup(specs: ToolSpec[], deps: PluginDeps = {}): OpenCod
   return async function setup(ctx: V2Context): Promise<void> {
     const selection = selectedTools(specs, ctx.options, deps)
     const tools = selection.tools.map((spec) =>
-      v2Tool(ctx, spec, deps.ownDir, selection.stateDir, runtime, selection.translator),
+      v2Tool(ctx, spec, deps.ownDir, selection.storage, runtime, selection.translator),
     )
     const skills = deps.skillsDir === undefined ? [] : await loadSkills(deps.skillsDir)
 

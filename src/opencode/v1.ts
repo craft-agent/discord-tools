@@ -2,6 +2,7 @@ import { inputJsonSchema, type ToolRuntime, type ToolSpec, type Translator } fro
 import { DESCRIBE_TIMEOUT_MS } from "../entry/description"
 import { approvalOf } from "../entry/pin"
 import { createToolRuntime } from "../entry/runtime"
+import type { StorageContext } from "../entry/settings"
 import {
   needsPermission,
   permissionMetadata,
@@ -52,7 +53,7 @@ function workingDir(context: V1ToolContext): string {
 function v1Tool(
   spec: ToolSpec,
   ownDir: string | undefined,
-  stateDir: string,
+  storage: StorageContext,
   runtime: ToolRuntime,
   t: Translator,
 ): V1Tool {
@@ -60,7 +61,7 @@ function v1Tool(
     description: `${spec.description}${describeArguments(spec)}`,
     args: spec.input.shape,
     async execute(args: unknown, context: V1ToolContext): Promise<string> {
-      const ctx = { cwd: workingDir(context), ownDir, stateDir, runtime, signal: context.abort }
+      const ctx = { cwd: workingDir(context), ownDir, ...storage, runtime, signal: context.abort }
       let pin: string | undefined
       if (needsPermission(spec)) {
         const approval = await approvalOf(spec, args, ctx, DESCRIBE_TIMEOUT_MS, t)
@@ -88,9 +89,9 @@ function v1Tool(
 export function createV1Server(specs: ToolSpec[], deps: PluginDeps = {}): OpenCodePlugin["server"] {
   const runtime = createToolRuntime(deps)
   return async function server(_input: unknown, options?: PluginOptions): Promise<V1Hooks> {
-    const { tools, stateDir, translator } = selectedTools(specs, options, deps)
+    const { tools, storage, translator } = selectedTools(specs, options, deps)
     const tool: V1Hooks["tool"] = {}
-    for (const spec of tools) tool[spec.id] = v1Tool(spec, deps.ownDir, stateDir, runtime, translator)
+    for (const spec of tools) tool[spec.id] = v1Tool(spec, deps.ownDir, storage, runtime, translator)
     return { tool }
   }
 }
