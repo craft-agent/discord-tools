@@ -580,6 +580,10 @@ Every entry point takes the same settings:
   stay the same while the text past it changes, so an edit pins a hash of
   the whole current text, and a message edited after the prompt makes the
   call `stale`.
+- **A change to the sync list names the server and its channels.** The
+  server is its name in the mirror, else its id, since a server the account
+  has left can still be removed; a channel is `#name`, else its id. The
+  list itself is local, so its prompt has no text.
 - **The facts the tools add**, in the order they are shown:
 
   | Label           | Value                                                             | Shown                                |
@@ -593,6 +597,9 @@ Every entry point takes the same settings:
   | `Reply to`      | the message replied to, quoted short                              | a reply                              |
   | `Mass mentions` | `Notify`                                                          | `mass_mentions` of a send or an edit |
   | `Notifications` | `Silent`                                                          | `silent`                             |
+  | `Follows`       | `Whole server` or `Named channels`                                | an addition to the sync list         |
+  | `Channels`      | the channels named, as `#name`, joined with `, `                  | a sync list change with `channels`   |
+  | `Excluded`      | the channels excluded, as `#name`, joined with `, `               | an addition with `exclude`           |
   | `Length`        | `{count} characters`, in code points                              | a send, an edit's new text           |
 
 ## Toolsets
