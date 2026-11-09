@@ -138,4 +138,23 @@ describe("target", () => {
     expect(runEnv.code).toBe(EXIT_OK)
     expect(seenStateDir).toBe("/env/target/state")
   })
+
+  test("accepts --download-dir and passes the download settings into context for targets", async () => {
+    let seen: { downloadDir?: string; downloadMaxMb?: number } = {}
+    const checkTool = {
+      ...specs[1]!,
+      id: "demo_target_download",
+      async targets(_args: unknown, ctx: { downloadDir?: string; downloadMaxMb?: number }) {
+        seen = { downloadDir: ctx.downloadDir, downloadMaxMb: ctx.downloadMaxMb }
+        return [`${ctx.downloadDir}/file`]
+      },
+    }
+    const run = await cli(["target", "demo_target_download", "--cwd", "/x", "--download-dir", "/flag/get"], "", {
+      specs: [checkTool as any],
+      env: { DEMO_DOWNLOAD_MAX_MB: "12" },
+    })
+    expect(run.code).toBe(EXIT_OK)
+    expect(seen).toEqual({ downloadDir: "/flag/get", downloadMaxMb: 12 })
+    expect(json(run)).toMatchObject({ resources: ["/flag/get/file"] })
+  })
 })

@@ -1,8 +1,14 @@
 import { describe, expect, test } from "bun:test"
 import { PROJECT } from "../project"
 import type { EntryProfile } from "./profile"
-import { forwardedVariables, parseSettings, parseToolSettings, settingVariables } from "./settings"
-import { failure, profile } from "./settings.testing"
+import {
+  forwardedVariables,
+  parseSettings,
+  parseStorageSettings,
+  parseToolSettings,
+  settingVariables,
+} from "./settings"
+import { DEFAULT_DOWNLOADS, failure, profile } from "./settings.testing"
 
 const parse = (argv: string[], env: Record<string, string | undefined> = {}) => parseSettings(argv, env, profile)
 const parseTool = (argv: string[], env: Record<string, string | undefined> = {}) =>
@@ -17,6 +23,8 @@ describe("settingVariables", () => {
       "DEMO_EXCLUDE_TOOLS",
       "DEMO_CONFIRM",
       "DEMO_STATE_DIR",
+      "DEMO_DOWNLOAD_DIR",
+      "DEMO_DOWNLOAD_MAX_MB",
     ])
   })
 
@@ -37,7 +45,7 @@ describe("forwardedVariables", () => {
 
 describe("parseSettings", () => {
   test("defaults to the harness confirming and no other setting", () => {
-    expect(parse([])).toEqual({ confirm: "harness", state_dir: expect.any(String) })
+    expect(parse([])).toEqual({ confirm: "harness", state_dir: expect.any(String), ...DEFAULT_DOWNLOADS })
   })
 
   test("reads each flag", () => {
@@ -54,6 +62,10 @@ describe("parseSettings", () => {
         "elicitation",
         "--state-dir",
         "/custom/state",
+        "--download-dir",
+        "/custom/downloads",
+        "--download-max-mb",
+        "250",
       ]),
     ).toEqual({
       toolsets: ["alpha", "beta"],
@@ -62,6 +74,8 @@ describe("parseSettings", () => {
       exclude_tools: ["demo_thing_merge"],
       confirm: "elicitation",
       state_dir: "/custom/state",
+      download_dir: "/custom/downloads",
+      download_max_mb: 250,
     })
   })
 
@@ -74,6 +88,8 @@ describe("parseSettings", () => {
         "--confirm=elicitation",
         "--read-only",
         "--state-dir=/custom/state",
+        "--download-dir=/custom/downloads",
+        "--download-max-mb=7",
       ]),
     ).toEqual({
       toolsets: ["gamma"],
@@ -82,6 +98,8 @@ describe("parseSettings", () => {
       read_only: true,
       confirm: "elicitation",
       state_dir: "/custom/state",
+      download_dir: "/custom/downloads",
+      download_max_mb: 7,
     })
   })
 
@@ -94,6 +112,8 @@ describe("parseSettings", () => {
         DEMO_EXCLUDE_TOOLS: "y,z",
         DEMO_CONFIRM: "elicitation",
         DEMO_STATE_DIR: "/env/state",
+        DEMO_DOWNLOAD_DIR: "/env/downloads",
+        DEMO_DOWNLOAD_MAX_MB: "30",
       }),
     ).toEqual({
       toolsets: ["beta", "gamma"],
@@ -102,6 +122,8 @@ describe("parseSettings", () => {
       exclude_tools: ["y", "z"],
       confirm: "elicitation",
       state_dir: "/env/state",
+      download_dir: "/env/downloads",
+      download_max_mb: 30,
     })
   })
 
@@ -141,6 +163,8 @@ describe("parseSettings", () => {
       DEMO_CONFIRM: "elicitation",
       DEMO_READ_ONLY: "0",
       DEMO_STATE_DIR: "/env/state",
+      DEMO_DOWNLOAD_DIR: "/env/downloads",
+      DEMO_DOWNLOAD_MAX_MB: "30",
     }
     expect(
       parse(
@@ -156,6 +180,10 @@ describe("parseSettings", () => {
           "--read-only",
           "--state-dir",
           "/flag/state",
+          "--download-dir",
+          "/flag/downloads",
+          "--download-max-mb",
+          "5",
         ],
         env,
       ),
@@ -166,19 +194,35 @@ describe("parseSettings", () => {
       confirm: "harness",
       read_only: true,
       state_dir: "/flag/state",
+      download_dir: "/flag/downloads",
+      download_max_mb: 5,
     })
   })
 
   test("an empty environment variable counts as unset", () => {
-    expect(parse([], { DEMO_TOOLSETS: "", DEMO_CONFIRM: " " })).toEqual({
+    expect(parse([], { DEMO_TOOLSETS: "", DEMO_CONFIRM: " ", DEMO_DOWNLOAD_MAX_MB: "" })).toEqual({
       confirm: "harness",
       state_dir: expect.any(String),
+      ...DEFAULT_DOWNLOADS,
     })
   })
 
   test("rejects a relative state_dir in flag or environment", () => {
     expect(failure(() => parse(["--state-dir", "rel/path"])).message).toContain("--state-dir")
     expect(failure(() => parse([], { DEMO_STATE_DIR: "rel/path" })).message).toContain("DEMO_STATE_DIR")
+  })
+
+  test("rejects a relative download_dir in flag or environment", () => {
+    expect(failure(() => parse(["--download-dir", "rel/path"])).message).toContain("--download-dir")
+    expect(failure(() => parse([], { DEMO_DOWNLOAD_DIR: "rel/path" })).message).toContain("DEMO_DOWNLOAD_DIR")
+  })
+
+  test("rejects a download_max_mb that is not a whole number from 1 to 500", () => {
+    for (const text of ["0", "501", "1.5", "many"]) {
+      const message = "download_max_mb must be a whole number from 1 to 500"
+      expect(failure(() => parse(["--download-max-mb", text])).message).toBe(message)
+      expect(failure(() => parse([], { DEMO_DOWNLOAD_MAX_MB: text })).message).toBe(message)
+    }
   })
 
   test("drops empty list items", () => {
@@ -237,17 +281,20 @@ describe("parseSettings", () => {
 
 describe("parseToolSettings", () => {
   test("reads the tool settings and gives no confirm setting", () => {
-    expect(parseTool([])).toEqual({ state_dir: expect.any(String) })
+    expect(parseTool([])).toEqual({ state_dir: expect.any(String), ...DEFAULT_DOWNLOADS })
     expect(
-      parseTool(["--toolsets=gamma", "--read-only", "--tools", "a", "--state-dir=/tool/state"], {
-        DEMO_EXCLUDE_TOOLS: "b",
-      }),
+      parseTool(
+        ["--toolsets=gamma", "--read-only", "--tools", "a", "--state-dir=/tool/state", "--download-dir=/tool/get"],
+        { DEMO_EXCLUDE_TOOLS: "b", DEMO_DOWNLOAD_MAX_MB: "9" },
+      ),
     ).toEqual({
       toolsets: ["gamma"],
       read_only: true,
       tools: ["a"],
       exclude_tools: ["b"],
       state_dir: "/tool/state",
+      download_dir: "/tool/get",
+      download_max_mb: 9,
     })
   })
 
@@ -257,6 +304,30 @@ describe("parseToolSettings", () => {
   })
 
   test("ignores DEMO_CONFIRM, even a bad one", () => {
-    expect(parseTool([], { DEMO_CONFIRM: "ask" })).toEqual({ state_dir: expect.any(String) })
+    expect(parseTool([], { DEMO_CONFIRM: "ask" })).toEqual({ state_dir: expect.any(String), ...DEFAULT_DOWNLOADS })
+  })
+})
+
+describe("parseStorageSettings", () => {
+  const parseStorage = (argv: string[], env: Record<string, string | undefined> = {}) =>
+    parseStorageSettings(argv, env, profile)
+
+  test("reads --state-dir and --download-dir, and download_max_mb from the environment", () => {
+    expect(parseStorage(["--state-dir=/s", "--download-dir", "/d"], { DEMO_DOWNLOAD_MAX_MB: "12" })).toEqual({
+      state_dir: "/s",
+      download_dir: "/d",
+      download_max_mb: 12,
+    })
+    expect(parseStorage([], { DEMO_DOWNLOAD_DIR: "/env/d" })).toEqual({
+      state_dir: expect.any(String),
+      download_dir: "/env/d",
+      download_max_mb: 100,
+    })
+  })
+
+  test("rejects any other setting flag, naming it", () => {
+    for (const flag of ["--read-only", "--download-max-mb=5", "--tools=a"]) {
+      expect(failure(() => parseStorage([flag])).message).toContain(flag.split("=")[0]!)
+    }
   })
 })

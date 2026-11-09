@@ -12,6 +12,9 @@ export const profile: EntryProfile = {
   toolsets: { names: ["alpha", "beta", "gamma"], defaults: ["alpha"] },
 }
 
+/** What the download settings resolve to when nothing sets them. */
+export const DEFAULT_DOWNLOADS = { download_dir: expect.any(String), download_max_mb: 100 }
+
 export function failure(run: () => unknown): Error {
   try {
     run()

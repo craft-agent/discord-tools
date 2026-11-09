@@ -1,13 +1,29 @@
-import { ToolError, type ToolSettings, type Toolsets } from "../core"
+import { ToolError, type ToolContext, type ToolSettings, type Toolsets } from "../core"
 import { PROJECT } from "../project"
 import { PROJECT_PROFILE, type EntryProfile } from "./profile"
+import { resolveDownloadDir, resolveDownloadMaxMb } from "./download-dir"
 import { type SettingText, resolveStateDir } from "./state-dir"
 
 /** Who asks the person before an administrative tool acts: the harness, or the tool through the client's form. */
 export type ConfirmMode = "harness" | "elicitation"
 
-/** The settings needed to run tools: tool selection, read-only mode, and the resolved state directory. */
-export type RunSettings = ToolSettings & { state_dir: string }
+/** Where state and received files live, and how large a received file may be, all resolved. */
+export type StorageSettings = { state_dir: string; download_dir: string; download_max_mb: number }
+
+/** The settings needed to run tools: tool selection, read-only mode, and the resolved state and download settings. */
+export type RunSettings = ToolSettings & StorageSettings
+
+/** The parts of a call's context that the storage settings give. */
+export type StorageContext = Pick<ToolContext, "stateDir" | "downloadDir" | "downloadMaxMb">
+
+/** Hands the storage settings to a tool as the context fields they become. */
+export function storageContext(settings: StorageSettings): StorageContext {
+  return {
+    stateDir: settings.state_dir,
+    downloadDir: settings.download_dir,
+    downloadMaxMb: settings.download_max_mb,
+  }
+}
 
 export type EntrySettings = RunSettings & { confirm: ConfirmMode }
 
@@ -17,7 +33,8 @@ const ALL_TOOLSETS = "all"
 const TRUE_VALUES: readonly string[] = ["1", "true"]
 const FALSE_VALUES: readonly string[] = ["0", "false"]
 
-type OptionName = "toolsets" | "read_only" | "tools" | "exclude_tools" | "confirm" | "state_dir"
+type OptionName =
+  "toolsets" | "read_only" | "tools" | "exclude_tools" | "confirm" | "state_dir" | "download_dir" | "download_max_mb"
 
 /** A setting's command-line flag and the end of its environment variable, which follows the profile's prefix; a boolean flag takes no value. */
 type Option = { flag: string; envSuffix: string; boolean?: true }
@@ -29,6 +46,8 @@ const OPTIONS: Record<OptionName, Option> = {
   exclude_tools: { flag: "--exclude-tools", envSuffix: "EXCLUDE_TOOLS" },
   confirm: { flag: "--confirm", envSuffix: "CONFIRM" },
   state_dir: { flag: "--state-dir", envSuffix: "STATE_DIR" },
+  download_dir: { flag: "--download-dir", envSuffix: "DOWNLOAD_DIR" },
+  download_max_mb: { flag: "--download-max-mb", envSuffix: "DOWNLOAD_MAX_MB" },
 }
 
 function envName(name: OptionName, profile: EntryProfile): string {
@@ -142,6 +161,8 @@ export function parseSettings(
   const settings: EntrySettings = {
     confirm: DEFAULT_CONFIRM_MODE,
     state_dir: resolveStateDir(value("state_dir"), env, profile),
+    download_dir: resolveDownloadDir(value("download_dir"), env, profile),
+    download_max_mb: resolveDownloadMaxMb(value("download_max_mb")),
   }
   const toolsets = value("toolsets")
   if (toolsets) settings.toolsets = checkToolsets(splitList(toolsets.text), toolsets.source, profile.toolsets)
@@ -180,21 +201,28 @@ export function parseToolSettings(
 }
 
 /**
- * Reads only the `state_dir` setting from a command line that takes no other
- * setting, for commands that select no tools: any other settings flag is
- * `invalid_argument`. The flag wins over its environment variable.
+ * Reads only the storage settings from a command line that takes no other
+ * setting, for commands that select no tools: `--state-dir` and
+ * `--download-dir` are read, any other settings flag is `invalid_argument`,
+ * and `download_max_mb` comes from its environment variable. A flag wins over
+ * its environment variable.
  */
-export function parseStateDir(
+export function parseStorageSettings(
   argv: string[],
   env: Record<string, string | undefined>,
   profile: EntryProfile = PROJECT_PROFILE,
-): string {
+): StorageSettings {
   const flags = readFlags(argv)
-  const other = (Object.keys(flags) as OptionName[]).find((name) => name !== "state_dir")
+  const other = (Object.keys(flags) as OptionName[]).find((name) => name !== "state_dir" && name !== "download_dir")
   if (other !== undefined)
     throw new ToolError("invalid_argument", `Option ${OPTIONS[other].flag} is not available here.`)
-  const given = flags.state_dir !== undefined ? { text: flags.state_dir, source: OPTIONS.state_dir.flag } : undefined
-  return resolveStateDir(given ?? envText("state_dir", env, profile), env, profile)
+  const value = (name: "state_dir" | "download_dir"): SettingText | undefined =>
+    flags[name] !== undefined ? { text: flags[name], source: OPTIONS[name].flag } : envText(name, env, profile)
+  return {
+    state_dir: resolveStateDir(value("state_dir"), env, profile),
+    download_dir: resolveDownloadDir(value("download_dir"), env, profile),
+    download_max_mb: resolveDownloadMaxMb(envText("download_max_mb", env, profile)),
+  }
 }
 
 const TOOL_OPTION_NAMES = [
@@ -203,6 +231,8 @@ const TOOL_OPTION_NAMES = [
   "tools",
   "exclude_tools",
   "state_dir",
+  "download_dir",
+  "download_max_mb",
 ] as const satisfies readonly OptionName[]
 type ToolOptionName = (typeof TOOL_OPTION_NAMES)[number]
 
@@ -214,8 +244,14 @@ function optionError(name: string, expected: string): ToolError {
   return new ToolError("invalid_argument", `Option "${name}" must be ${expected}.`)
 }
 
-function stateDirOption(value: unknown): string {
-  if (typeof value !== "string") throw optionError("state_dir", "an absolute path")
+function pathOption(name: "state_dir" | "download_dir", value: unknown): string {
+  if (typeof value !== "string") throw optionError(name, "an absolute path")
+  return value
+}
+
+function downloadMaxMbOption(value: unknown): string {
+  if (typeof value === "number") return String(value)
+  if (typeof value !== "string") throw optionError("download_max_mb", "a whole number from 1 to 500")
   return value
 }
 
@@ -303,12 +339,25 @@ export function settingsFromOptions(
     return text !== undefined ? fromText(text) : undefined
   }
 
-  const stateDirGiven =
-    given.state_dir !== undefined
-      ? { text: stateDirOption(given.state_dir), source: 'Option "state_dir"' }
-      : envText("state_dir", env, profile)
+  const text = (
+    name: "state_dir" | "download_dir" | "download_max_mb",
+    fromOption: (value: unknown) => string,
+  ): SettingText | undefined =>
+    given[name] !== undefined
+      ? { text: fromOption(given[name]), source: `Option "${name}"` }
+      : envText(name, env, profile)
   const settings: PluginSettings = {
-    state_dir: resolveStateDir(stateDirGiven, env, profile),
+    state_dir: resolveStateDir(
+      text("state_dir", (value) => pathOption("state_dir", value)),
+      env,
+      profile,
+    ),
+    download_dir: resolveDownloadDir(
+      text("download_dir", (value) => pathOption("download_dir", value)),
+      env,
+      profile,
+    ),
+    download_max_mb: resolveDownloadMaxMb(text("download_max_mb", downloadMaxMbOption)),
   }
   const toolsets = resolve(
     "toolsets",

@@ -193,6 +193,22 @@ describe("run", () => {
     expect(run.code).toBe(EXIT_OK)
     expect(capturedStateDir).toBe("/custom/state")
   })
+
+  test("passes downloadDir and downloadMaxMb from parsed settings to execute", async () => {
+    let captured: { downloadDir?: string; downloadMaxMb?: number } = {}
+    const checkTool = {
+      ...specs[0]!,
+      id: "demo_thing_read",
+      async execute(_args: unknown, ctx: { downloadDir?: string; downloadMaxMb?: number }) {
+        captured = { downloadDir: ctx.downloadDir, downloadMaxMb: ctx.downloadMaxMb }
+        return { tool: "demo_thing_read", cwd: "/x" }
+      },
+    }
+    const argv = ["run", "demo_thing_read", "--cwd", "/x", "--download-dir", "/custom/get", "--download-max-mb", "8"]
+    const run = await cli(argv, "", { specs: [checkTool as any] })
+    expect(run.code).toBe(EXIT_OK)
+    expect(captured).toEqual({ downloadDir: "/custom/get", downloadMaxMb: 8 })
+  })
 })
 
 describe("usage", () => {
@@ -217,6 +233,9 @@ describe("usage", () => {
     [["target", ADD_ID, "--cwd", "/x", "--toolsets", "all"], "--toolsets"],
     [["target", ADD_ID, "--cwd", "/x", "--state-dir"], "--state-dir"],
     [["target", ADD_ID, "--cwd", "/x", "--state-dir", "rel/path"], "--state-dir"],
+    [["target", ADD_ID, "--cwd", "/x", "--download-dir", "rel/path"], "--download-dir"],
+    [["target", ADD_ID, "--cwd", "/x", "--download-max-mb", "5"], "--download-max-mb"],
+    [["run", ADD_ID, "--cwd", "/x", "--download-max-mb", "0"], "download_max_mb"],
   ])("%j is one line on stderr, exit 2 and nothing on stdout", async (argv, message) => {
     const run = await cli(argv as string[])
     expect(run.code).toBe(EXIT_USAGE)

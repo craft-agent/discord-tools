@@ -17,7 +17,13 @@ import { errorBody } from "../entry/errors"
 import { approvalOf, checkPin } from "../entry/pin"
 import { PROJECT_PROFILE } from "../entry/profile"
 import { createToolRuntime } from "../entry/runtime"
-import { parseStateDir, parseToolSettings, promptLanguage } from "../entry/settings"
+import {
+  parseStorageSettings,
+  parseToolSettings,
+  promptLanguage,
+  storageContext,
+  type StorageContext,
+} from "../entry/settings"
 import { visible } from "../entry/visible"
 import { promptTranslator, promptWords } from "../entry/words"
 import { PROJECT } from "../project"
@@ -52,8 +58,8 @@ export type CliIo = CommandIo & {
 
 type Command =
   | { name: "list"; selected: ToolSpec[] }
-  | { name: "run"; toolId: string; cwd: string; pin: string | undefined; selected: ToolSpec[]; stateDir: string }
-  | { name: "target"; toolId: string; cwd: string; stateDir: string; language: string | undefined }
+  | ({ name: "run"; toolId: string; cwd: string; pin: string | undefined; selected: ToolSpec[] } & StorageContext)
+  | ({ name: "target"; toolId: string; cwd: string; language: string | undefined } & StorageContext)
 
 /** Splits `<flag> <value>` or `<flag>=<value>` from the remaining arguments; the last one given wins. */
 function takeFlag(argv: string[], flag: string): { value: string | undefined; rest: string[] } {
@@ -99,7 +105,7 @@ function parseCommand(argv: string[], io: Pick<CliIo, "specs" | "env" | "profile
       name,
       toolId,
       cwd,
-      stateDir: parseStateDir(settingFlags, io.env, profile),
+      ...storageContext(parseStorageSettings(settingFlags, io.env, profile)),
       language: promptLanguage(language, io.env, harnessLanguage, profile),
     }
   }
@@ -115,7 +121,7 @@ function parseCommand(argv: string[], io: Pick<CliIo, "specs" | "env" | "profile
     cwd,
     pin,
     selected: selectTools(io.specs, settings, profile.toolsets),
-    stateDir: settings.state_dir,
+    ...storageContext(settings),
   }
 }
 
@@ -162,6 +168,8 @@ async function runTool(command: Extract<Command, { name: "run" }>, io: CliIo): P
       cwd: command.cwd,
       ownDir: io.ownDir,
       stateDir: command.stateDir,
+      downloadDir: command.downloadDir,
+      downloadMaxMb: command.downloadMaxMb,
       runtime: createToolRuntime(io),
       signal: io.signal,
     }
@@ -186,6 +194,8 @@ async function targetOf(command: Extract<Command, { name: "target" }>, io: CliIo
       cwd: command.cwd,
       ownDir: io.ownDir,
       stateDir: command.stateDir,
+      downloadDir: command.downloadDir,
+      downloadMaxMb: command.downloadMaxMb,
       runtime: createToolRuntime(io),
       signal: io.signal,
     }
