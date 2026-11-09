@@ -15,9 +15,11 @@ describe("ALL_TRANSLATIONS", () => {
     }
   })
 
-  test("has Japanese words for the title and the intent of every write tool that states one", () => {
-    const writers = ALL_TOOLS.filter((tool) => tool.class !== "read" && tool.intent !== undefined)
+  test("gives every write tool an intent and a description, with Japanese words for its title and intent", () => {
+    const writers = ALL_TOOLS.filter((tool) => tool.class !== "read")
     for (const tool of writers) {
+      expect(tool.intent, tool.id).toBeDefined()
+      expect(tool.describe, tool.id).toBeDefined()
       expect(ja.word(tool.title), tool.id).not.toBe(tool.title)
       expect(ja.word(tool.intent!), tool.id).not.toBe(tool.intent)
     }
