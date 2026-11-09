@@ -57,7 +57,8 @@ const ALLOWED: Record<ChatMethod, readonly (keyof ChatReadInput)[]> = {
   backfill: ["channel", "pages"],
 }
 
-function invalid(message: string): never {
+/** Throws `invalid_argument` with `message`. */
+export function invalid(message: string): never {
   throw new ToolError("invalid_argument", message)
 }
 

@@ -14,6 +14,7 @@ const EXIT_USAGE = 2
 const UNKNOWN_TOOL = "unknown_nonexistent_read"
 const ACCOUNT_READ = "discord_account_read"
 const CHAT_READ = "discord_chat_read"
+const SEARCH_READ = "discord_search_read"
 const SYNC_READ = "discord_sync_read"
 const WRITE_TOOLS = { discord_sync_add: "idempotent", discord_sync_remove: "overwrite", discord_message_send: "add" }
 const NO_ACCOUNT = "No Discord account is signed in yet"
@@ -59,6 +60,10 @@ async function listsTheServersTools() {
     expect(
       listed.some((tool) => tool.id === CHAT_READ && tool.class === "read"),
       `Expected ${label} to include ${CHAT_READ} as a read tool`,
+    )
+    expect(
+      listed.some((tool) => tool.id === SEARCH_READ && tool.class === "read"),
+      `Expected ${label} to include ${SEARCH_READ} as a read tool`,
     )
     expect(
       listed.some((tool) => tool.id === SYNC_READ && tool.class === "read"),

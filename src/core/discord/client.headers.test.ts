@@ -104,6 +104,22 @@ describe("the URL of an API request", () => {
     expect(request!.url).toBe("https://discord.com/api/v9/users/@me?limit=50&before=123&q=a+b")
     expect(request!.query.get("skip")).toBeNull()
   })
+
+  test("repeats the key of a list, in order, and sends none for an empty list", async () => {
+    await harness.client.read("GET", "/users/@me", {
+      query: { has: ["link", "image"], ids: [1, 2], none: [], limit: 5 },
+    })
+    const [request] = harness.discord.api
+    expect(request!.url).toBe("https://discord.com/api/v9/users/@me?has=link&has=image&ids=1&ids=2&limit=5")
+    expect(request!.query.getAll("has")).toEqual(["link", "image"])
+    expect(request!.query.has("none")).toBe(false)
+  })
+
+  test("writes a boolean as true or false", async () => {
+    await harness.client.read("GET", "/users/@me", { query: { pinned: false, include_nsfw: true } })
+    const [request] = harness.discord.api
+    expect(request!.url).toBe("https://discord.com/api/v9/users/@me?pinned=false&include_nsfw=true")
+  })
 })
 
 describe("the token", () => {

@@ -40,6 +40,14 @@ describe("the registry", () => {
     }
   })
 
+  test("search read is a read tool selected by default and in read-only mode", () => {
+    const id = "discord_search_read"
+    expect(ALL_TOOLS.find((spec) => spec.id === id)).toMatchObject({ toolset: "search", class: "read" })
+    for (const settings of [{}, { read_only: true }]) {
+      expect(selectTools(ALL_TOOLS, settings, PROJECT_PROFILE.toolsets).map((spec) => spec.id)).toContain(id)
+    }
+  })
+
   test("message send is an add tool in the sends toolset, on by default and left out in read-only mode", () => {
     const id = "discord_message_send"
     expect(ALL_TOOLS.find((spec) => spec.id === id)).toMatchObject({ toolset: "sends", class: "add" })

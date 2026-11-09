@@ -61,7 +61,8 @@ export class BudgetSpent extends Error {
 
 /** Per-call options of a request. */
 export type RequestOptions = {
-  query?: Record<string, string | number | undefined>
+  /** A list is sent as one key per element; an empty list sends none. */
+  query?: Record<string, string | number | boolean | readonly (string | number)[] | undefined>
   /** Sent as JSON. */
   body?: unknown
   /** The web page the request claims to come from; a path. */
@@ -162,7 +163,11 @@ function requestUrl(path: string, request: RequestOptions): string {
   checkedPath(request.referer ?? DEFAULT_REFERER, "referer", /^\/\/|[\s\p{Cc}]/u)
   const search = new URLSearchParams()
   for (const [key, value] of Object.entries(request.query ?? {})) {
-    if (value !== undefined) search.set(key, String(value))
+    if (typeof value === "object") {
+      for (const element of value) search.append(key, String(element))
+    } else if (value !== undefined) {
+      search.set(key, String(value))
+    }
   }
   const text = search.toString()
   return `${API_BASE}${path}${text ? `?${text}` : ""}`

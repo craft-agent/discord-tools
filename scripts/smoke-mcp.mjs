@@ -13,6 +13,7 @@ const EXIT_USAGE = 2
 const UNKNOWN_TOOL = "unknown_nonexistent_read"
 const ACCOUNT_READ = "discord_account_read"
 const CHAT_READ = "discord_chat_read"
+const SEARCH_READ = "discord_search_read"
 const SYNC_READ = "discord_sync_read"
 const SYNC_ADD = "discord_sync_add"
 const SYNC_REMOVE = "discord_sync_remove"
@@ -83,6 +84,15 @@ async function listTools(settings) {
     expectAnnotations(tools, SYNC_READ, { readOnlyHint: true }, settings)
     await expectToolError(client, SYNC_READ, { method: "list" }, "not_found", NO_ACCOUNT)
     console.log(`${SYNC_READ} is read-only and refuses offline under ${JSON.stringify(settings)}.`)
+
+    expectAnnotations(tools, SEARCH_READ, { readOnlyHint: true }, settings)
+    await expectToolError(
+      client,
+      SEARCH_READ,
+      { method: "mirror", channel: "general", query: "hi" },
+      "invalid_argument",
+    )
+    console.log(`${SEARCH_READ} is read-only and refuses a name for an id under ${JSON.stringify(settings)}.`)
 
     if (settings.includes("--read-only")) {
       for (const name of [SYNC_ADD, SYNC_REMOVE, MESSAGE_SEND]) expectAbsent(tools, name, settings)

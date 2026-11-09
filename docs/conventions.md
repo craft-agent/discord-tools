@@ -354,6 +354,10 @@ Every entry point takes the same settings:
 - **A read serves a channel from the mirror only while it was marked current
   under 15 minutes ago**, and reads it live otherwise, so a channel that lags,
   left the sync list, or whose service stopped never reads as complete.
+  **A search of the mirror is the exception**: it looks through everything
+  the mirror holds, current or not, and lists each chat it found something in
+  with when a sync run last marked it current, so a result never stands for
+  what Discord holds.
 - **A whole list vouches for itself.** The server list and the DM list are
   stored with the time they were read in full, and a read lists only what the
   latest full list held: from the mirror while it is under 15 minutes old for
