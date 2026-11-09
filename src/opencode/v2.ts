@@ -1,5 +1,6 @@
-import type { ToolRuntime, ToolSpec } from "../core"
-import { permissionResources } from "../entry/permission"
+import type { ToolRuntime, ToolSpec, Translator } from "../core"
+import { DESCRIBE_TIMEOUT_MS } from "../entry/description"
+import { approvalOf } from "../entry/pin"
 import { createToolRuntime } from "../entry/runtime"
 import { loadSkills } from "./skills"
 import {
@@ -27,6 +28,7 @@ function v2Tool(
   ownDir: string | undefined,
   stateDir: string,
   runtime: ToolRuntime,
+  t: Translator,
 ): V2Tool {
   return {
     name: spec.id,
@@ -35,22 +37,26 @@ function v2Tool(
     output: spec.output,
     async execute(input: unknown, { sessionID, signal }: V2ToolContext): Promise<V2ToolResult> {
       const directory = await sessionDirectory(ctx, sessionID)
+      const toolContext = { cwd: directory ?? process.cwd(), ownDir, stateDir, runtime, signal }
+      let pin: string | undefined
       if (needsPermission(spec)) {
         if (directory === undefined) {
           throw new Error(
             `invalid_argument: The session's directory could not be read, so ${spec.id} cannot tell what it changes; retry.`,
           )
         }
-        const resources = await permissionResources(spec, input, { cwd: directory, ownDir, stateDir, runtime, signal })
+        const approval = await approvalOf(spec, input, toolContext, DESCRIBE_TIMEOUT_MS, t)
+        const { resources, description } = approval
+        pin = approval.pin
         await ctx.permission.assert({
           action: spec.id,
           resources,
           save: persistableResources(resources),
-          metadata: permissionMetadata(spec, input, resources),
+          metadata: permissionMetadata(spec, input, resources, description, t),
           sessionID,
         })
       }
-      const result = await runTool(spec, input, { cwd: directory ?? process.cwd(), ownDir, stateDir, runtime, signal })
+      const result = await runTool(spec, input, toolContext, pin)
       return { content: JSON.stringify(result), output: result }
     },
   }
@@ -65,8 +71,10 @@ function v2Tool(
 export function createV2Setup(specs: ToolSpec[], deps: PluginDeps = {}): OpenCodePlugin["setup"] {
   const runtime = createToolRuntime(deps)
   return async function setup(ctx: V2Context): Promise<void> {
-    const selection = selectedTools(specs, ctx.options, deps.env, deps.profile)
-    const tools = selection.tools.map((spec) => v2Tool(ctx, spec, deps.ownDir, selection.stateDir, runtime))
+    const selection = selectedTools(specs, ctx.options, deps)
+    const tools = selection.tools.map((spec) =>
+      v2Tool(ctx, spec, deps.ownDir, selection.stateDir, runtime, selection.translator),
+    )
     const skills = deps.skillsDir === undefined ? [] : await loadSkills(deps.skillsDir)
 
     if (tools.length > 0) {

@@ -1,5 +1,6 @@
-import { inputJsonSchema, type ToolRuntime, type ToolSpec } from "../core"
-import { permissionResources } from "../entry/permission"
+import { inputJsonSchema, type ToolRuntime, type ToolSpec, type Translator } from "../core"
+import { DESCRIBE_TIMEOUT_MS } from "../entry/description"
+import { approvalOf } from "../entry/pin"
 import { createToolRuntime } from "../entry/runtime"
 import {
   needsPermission,
@@ -48,22 +49,31 @@ function workingDir(context: V1ToolContext): string {
   return context.worktree && context.worktree !== "/" ? context.worktree : context.directory
 }
 
-function v1Tool(spec: ToolSpec, ownDir: string | undefined, stateDir: string, runtime: ToolRuntime): V1Tool {
+function v1Tool(
+  spec: ToolSpec,
+  ownDir: string | undefined,
+  stateDir: string,
+  runtime: ToolRuntime,
+  t: Translator,
+): V1Tool {
   return {
     description: `${spec.description}${describeArguments(spec)}`,
     args: spec.input.shape,
     async execute(args: unknown, context: V1ToolContext): Promise<string> {
       const ctx = { cwd: workingDir(context), ownDir, stateDir, runtime, signal: context.abort }
+      let pin: string | undefined
       if (needsPermission(spec)) {
-        const resources = await permissionResources(spec, args, ctx)
+        const approval = await approvalOf(spec, args, ctx, DESCRIBE_TIMEOUT_MS, t)
+        const { resources, description } = approval
+        pin = approval.pin
         await context.ask({
           permission: spec.id,
           patterns: resources,
           always: persistableResources(resources),
-          metadata: permissionMetadata(spec, args, resources),
+          metadata: permissionMetadata(spec, args, resources, description, t),
         })
       }
-      const result = await runTool(spec, args, ctx)
+      const result = await runTool(spec, args, ctx, pin)
       return JSON.stringify(result)
     },
   }
@@ -78,9 +88,9 @@ function v1Tool(spec: ToolSpec, ownDir: string | undefined, stateDir: string, ru
 export function createV1Server(specs: ToolSpec[], deps: PluginDeps = {}): OpenCodePlugin["server"] {
   const runtime = createToolRuntime(deps)
   return async function server(_input: unknown, options?: PluginOptions): Promise<V1Hooks> {
-    const { tools, stateDir } = selectedTools(specs, options, deps.env, deps.profile)
+    const { tools, stateDir, translator } = selectedTools(specs, options, deps)
     const tool: V1Hooks["tool"] = {}
-    for (const spec of tools) tool[spec.id] = v1Tool(spec, deps.ownDir, stateDir, runtime)
+    for (const spec of tools) tool[spec.id] = v1Tool(spec, deps.ownDir, stateDir, runtime, translator)
     return { tool }
   }
 }
