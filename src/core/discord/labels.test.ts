@@ -76,6 +76,7 @@ describe("labelPaths", () => {
       mirror: join(dir, "mirror.sqlite"),
       lock: join(dir, "sync.lock"),
       transfers: join(dir, "transfers"),
+      incoming: join(dir, "incoming"),
     })
   })
 

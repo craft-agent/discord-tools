@@ -52,6 +52,8 @@ export type LabelPaths = {
   lock: string
   /** The short-lived copies of files being sent or received. */
   transfers: string
+  /** Where a call saving received files keeps them until they are checked: `<dir>/incoming`. */
+  incoming: string
 }
 
 /** Resolves the state paths for `label`; throws `invalid_argument` for a bad label and `internal_error` for a relative `stateDir`. */
@@ -70,6 +72,7 @@ export function labelPaths(stateDir: string, label: string): LabelPaths {
     mirror: join(dir, "mirror.sqlite"),
     lock: join(dir, "sync.lock"),
     transfers: join(dir, "transfers"),
+    incoming: join(dir, "incoming"),
   }
 }
 
