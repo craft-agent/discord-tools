@@ -46,6 +46,10 @@ export type ToolContext = {
   downloadDir?: string
   /** The size a received file may have, in megabytes. */
   downloadMaxMb?: number
+  /** Where files may be sent from: absolute paths the entry point resolved from its settings; absent, the working directory. */
+  sendDirs?: readonly string[]
+  /** The size a file being sent may have, in megabytes. */
+  sendMaxMb?: number
   /** Identity and runtime dependencies supplied by the entry point. */
   runtime?: ToolRuntime
   signal?: AbortSignal

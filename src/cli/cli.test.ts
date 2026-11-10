@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { delimiter } from "node:path"
 import { annotations, selectTools } from "../core"
 import { PROJECT } from "../project"
 import { EXIT_FAILED, EXIT_OK, EXIT_USAGE, type CliIo } from "./cli"
@@ -209,6 +210,31 @@ describe("run", () => {
     expect(run.code).toBe(EXIT_OK)
     expect(captured).toEqual({ downloadDir: "/custom/get", downloadMaxMb: 8 })
   })
+
+  test("passes sendDirs and sendMaxMb from parsed settings to execute", async () => {
+    let captured: { sendDirs?: readonly string[]; sendMaxMb?: number } = {}
+    const checkTool = {
+      ...specs[0]!,
+      id: "demo_thing_read",
+      async execute(_args: unknown, ctx: { sendDirs?: readonly string[]; sendMaxMb?: number }) {
+        captured = { sendDirs: ctx.sendDirs, sendMaxMb: ctx.sendMaxMb }
+        return { tool: "demo_thing_read", cwd: "/x" }
+      },
+    }
+    const argv = [
+      "run",
+      "demo_thing_read",
+      "--cwd",
+      "/x",
+      "--send-dirs",
+      ["/custom/send1", "/custom/send2"].join(delimiter),
+      "--send-max-mb",
+      "12",
+    ]
+    const run = await cli(argv, "", { specs: [checkTool as any] })
+    expect(run.code).toBe(EXIT_OK)
+    expect(captured).toEqual({ sendDirs: ["/custom/send1", "/custom/send2"], sendMaxMb: 12 })
+  })
 })
 
 describe("usage", () => {
@@ -236,6 +262,9 @@ describe("usage", () => {
     [["target", ADD_ID, "--cwd", "/x", "--download-dir", "rel/path"], "--download-dir"],
     [["target", ADD_ID, "--cwd", "/x", "--download-max-mb", "5"], "--download-max-mb"],
     [["run", ADD_ID, "--cwd", "/x", "--download-max-mb", "0"], "download_max_mb"],
+    [["target", ADD_ID, "--cwd", "/x", "--send-dirs", "rel/path"], "--send-dirs"],
+    [["target", ADD_ID, "--cwd", "/x", "--send-max-mb", "5"], "--send-max-mb"],
+    [["run", ADD_ID, "--cwd", "/x", "--send-max-mb", "0"], "send_max_mb"],
   ])("%j is one line on stderr, exit 2 and nothing on stdout", async (argv, message) => {
     const run = await cli(argv as string[])
     expect(run.code).toBe(EXIT_USAGE)

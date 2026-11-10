@@ -416,6 +416,8 @@ variable, and an option or setting wins over the variable too.
 | `state_dir`       | `--state-dir`       | `DISCORD_TOOLS_STATE_DIR`       | where every label's state lives; default `$XDG_STATE_HOME/discord-tools`      |
 | `download_dir`    | `--download-dir`    | `DISCORD_TOOLS_DOWNLOAD_DIR`    | where received files are saved; default `~/Downloads/discord-tools`           |
 | `download_max_mb` | `--download-max-mb` | `DISCORD_TOOLS_DOWNLOAD_MAX_MB` | the most megabytes a received file may have, 1 to 500; default 100            |
+| `send_dirs`       | `--send-dirs`       | `DISCORD_TOOLS_SEND_DIRS`       | where files may be sent from; default the working directory                   |
+| `send_max_mb`     | `--send-max-mb`     | `DISCORD_TOOLS_SEND_MAX_MB`     | the most megabytes a sent file may have, 1 to 500; default 10                 |
 
 Lists are comma-separated in a flag or a variable. Where each harness reads them:
 
