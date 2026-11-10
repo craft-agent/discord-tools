@@ -582,6 +582,32 @@ Every entry point takes the same settings:
   names are written by other people; every read tool's description and the
   skills say so, and nothing a message says is followed as an instruction.
 
+## Inbox
+
+- **Mentions are Discord's list, not the mirror's.** `discord_inbox_read`
+  method `mentions` asks `GET /users/@me/mentions` for the past 7 days, newest
+  first, with roles, `@everyone` and `@here` asked for. Discord decides what
+  counts as a mention, so servers the sync does not follow are included, and
+  the server argument needs no sync list entry. The messages are stored
+  through the ingest as search results are: they add to the mirror, delete
+  nothing, keep stored reactions and mark no channel current. The list is not
+  contiguous history, so a page is full, and `next_before` given, exactly when
+  Discord answered as many messages as asked for.
+- **`waiting` is the mirror's "not answered", never "unread".** The mirror
+  holds no read state, and a message read on the phone is still waiting here.
+  It makes no request. A message waits when it is from someone else, an
+  ordinary message or a reply, newer than the window (14 days by default) and
+  than the user's last message in its chat. In a DM or group DM that alone
+  qualifies; in a server channel or thread it must also reply to one of the
+  user's messages or mention the user's id: `@everyone`, `@here` and role
+  mentions do not, since they ask everyone. Waiting chats are listed by their
+  latest message, each with whether its chat is current and when the last
+  complete sync run finished, since a chat that lags may hold messages, or the
+  user's own answer, the mirror does not have yet.
+- **Neither marks anything read**, so the phone's unread state and its push
+  notifications stay as they were; the one tool that marks a chat read is its
+  own write tool (see "Writes").
+
 ## Files
 
 - **Files go in and out only through the directories a setting names**,
@@ -735,10 +761,10 @@ Every entry point takes the same settings:
 ## Toolsets
 
 - **One per domain**: `account`, `sync` (the sync list), `chats`, `search`,
-  `inbox`, `people` (people and server info), `sends`, `history` (counts and
-  the export), `files` (saving received files), `actions` (the user's own
-  messages, reactions and pins), `threads` (creating threads and forum posts)
-  and `roles`.
+  `inbox` (mentions and what waits for an answer), `people` (people and server
+  info), `sends`, `history` (counts and the export), `files` (saving received
+  files), `actions` (the user's own messages, reactions and pins), `threads`
+  (creating threads and forum posts) and `roles`.
 - **`account`, `sync`, `chats`, `search`, `inbox`, `people` and `sends` are on
   by default.** They cover reading a chat and answering it. `history` and
   `files` write files to disk; `actions` changes messages other people have
