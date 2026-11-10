@@ -1,6 +1,7 @@
 import { randomInt } from "node:crypto"
 import { fieldOf, idText, isRecord, type JsonRecord } from "../discord/ingest-values"
 import { isSnowflake, snowflakeAt, snowflakeTime } from "../discord/snowflake"
+import type { UploadedAttachment } from "./upload"
 
 /** The message flag that sends without a push or desktop notification. */
 export const SUPPRESS_NOTIFICATIONS = 4096
@@ -31,15 +32,17 @@ export type SendBody = {
   flags: number
   allowed_mentions: AllowedMentions
   message_reference?: { channel_id: string; message_id: string; guild_id?: string; fail_if_not_exists: true }
+  attachments?: UploadedAttachment[]
 }
 
-/** What a send says: the text, whether it is silent or may notify everyone, and the message it answers. */
+/** What a send says: the text, whether it is silent or may notify everyone, the message it answers and the files it carries. */
 export type SendSpec = {
   text: string
   nonce: string
   silent: boolean
   massMentions: boolean
   reply?: { channel: string; message: string; server: string | null }
+  attachments?: UploadedAttachment[]
 }
 
 /** A fresh nonce: a valid snowflake at `now` whose low 22 bits are random, so two sends in a millisecond differ. */
@@ -53,7 +56,7 @@ export function allowedMentions(massMentions: boolean): AllowedMentions {
 }
 
 /** The request body of a send. A reply never pings its author, and the text is sent exactly as given. */
-export function sendBody({ text, nonce, silent, massMentions, reply }: SendSpec): SendBody {
+export function sendBody({ text, nonce, silent, massMentions, reply, attachments }: SendSpec): SendBody {
   return {
     mobile_network_type: "unknown",
     content: text,
@@ -72,6 +75,7 @@ export function sendBody({ text, nonce, silent, massMentions, reply }: SendSpec)
           },
         }
       : {}),
+    ...(attachments ? { attachments } : {}),
   }
 }
 
@@ -93,15 +97,25 @@ export function sentMessage(
   return { ...value, id: value.id }
 }
 
+/** How many attachments a message of Discord's answer carries. */
+const attachmentCount = (message: JsonRecord) => (Array.isArray(message.attachments) ? message.attachments.length : 0)
+
 /**
  * The ids of the messages in a channel's newest-messages answer that look like
- * the send: by `me`, with exactly `text`, made at or after `since`, and a reply
- * to `replyTo` exactly when the send was one. Newest first; an answer that is
- * not a list has none.
+ * the send: by `me`, with exactly `text`, made at or after `since`, a reply
+ * to `replyTo` exactly when the send was one, and, when `attachments` is
+ * given, with that many attachments (names are not compared: Discord may
+ * rename a file). Newest first; an answer that is not a list has none.
  */
 export function readBackMatches(
   value: unknown,
-  { me, text, replyTo, since }: { me: string; text: string; replyTo: string | undefined; since: number },
+  {
+    me,
+    text,
+    replyTo,
+    since,
+    attachments,
+  }: { me: string; text: string; replyTo: string | undefined; since: number; attachments?: number },
 ): string[] {
   if (!Array.isArray(value)) return []
   return value
@@ -110,6 +124,7 @@ export function readBackMatches(
       const id = idText(message.id)
       if (id === null || fieldOf(message.author, "id") !== me || message.content !== text) return []
       if (snowflakeTime(id) < since) return []
+      if (attachments !== undefined && attachmentCount(message) !== attachments) return []
       const answers =
         replyTo === undefined
           ? message.message_reference == null

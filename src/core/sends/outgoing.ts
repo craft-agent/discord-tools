@@ -17,6 +17,9 @@ import type { ToolContext } from "../tool"
 /** The most files one message carries. */
 export const FILES_MAX = 10
 
+/** The size cap per file, in megabytes, when the entry point names none: Discord's limit without Nitro. */
+export const DEFAULT_SEND_MAX_MB = 10
+
 /** Mode of a private copy: owner only. */
 const COPY_MODE = 0o600
 
@@ -50,7 +53,8 @@ export type Outgoing = {
   close(): Promise<void>
 }
 
-export type OutgoingOptions = {
+/** What deciding which files may be sent takes. */
+export type LocateOptions = {
   /** Relative paths resolve against it. */
   cwd: string
   /** The folders files may be sent from, absolute. */
@@ -59,17 +63,33 @@ export type OutgoingOptions = {
   maxBytes: number
   /** The directories the tools keep their own in, which no send directory may overlap. */
   privateDirs: Pick<ToolContext, "stateDir" | "ownDir">
+}
+
+/** Where a call may send files from and how large each may be: the call's settings, else its working directory and `DEFAULT_SEND_MAX_MB`. */
+export function locateOptionsOf(ctx: ToolContext): LocateOptions {
+  return {
+    cwd: ctx.cwd,
+    dirs: ctx.sendDirs ?? [ctx.cwd],
+    maxBytes: (ctx.sendMaxMb ?? DEFAULT_SEND_MAX_MB) * BYTES_PER_MB,
+    privateDirs: ctx,
+  }
+}
+
+export type OutgoingOptions = LocateOptions & {
   /** The label's `outgoing` folder, which the copies go under. */
   staging: string
   now: () => number
   signal?: AbortSignal
 }
 
-/** A file found where the caller said, and the identity it had then. */
-type Located = {
+/** A file found where the caller said, the name and size it has now, and the identity it had then. */
+export type Located = {
   given: string
   shown: string
   source: string
+  /** The name Discord would get: the real path's base name, cleaned as a received name is. */
+  name: string
+  size: number
   dev: bigint
   ino: bigint
 }
@@ -86,7 +106,7 @@ function unreadable(file: string, error: unknown) {
 }
 
 /** The real path of a send directory, refused when it is not a folder or overlaps the tools' own. */
-async function resolveDir(dir: string, privateDirs: OutgoingOptions["privateDirs"]): Promise<string> {
+async function resolveDir(dir: string, privateDirs: LocateOptions["privateDirs"]): Promise<string> {
   const real = await realpath(dir).catch(() => undefined)
   const info = real === undefined ? undefined : await stat(real).catch(() => undefined)
   if (real === undefined || !info?.isDirectory()) {
@@ -105,7 +125,13 @@ async function resolveDir(dir: string, privateDirs: OutgoingOptions["privateDirs
 }
 
 /** Finds `given` and refuses it unless it is a regular, non-empty file within the cap, inside a send directory, not listed before. */
-async function locate(given: string, roots: readonly string[], options: OutgoingOptions, seen: Set<string>) {
+async function locate(
+  given: string,
+  index: number,
+  roots: readonly string[],
+  options: LocateOptions,
+  seen: Set<string>,
+): Promise<Located> {
   const shown = shownName(given)
   const source = await realpath(resolve(options.cwd, given)).catch((error: unknown) => {
     throw unreadable(given, error)
@@ -123,7 +149,15 @@ async function locate(given: string, roots: readonly string[], options: Outgoing
     throw refuse(given, `${shown} is larger than ${megabytes(options.maxBytes)} MB`)
   if (seen.has(source)) throw refuse(given, `${shown} is listed twice`)
   seen.add(source)
-  return { given, shown, source, dev: info.dev, ino: info.ino }
+  return {
+    given,
+    shown,
+    source,
+    name: cleanName(basename(source), index + 1),
+    size: Number(info.size),
+    dev: info.dev,
+    ino: info.ino,
+  }
 }
 
 /** `bytes` as the megabytes a message names, without a needless fraction. */
@@ -218,14 +252,11 @@ async function checkCopy(file: Located, name: string, copy: string, signal: Abor
 }
 
 /**
- * Copies and checks every file, or throws before anything leaves: each path is resolved against
- * `cwd` and must be a regular, non-empty file of at most `maxBytes` whose real path lies in one of
- * `dirs`; it is then opened without following a link, copied once under `staging`, and every check
- * reads the copy. Any refusal is `invalid_argument` with `details.file` the path as given, and
- * leaves no copy behind; a cancelled `signal` rejects with its `AbortError`, also leaving none.
- * `close` removes the copies once the call is done with them.
+ * Finds the files without touching them: each path is resolved against `cwd` and must be a regular,
+ * non-empty file of at most `maxBytes` whose real path lies in one of `dirs`, listed once. Any
+ * refusal is `invalid_argument` with `details.file` the path as given.
  */
-export async function prepareOutgoing(paths: readonly string[], options: OutgoingOptions): Promise<Outgoing> {
+export async function locateOutgoing(paths: readonly string[], options: LocateOptions): Promise<Located[]> {
   if (paths.length < 1 || paths.length > FILES_MAX) {
     throw new ToolError("invalid_argument", `A message carries 1 to ${FILES_MAX} files; got ${paths.length}.`)
   }
@@ -233,14 +264,26 @@ export async function prepareOutgoing(paths: readonly string[], options: Outgoin
   for (const dir of options.dirs) roots.push(await resolveDir(dir, options.privateDirs))
   const found: Located[] = []
   const seen = new Set<string>()
-  for (const given of paths) found.push(await locate(given, roots, options, seen))
+  for (const [index, given] of paths.entries()) found.push(await locate(given, index, roots, options, seen))
+  return found
+}
+
+/**
+ * Copies and checks every file, or throws before anything leaves: the files are found as
+ * `locateOutgoing` does, then opened without following a link, copied once under `staging`, and
+ * every check reads the copy. Any refusal is `invalid_argument` with `details.file` the path as
+ * given, and leaves no copy behind; a cancelled `signal` rejects with its `AbortError`, also
+ * leaving none. `close` removes the copies once the call is done with them.
+ */
+export async function prepareOutgoing(paths: readonly string[], options: OutgoingOptions): Promise<Outgoing> {
+  const found = await locateOutgoing(paths, options)
 
   const staging = await openStaging(options.staging, options.now())
   try {
     const files: OutgoingFile[] = []
     for (const [index, file] of found.entries()) {
       const copy = staging.fileFor(index + 1)
-      const name = cleanName(basename(file.source), index + 1)
+      const { name } = file
       const { size, sha256 } = await copyOnce(file, copy, options)
       const archive = await checkCopy(file, name, copy, options.signal)
       files.push({ given: file.given, source: file.source, name, copy, size, sha256, ...(archive && { archive }) })

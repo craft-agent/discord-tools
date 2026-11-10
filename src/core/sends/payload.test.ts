@@ -63,6 +63,12 @@ describe("sendBody", () => {
     expect(body.allowed_mentions.replied_user).toBe(false)
   })
 
+  test("carries the attachments of a file send, and none otherwise", () => {
+    const attachments = [{ id: "0", filename: "a.txt", uploaded_filename: "uploads/a.txt" }]
+    expect(sendBody({ ...plain, text: "", attachments }).attachments).toEqual(attachments)
+    expect(sendBody(plain)).not.toHaveProperty("attachments")
+  })
+
   test("a reply in a chat without a server names no guild", () => {
     const body = sendBody({ ...plain, reply: { ...REPLY, server: null } })
     expect(body.message_reference).toEqual({
@@ -130,6 +136,17 @@ describe("readBackMatches", () => {
     const messages = [reply, elsewhere, plain]
     expect(readBackMatches(messages, { ...options, replyTo: REPLY.message })).toEqual([reply.id])
     expect(readBackMatches(messages, options)).toEqual([plain.id])
+  })
+
+  test("compares the attachment count, not the names, when it is given", () => {
+    const file = { id: "1", filename: "renamed.txt" }
+    const two = mine(NOW, { attachments: [file, file] })
+    const one = mine(NOW + 1, { attachments: [file] })
+    const none = mine(NOW + 2)
+    const messages = [two, one, none]
+    expect(readBackMatches(messages, { ...options, attachments: 2 })).toEqual([two.id])
+    expect(readBackMatches(messages, { ...options, attachments: 0 })).toEqual([none.id])
+    expect(readBackMatches(messages, options)).toEqual([none.id, one.id, two.id])
   })
 
   test.each([

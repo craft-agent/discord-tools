@@ -1,11 +1,11 @@
 import { delimiter, isAbsolute, resolve } from "node:path"
 import { ToolError } from "../core"
+import { DEFAULT_SEND_MAX_MB } from "../core/sends/outgoing"
 import { expandTilde, homeDir, type SettingText } from "./state-dir"
 
 const MAX_SEND_DIRS = 20
 const MIN_SEND_MB = 1
 const MAX_SEND_MB = 500
-const DEFAULT_SEND_MB = 10
 const WHOLE_NUMBER = /^\d+$/
 
 /** A list of directories given as delimited text or as string entries, with its source for error messages. */
@@ -48,7 +48,7 @@ export function resolveSendDirs(
 
 /** Resolves the size, in megabytes, a file being sent may have: a whole number from 1 to 500, 10 when not given. */
 export function resolveSendMaxMb(given: SettingText | undefined): number {
-  if (given === undefined) return DEFAULT_SEND_MB
+  if (given === undefined) return DEFAULT_SEND_MAX_MB
   const text = given.text.trim()
   const megabytes = WHOLE_NUMBER.test(text) ? Number(text) : Number.NaN
   if (!(megabytes >= MIN_SEND_MB && megabytes <= MAX_SEND_MB)) {
