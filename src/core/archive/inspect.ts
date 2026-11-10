@@ -9,21 +9,17 @@ import {
   kindOfHead,
   type ArchiveFormat,
 } from "./kinds"
+import { NAME_SHOWN, shownName } from "./names"
 import { readEntries } from "./read"
+import { KeyScan, secretRefusal } from "./secrets"
 
 const MIB = 1024 * 1024
-/** How many bytes of the previous piece are searched again, so a private key header split across two pieces is found. */
-const KEY_OVERLAP = 64
 const FORMAT_HEAD_BYTES = 512
-const PRIVATE_KEY = /-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----/
-/** Control, line-separator, bidi-override and invisible characters: names are written by whoever sent the archive. */
-export const ODD_CHARACTERS =
-  /[\u0000-\u001f\u007f-\u009f\u061c\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff\ufff9-\ufffb]/g
 /** The refusal for a file that cannot be read as an archive. */
 export const UNREADABLE = "it cannot be read as an archive"
 
 /** The caps of an inspection. */
-export const ARCHIVE_LIMITS = { entries: 500, unpacked: 500 * MIB, listing: 50, nameShown: 80 }
+export const ARCHIVE_LIMITS = { entries: 500, unpacked: 500 * MIB, listing: 50, nameShown: NAME_SHOWN }
 
 /** The archive, or something in it, may not be saved; the message is one line saying why. */
 export class ArchiveRefused extends Error {
@@ -50,6 +46,8 @@ export type InspectOptions = {
   allowScripts: boolean
   /** Refuses an entry that holds a private key block. */
   scanKeys: boolean
+  /** Refuses an entry named like a credential, key or database, or inside a folder that holds credentials. */
+  denySecrets?: boolean
   limits?: Partial<typeof ARCHIVE_LIMITS>
   signal?: AbortSignal
 }
@@ -57,12 +55,8 @@ export type InspectOptions = {
 /** The inspection of an archive somebody else sent: scripts are data until run, and nothing there can leak a key. */
 export const RECEIVED: InspectOptions = { allowScripts: true, scanKeys: false }
 
-/** An entry name as it may appear in a message: odd characters replaced by `?`, the length cut. */
-export function shownName(name: string, max = ARCHIVE_LIMITS.nameShown): string {
-  const cleaned = name.replace(ODD_CHARACTERS, "?")
-  const characters = Array.from(cleaned)
-  return characters.length > max ? `${characters.slice(0, max).join("")}…` : cleaned
-}
+/** The inspection of an archive about to be sent: scripts are code somebody shares, but nothing may leak a secret. */
+export const SENT: InspectOptions = { allowScripts: true, scanKeys: true, denySecrets: true }
 
 function refuse(shown: string, why: string): ArchiveRefused {
   return new ArchiveRefused(`${shown} ${why}`)
@@ -109,6 +103,12 @@ async function checkContent(path: string, format: ArchiveFormat): Promise<void> 
   }
 }
 
+/** Refuses an entry named like a secret or inside a folder that holds secrets; every part of a folder entry is a folder. */
+function checkSecret(entry: ArchiveEntry, shown: string, parts: string[]): void {
+  const reason = secretRefusal(entry.kind === "directory" ? [...parts, ""] : parts)
+  if (reason) throw refuse(shown, reason.replace(/^it /, ""))
+}
+
 /** Refuses an entry by its type, its encryption and its name; folders are not judged by their names. */
 function checkEntry(entry: ArchiveEntry, shown: string, parts: string[], options: InspectOptions): void {
   if (entry.kind === "link" || entry.kind === "special") throw refuse(shown, "is a link or a special file")
@@ -130,16 +130,12 @@ async function scan(
   if (used + entry.size > limit) throw tooBig(limit)
   let size = 0
   let head = Buffer.alloc(0)
-  let tail = Buffer.alloc(0)
+  const keys = new KeyScan()
   for await (const chunk of entry.read()) {
     size += chunk.length
     if (used + size > limit) throw tooBig(limit)
     if (head.length < HEAD_BYTES) head = Buffer.concat([head, chunk.subarray(0, HEAD_BYTES - head.length)])
-    if (options.scanKeys) {
-      const searched = Buffer.concat([tail, chunk])
-      if (PRIVATE_KEY.test(searched.toString("latin1"))) throw refuse(shown, "holds a private key")
-      tail = searched.subarray(-KEY_OVERLAP)
-    }
+    if (options.scanKeys && keys.push(chunk)) throw refuse(shown, "holds a private key")
   }
   const kind = kindOfHead(head)
   if (kind === "program") throw refuse(shown, "is a program")
@@ -167,6 +163,7 @@ async function walk(
       throw refuse(shown, "is not a plain relative path")
     // `tar -cf x.tar .` starts with `./`, the folder the archive unpacks into.
     if (parts.length === 0) continue
+    if (options.denySecrets) checkSecret(entry, shown, parts)
     checkEntry(entry, shown, parts, options)
     if (entry.kind !== "file") continue
     const size = await scan(entry, shown, options, limits.unpacked, unpacked)

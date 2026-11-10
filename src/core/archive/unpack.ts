@@ -7,15 +7,14 @@ import { ArchiveUnreadable, CHUNK, checkAbort, openRegular } from "./entry"
 import {
   ARCHIVE_LIMITS,
   ArchiveRefused,
-  ODD_CHARACTERS,
   RECEIVED,
   UNREADABLE,
   inspectArchive,
   plainParts,
-  shownName,
   tooBig,
   tooManyEntries,
 } from "./inspect"
+import { ODD_CHARACTERS, shownName } from "./names"
 import { formatOfName, type ArchiveFormat } from "./kinds"
 import { readEntries, type ArchiveEntry } from "./read"
 
