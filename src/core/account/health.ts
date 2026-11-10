@@ -11,6 +11,13 @@ const HINTS = {
   check_service: "Check the service and local account state before retrying.",
 } as const
 
+/** What a schedule whose recorded program or script is gone is told, by whether a run is in progress now. */
+const PROGRAM_GONE_HINTS = {
+  idle: "The program the scheduled sync was installed with is gone, as after an update; install the service again.",
+  running:
+    "A sync is running now, but the program the scheduled sync was installed with is gone, so it will not run again; install the service again.",
+} as const
+
 const COMMANDS = {
   login: ["login"],
   sync: ["sync"],
@@ -23,7 +30,10 @@ function quote(value: string): string {
   return `'${value.replaceAll("'", "'\\''")}'`
 }
 
-/** Derives one next action; damaged bindings outrank login, and a missing mirror outranks installation. */
+/**
+ * Derives one next action; damaged bindings outrank login, a program gone from under the schedule outranks
+ * the mirror's own findings, and a missing mirror outranks installation.
+ */
 export function applyHealth(row: AccountRow, now: number, cli: string, stateDir: string): AccountRow {
   const reasons = [...row.reasons]
   if (row.token_status !== "available") reasons.push(`token_${row.token_status}`)
@@ -45,6 +55,10 @@ export function applyHealth(row: AccountRow, now: number, cli: string, stateDir:
     hint = "Restore the label's identity state before signing in again."
   } else if (has("token_missing", "token_invalid", "token_rejected", "identity_missing")) {
     action = "login"
+  } else if (has("service_program_gone")) {
+    // Before the mirror's and the schedule's own findings: installing again restarts the schedule with a program that exists.
+    action = "install_service"
+    hint = row.running === true ? PROGRAM_GONE_HINTS.running : PROGRAM_GONE_HINTS.idle
   } else if (has("token_unreadable", "mirror_unavailable", "sync_state_invalid")) {
     action = "check_service"
     if (has("mirror_unavailable")) {
