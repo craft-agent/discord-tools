@@ -73,6 +73,16 @@ describe("the registry", () => {
     expect(ids({ toolsets: ["actions"], read_only: true })).not.toContain(id)
   })
 
+  test("file save is an add tool in the off-by-default files toolset, left out in read-only mode", () => {
+    const id = "discord_file_save"
+    const ids = (settings: Parameters<typeof selectTools>[1]) =>
+      selectTools(ALL_TOOLS, settings, PROJECT_PROFILE.toolsets).map((spec) => spec.id)
+    expect(ALL_TOOLS.find((spec) => spec.id === id)).toMatchObject({ toolset: "files", class: "add" })
+    expect(ids({})).not.toContain(id)
+    expect(ids({ toolsets: ["files"] })).toContain(id)
+    expect(ids({ toolsets: ["files"], read_only: true })).not.toContain(id)
+  })
+
   test("every tool id is unique", () => {
     const ids = ALL_TOOLS.map((spec) => spec.id)
     expect(new Set(ids).size).toBe(ids.length)

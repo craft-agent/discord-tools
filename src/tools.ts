@@ -5,6 +5,7 @@ import { discordMessageEdit } from "./core/actions/edit-tool"
 import { discordPinAdd, discordPinRemove } from "./core/actions/pin-tool"
 import { discordReactionAdd, discordReactionRemove } from "./core/actions/reaction-tool"
 import { discordChatRead } from "./core/chats/read"
+import { discordFileSave } from "./core/files/save-tool"
 import { discordSearchRead } from "./core/search/read"
 import { discordMessageSend } from "./core/sends/send-tool"
 import { discordSyncAdd } from "./core/sync/add"
@@ -20,6 +21,7 @@ export const ALL_TOOLS: ToolSpec[] = [
   discordChatRead,
   discordSearchRead,
   discordMessageSend,
+  discordFileSave,
   discordMessageEdit,
   discordMessageDelete,
   discordReactionAdd,

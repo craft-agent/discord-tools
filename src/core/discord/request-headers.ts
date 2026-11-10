@@ -46,6 +46,44 @@ export type RequestHeaderInput = {
   hasBody: boolean
 }
 
+/** The headers of a file download from Discord's media hosts, in the order they are sent. */
+export const MEDIA_HEADER_ORDER = [
+  "sec-ch-ua",
+  "sec-ch-ua-mobile",
+  "sec-ch-ua-platform",
+  "user-agent",
+  "accept",
+  "sec-fetch-site",
+  "sec-fetch-mode",
+  "sec-fetch-dest",
+  "referer",
+  "accept-encoding",
+  "accept-language",
+] as const
+
+export type MediaHeaderInput = Pick<RequestHeaderInput, "os" | "hints" | "locale">
+
+/**
+ * The headers of a download: Chrome's for a cross-site image fetch from the
+ * web client's page. It carries no token and none of the API's own headers.
+ */
+export function mediaHeaders(input: MediaHeaderInput): [string, string][] {
+  const values: Record<(typeof MEDIA_HEADER_ORDER)[number], string> = {
+    "sec-ch-ua": input.hints.ua,
+    "sec-ch-ua-mobile": input.hints.mobile,
+    "sec-ch-ua-platform": input.hints.platform,
+    "user-agent": userAgent(input.os),
+    accept: "*/*",
+    "sec-fetch-site": "cross-site",
+    "sec-fetch-mode": "no-cors",
+    "sec-fetch-dest": "image",
+    referer: `${WEB_ORIGIN}/`,
+    "accept-encoding": "gzip, deflate, br, zstd",
+    "accept-language": acceptLanguage(input.locale),
+  }
+  return MEDIA_HEADER_ORDER.map((name) => [name, values[name]])
+}
+
 /** Percent-encodes a reason the way the web client does: spaces and slashes stay. */
 function encodeReason(reason: string): string {
   return encodeURIComponent(reason)

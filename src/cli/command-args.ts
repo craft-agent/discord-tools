@@ -1,7 +1,7 @@
 import { isAbortError, isToolError, ToolError } from "../core"
 import { maskTokens } from "../core/discord/mask"
 import { PROJECT_PROFILE } from "../entry/profile"
-import { parseStateDir } from "../entry/settings"
+import { parseStorageSettings } from "../entry/settings"
 import { PROJECT } from "../project"
 import { EXIT_FAILED, EXIT_USAGE, type CommandIo } from "./command-io"
 
@@ -112,5 +112,5 @@ export function parseFlagArgs<V extends string = string, S extends string = stri
 /** Reads the state directory from the arguments `parseFlagArgs` left, where nothing else may remain. */
 export function parseCommandStateDir(rest: string[], io: CommandIo, stateDir?: string): string {
   const args = stateDir === undefined ? rest : [...rest, `${STATE_DIR_FLAG}=${stateDir}`]
-  return parseStateDir(args, io.env, io.profile ?? PROJECT_PROFILE)
+  return parseStorageSettings(args, io.env, io.profile ?? PROJECT_PROFILE).state_dir
 }

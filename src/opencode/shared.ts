@@ -14,7 +14,7 @@ import { ANY_RESOURCE } from "../entry/permission"
 import { checkPin } from "../entry/pin"
 import { PROJECT_PROFILE } from "../entry/profile"
 import type { RuntimeOptions } from "../entry/runtime"
-import { settingsFromOptions } from "../entry/settings"
+import { settingsFromOptions, storageContext, type StorageContext } from "../entry/settings"
 import { promptTranslator, promptWords } from "../entry/words"
 import type { PluginOptions } from "./types"
 
@@ -55,19 +55,19 @@ export function needsPermission(spec: Pick<ToolSpec, "class">): boolean {
 
 /**
  * The tools the plugin options (and the environment behind them) select from
- * `specs`, the resolved state directory, and the translator of the prompt
- * language they set over the plugin's translations.
+ * `specs`, the context fields the storage settings give, and the translator of
+ * the prompt language they set over the plugin's translations.
  */
 export function selectedTools(
   specs: ToolSpec[],
   options: PluginOptions | undefined,
   deps: PluginDeps,
-): { tools: ToolSpec[]; stateDir: string; translator: Translator } {
+): { tools: ToolSpec[]; storage: StorageContext; translator: Translator } {
   const profile = deps.profile ?? PROJECT_PROFILE
   const settings = settingsFromOptions(options, deps.env ?? process.env, profile)
   return {
     tools: selectTools(specs, settings, profile.toolsets),
-    stateDir: settings.state_dir,
+    storage: storageContext(settings),
     translator: promptTranslator(deps.translations ?? {}, settings.language),
   }
 }

@@ -291,6 +291,8 @@ Every entry point takes the same settings:
   "Write classes"); unset, the prompt follows the harness's display language
   or stays in English.
 - **`state_dir`**: where every account's state lives (see "Accounts and state").
+- **`download_dir`** and **`download_max_mb`**: where received files are saved
+  and the size each may have (see "Files").
 
 ## The core contract
 
@@ -524,8 +526,29 @@ Every entry point takes the same settings:
 - **Files go in and out only through the directories a setting names**,
   judged by real path, so a link that leads elsewhere counts as elsewhere.
   The state directory and the tools' own install directory are never among
-  them. Which settings, and their defaults, are settled with the tools that
-  save and send files.
+  them, nor a directory that holds either. Which directories files are sent
+  from is settled with the tool that sends them.
+- **Received files are saved under `download_dir`**, by default
+  `~/Downloads/<name>`, where a person looks for downloads first; it is an
+  absolute path once `~` is expanded. Each message gets a folder of its own,
+  `<channel>-<message>`, so files from different people never mix, and
+  nothing is ever overwritten: a name already taken gets a number. A
+  directory that is not there yet is made on the first save, never by a
+  read.
+- **A file is at most `download_max_mb` megabytes**, 100 by default and 500
+  at most. Discord's own limits on uploads are smaller for most accounts; the
+  cap keeps a link preview or an archive from filling the disk.
+- **Downloads come only from Discord's CDN and media proxy**
+  (`cdn.discordapp.com`, `media.discordapp.net`,
+  `images-ext-<n>.discordapp.net`), over `https`, without the token, through
+  the HTTP client and its pacing, without following a redirect, 180 seconds
+  each and 540 a call. The site behind a link is never fetched.
+- **What someone sent is checked before it is kept**, by its name, its
+  declared type and its bytes, and an archive by everything in it; a program,
+  an installer, a script or an archive that cannot be read is not saved.
+  Files are written without an execute bit and, on macOS, marked as
+  downloaded, so the system asks before one is opened. An archive is
+  unpacked only when asked, into a new folder beside it.
 
 ## Writes
 
@@ -588,6 +611,11 @@ Every entry point takes the same settings:
   stay the same while the text past it changes, so an edit pins a hash of
   the whole current text, and a message edited after the prompt makes the
   call `stale`.
+- **A save lists what the mirror holds.** Its prompt's text, under the label
+  `Attachments`, is the attachment names the mirror stores for the message,
+  one to a line; link previews and stickers are read from Discord when the call
+  runs, so the prompt cannot list them, and a message whose attachments the
+  mirror does not hold has no text. Every name is another person's data.
 - **A change to the sync list names the server and its channels.** The
   server is its name in the mirror, else its id, since a server the account
   has left can still be removed; a channel is `#name`, else its id. The
@@ -599,8 +627,9 @@ Every entry point takes the same settings:
   | `Chat`          | the kind of chat: `Direct message`, `Group DM`, `Text channel`, … | always                               |
   | `Server`        | the server's name                                                 | a chat in a server                   |
   | `Channel`       | the channel a thread belongs to, as `#name`                       | a thread                             |
-  | `Author`        | who wrote the message, `You` for the user's own                   | a reaction, a pin                    |
-  | `Message`       | the message, quoted short                                         | a reaction, a pin                    |
+  | `Author`        | who wrote the message, `You` for the user's own                   | a reaction, a pin, a save            |
+  | `Message`       | the message, quoted short                                         | a reaction, a pin, a save            |
+  | `Unpack`        | the entries named, joined with `, `, or `Every archive`           | `unpack` of a save                   |
   | `Current text`  | the text an edit replaces, quoted short                           | an edit                              |
   | `Reply to`      | the message replied to, quoted short                              | a reply                              |
   | `Mass mentions` | `Notify`                                                          | `mass_mentions` of a send or an edit |

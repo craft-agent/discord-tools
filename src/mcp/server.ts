@@ -23,7 +23,7 @@ import {
 import { errorBody } from "../entry/errors"
 import { PROJECT_PROFILE } from "../entry/profile"
 import { createToolRuntime, type RuntimeOptions } from "../entry/runtime"
-import type { EntrySettings } from "../entry/settings"
+import { storageContext, type EntrySettings } from "../entry/settings"
 import { elicitationConfirm } from "./confirm"
 import { createWorkingDirResolver } from "./roots"
 
@@ -91,7 +91,7 @@ export function createServer(specs: ToolSpec[], settings: EntrySettings, options
       const ctx: ToolContext = {
         cwd: await workingDir(extra.signal),
         ownDir: options.ownDir,
-        stateDir: settings.state_dir,
+        ...storageContext(settings),
         runtime,
         signal: extra.signal,
         ...(confirm && { confirm }),

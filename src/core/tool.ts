@@ -42,6 +42,10 @@ export type ToolContext = {
   ownDir?: string
   /** Where every account's state lives: an absolute path the entry point resolved from its settings. */
   stateDir?: string
+  /** Where received files are saved: an absolute path the entry point resolved from its settings. */
+  downloadDir?: string
+  /** The size a received file may have, in megabytes. */
+  downloadMaxMb?: number
   /** Identity and runtime dependencies supplied by the entry point. */
   runtime?: ToolRuntime
   signal?: AbortSignal

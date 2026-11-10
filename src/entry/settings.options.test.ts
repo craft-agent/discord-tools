@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test"
 import { settingsFromOptions } from "./settings"
-import { failure, profile } from "./settings.testing"
+import { DEFAULT_DOWNLOADS, failure, profile } from "./settings.testing"
 
 const fromOptions = (options: Record<string, unknown> | undefined, env: Record<string, string | undefined> = {}) =>
   settingsFromOptions(options, env, profile)
 
 describe("settingsFromOptions", () => {
   test("gives no setting for no options", () => {
-    expect(fromOptions(undefined)).toEqual({ state_dir: expect.any(String) })
-    expect(fromOptions({})).toEqual({ state_dir: expect.any(String) })
+    expect(fromOptions(undefined)).toEqual({ state_dir: expect.any(String), ...DEFAULT_DOWNLOADS })
+    expect(fromOptions({})).toEqual({ state_dir: expect.any(String), ...DEFAULT_DOWNLOADS })
   })
 
   test("reads each option", () => {
@@ -19,6 +19,8 @@ describe("settingsFromOptions", () => {
         tools: ["demo_thing_read"],
         exclude_tools: ["a"],
         state_dir: "/custom/state",
+        download_dir: "/custom/downloads",
+        download_max_mb: 250,
       }),
     ).toEqual({
       toolsets: ["alpha", "beta"],
@@ -26,7 +28,10 @@ describe("settingsFromOptions", () => {
       tools: ["demo_thing_read"],
       exclude_tools: ["a"],
       state_dir: "/custom/state",
+      download_dir: "/custom/downloads",
+      download_max_mb: 250,
     })
+    expect(fromOptions({ download_max_mb: "42" }).download_max_mb).toBe(42)
     expect(fromOptions({ toolsets: "all" }).toolsets).toBe("all")
     expect(fromOptions({ toolsets: ["alpha", "all"] }).toolsets).toBe("all")
     expect(fromOptions({ toolsets: [] }).toolsets).toBeUndefined()
@@ -38,20 +43,29 @@ describe("settingsFromOptions", () => {
       DEMO_READ_ONLY: "true",
       DEMO_TOOLS: "a,b",
       DEMO_STATE_DIR: "/env/state",
+      DEMO_DOWNLOAD_DIR: "/env/downloads",
+      DEMO_DOWNLOAD_MAX_MB: "30",
     }
     expect(fromOptions({}, env)).toEqual({
       toolsets: ["gamma"],
       read_only: true,
       tools: ["a", "b"],
       state_dir: "/env/state",
+      download_dir: "/env/downloads",
+      download_max_mb: 30,
     })
     expect(
-      fromOptions({ toolsets: ["beta"], read_only: false, state_dir: "/opt/state" }, { ...env, DEMO_READ_ONLY: "yes" }),
+      fromOptions(
+        { toolsets: ["beta"], read_only: false, state_dir: "/opt/state", download_dir: "/opt/get", download_max_mb: 5 },
+        { ...env, DEMO_READ_ONLY: "yes" },
+      ),
     ).toEqual({
       toolsets: ["beta"],
       read_only: false,
       tools: ["a", "b"],
       state_dir: "/opt/state",
+      download_dir: "/opt/get",
+      download_max_mb: 5,
     })
   })
 
@@ -64,6 +78,11 @@ describe("settingsFromOptions", () => {
     expect(failure(() => fromOptions({ state_dir: 123 })).message).toContain('"state_dir"')
     expect(failure(() => fromOptions({ state_dir: false })).message).toContain('"state_dir"')
     expect(failure(() => fromOptions({ state_dir: "relative" })).message).toContain('"state_dir"')
+    expect(failure(() => fromOptions({ download_dir: 123 })).message).toContain('"download_dir"')
+    expect(failure(() => fromOptions({ download_dir: "relative" })).message).toContain('"download_dir"')
+    for (const value of [true, 0, 501, 1.5, "abc", ["5"]]) {
+      expect(failure(() => fromOptions({ download_max_mb: value })).message).toContain("download_max_mb")
+    }
   })
 
   test("an unknown toolset or option is rejected, naming it", () => {

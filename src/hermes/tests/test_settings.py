@@ -55,6 +55,31 @@ class SettingsFlagsTest(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(settings.SettingsError):
                 settings.state_dir_flags(StubContext({"state_dir": value}))
 
+    def test_download_dir_flag(self) -> None:
+        self.assertEqual(
+            settings.download_dir_flags(StubContext({"download_dir": "/custom/get"})), ["--download-dir", "/custom/get"]
+        )
+        self.assertEqual(settings.download_dir_flags(StubContext({})), [])
+
+    def test_download_max_mb_flag(self) -> None:
+        self.assertEqual(
+            settings.download_max_mb_flags(StubContext({"download_max_mb": 250})), ["--download-max-mb", "250"]
+        )
+        self.assertEqual(settings.download_max_mb_flags(StubContext({})), [])
+
+    def test_download_settings_included_in_settings_flags(self) -> None:
+        self.assertEqual(
+            self.flags(state_dir="/s", download_dir="/d", download_max_mb=5),
+            ["--state-dir", "/s", "--download-dir", "/d", "--download-max-mb", "5"],
+        )
+
+    def test_target_flags_name_the_directories_but_not_the_size(self) -> None:
+        self.assertEqual(
+            settings.target_flags(StubContext({"state_dir": "/s", "download_dir": "/d", "download_max_mb": 5})),
+            ["--state-dir", "/s", "--download-dir", "/d"],
+        )
+        self.assertEqual(settings.target_flags(StubContext({})), [])
+
     def test_a_wrong_type_is_refused(self) -> None:
         for config in (
             {"toolsets": "things"},
@@ -64,6 +89,11 @@ class SettingsFlagsTest(unittest.TestCase):
             {"exclude_tools": [1]},
             {"state_dir": 123},
             {"state_dir": ""},
+            {"download_dir": 123},
+            {"download_dir": "  "},
+            {"download_max_mb": "100"},
+            {"download_max_mb": True},
+            {"download_max_mb": 1.5},
         ):
             with self.subTest(config=config), self.assertRaises(settings.SettingsError):
                 self.flags(**config)

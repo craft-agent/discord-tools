@@ -4,14 +4,14 @@ import { ToolError } from "../core"
 import type { EntryProfile } from "./profile"
 
 /** The user's home directory from `$HOME` (when absolute) or `os.homedir()`. */
-function homeDir(env: Record<string, string | undefined>): string {
+export function homeDir(env: Record<string, string | undefined>): string {
   const envHome = env.HOME
   if (envHome && isAbsolute(envHome)) return envHome
   return homedir()
 }
 
 /** Expands a leading `~` or `~/` against the user's home directory. */
-function expandTilde(text: string, home: string): string {
+export function expandTilde(text: string, home: string): string {
   if (text === "~") return home
   if (text.startsWith("~/") || text.startsWith(`~${sep}`)) {
     return join(home, text.slice(2))

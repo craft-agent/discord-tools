@@ -21,6 +21,20 @@ export type TransportResponse = {
 /** Sends one request as it is: no retries, no redirects followed. Rejects with a `TransportFailure` below HTTP. */
 export type Transport = (request: TransportRequest) => Promise<TransportResponse>
 
+/** An HTTP answer whose body is still being received. */
+export type DownloadResponse = {
+  status: number
+  /** Names are lower-case. */
+  headers: Record<string, string>
+  /** The decoded body, chunk by chunk. Rejects with a `TransportFailure` when the request fails, is cancelled or times out while it is read. */
+  body: AsyncIterable<Uint8Array>
+  /** Gives up on the rest of the body and frees the connection; safe to call after the body ended or more than once. */
+  cancel(): Promise<void>
+}
+
+/** Like `Transport`, but resolves at the headers and leaves the body to be read. Same `TransportFailure` semantics. */
+export type DownloadTransport = (request: TransportRequest) => Promise<DownloadResponse>
+
 /** A request that failed below HTTP. */
 export class TransportFailure extends Error {
   /** False only when the request cannot have left the machine (no connection was made, or it was cancelled before sending). */

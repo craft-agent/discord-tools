@@ -5,7 +5,11 @@ import { profile } from "./settings.testing"
 
 /** Offline runtime dependencies: inspecting account state or the host during wiring fails the test. */
 export function runtimeFixture(): Required<RuntimeOptions> {
-  const env: Record<string, string | undefined> = { DEMO_STATE_DIR: "/runtime/state" }
+  const env: Record<string, string | undefined> = {
+    DEMO_STATE_DIR: "/runtime/state",
+    DEMO_DOWNLOAD_DIR: "/runtime/downloads",
+    DEMO_DOWNLOAD_MAX_MB: "42",
+  }
   const serviceHost: ServiceHost = new Proxy({} as ServiceHost, {
     get: () => {
       throw new Error("runtime wiring must not inspect the scheduler")
