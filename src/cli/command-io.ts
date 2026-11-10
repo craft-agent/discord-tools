@@ -26,6 +26,8 @@ export type CommandIo = RuntimeOptions & {
   syncRun?: typeof runSync
   /** Absolute runtime executable used by the scheduled service. */
   program?: string
+  /** The version of `program` without a leading `v`; defaults to `process.versions.node`. */
+  version?: string
   /** Absolute built CLI entry path, supplied by the executable entry point. */
   entryPath?: string
 }

@@ -78,6 +78,7 @@ describe("labelPaths", () => {
       transfers: join(dir, "transfers"),
       incoming: join(dir, "incoming"),
       outgoing: join(dir, "outgoing"),
+      serviceRecord: join(dir, "service.json"),
     })
   })
 

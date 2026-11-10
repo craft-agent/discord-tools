@@ -356,8 +356,9 @@ Every entry point takes the same settings:
   the set is kept to what both take as it is.
 - **Each label keeps all of its state in one directory**,
   `<state root>/<label>/`, created with mode 700: the mirror, the sync list,
-  the token file when there is one, the sync service's lock and progress, and
-  the short-lived copies of files being sent or received. The state root is
+  the token file when there is one, the sync service's lock and progress, the
+  service record, and the short-lived copies of files being sent or received.
+  The state root is
   the `state_dir` setting, by default `$XDG_STATE_HOME/discord-tools`, or
   `~/.local/state/discord-tools` without it. One directory per label means a
   label is moved, backed up or removed as a whole.
@@ -472,6 +473,21 @@ Every entry point takes the same settings:
   launchd agent uses `StartInterval` 300; on Linux a user systemd timer starts
   a oneshot service every 300 seconds. Installing a job requires an executable
   sync command; an unfinished command must never be registered as a service.
+- **The service record names what the scheduler starts.** Installing the
+  service writes `<label>/service.json`, mode 600: the program and the script
+  it runs, as paths, and nothing else; uninstalling deletes it. The account
+  read checks that both still exist, since a program removed by an update
+  stops the schedule only at its next start, and the system's own log names
+  just the missing file. A schedule whose program is gone is then told to be
+  installed again, rather than found stale after it has stopped syncing.
+- **Installing prefers a program at a path that outlives updates.** A
+  program whose path holds its own version goes when that version is
+  removed, so installing looks on the recorded `PATH` for one at a path
+  without it that starts the same program, and says so when there is none.
+  One under the temporary or runtime directory is passed over, since it is
+  gone after a restart. The program is the same at install only: a link or
+  a shim follows whatever its owner makes current later, which is the point
+  of choosing it.
 - **The label's `sync.lock` is a private SQLite lock file**, separate from the
   mirror. A run holds a write transaction until it ends; closing the connection
   or losing the process releases it. The file stays in place so contenders

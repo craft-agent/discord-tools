@@ -4,6 +4,7 @@ import { abortError } from "../exec"
 import { readClientTokenStatus } from "../discord/client-token-status"
 import { labelPaths, listLabels, pickLabel, type LabelPaths } from "../discord/labels"
 import { serviceStatus } from "../discord/service"
+import { missingServiceFiles, readServiceRecord } from "../discord/service-record"
 import { tokenVariable } from "../discord/token"
 import type { ToolRuntime } from "../runtime"
 import { defineTool } from "../tool"
@@ -71,6 +72,8 @@ async function readLabel(
     if (isAbortError(error)) throw error
     row.reasons.push("service_unknown")
   }
+  const record = await readServiceRecord(paths)
+  if (record !== null && missingServiceFiles(record).length > 0) row.reasons.push("service_program_gone")
   checkAbort(signal)
   return applyHealth(row, now, runtime.cli, stateDir)
 }

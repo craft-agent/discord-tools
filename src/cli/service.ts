@@ -1,16 +1,23 @@
 import { isAbsolute } from "node:path"
 import { ToolError } from "../core"
 import { readAccount } from "../core/discord/account-meta"
-import { checkLabel, listLabels, pickLabel } from "../core/discord/labels"
+import { checkLabel, labelPaths, listLabels, pickLabel } from "../core/discord/labels"
 import {
   defaultServiceHost,
   installService,
   serviceStatus,
+  serviceWorkingDirectory,
   uninstallService,
   type ServiceHost,
   type ServiceName,
   type ServiceStatus,
 } from "../core/discord/service"
+import {
+  missingServiceFiles,
+  readServiceRecord,
+  removeServiceRecord,
+  writeServiceRecord,
+} from "../core/discord/service-record"
 import { PROJECT_PROFILE, type EntryProfile } from "../entry/profile"
 import {
   ACCOUNT_FLAG,
@@ -21,6 +28,7 @@ import {
   usageError,
 } from "./command-args"
 import { EXIT_OK, type CommandIo } from "./command-io"
+import { pickStableProgram } from "./service-program"
 
 /** The platforms whose service manager the sync service is registered with. */
 const SERVICE_PLATFORMS: readonly NodeJS.Platform[] = ["darwin", "linux"]
@@ -91,6 +99,23 @@ function statusLines(label: string, status: ServiceStatus): string[] {
   ]
 }
 
+/** The program and script the service was installed with, and what of them is gone, with the way to install it again. */
+async function recordLines(command: ServiceCommand, label: string, cli: string): Promise<string[]> {
+  const record = await readServiceRecord(labelPaths(command.stateDir, label))
+  if (!record) return []
+  const missing = missingServiceFiles(record)
+  return [
+    `  Program: ${record.program}`,
+    `  Script: ${record.script}`,
+    ...missing.map((name) => `  Missing: ${record[name]}`),
+    ...(missing.length === 0
+      ? []
+      : [
+          `The ${missing.join(" and ")} it was installed with ${missing.length > 1 ? "are" : "is"} gone, as after updating Node or this package; install it again with: ${cli} service install ${ACCOUNT_FLAG} ${label}`,
+        ]),
+  ]
+}
+
 /**
  * The `service` command: `install`, `uninstall` and `status` of one account's
  * sync service (`--account`, or the only account). Installing requires a
@@ -115,7 +140,8 @@ export async function runServiceCommand(argv: string[], io: CommandIo): Promise<
 
   try {
     const host: ServiceHost = io.serviceHost ?? defaultServiceHost()
-    const name = serviceName(io.profile ?? PROJECT_PROFILE)
+    const profile = io.profile ?? PROJECT_PROFILE
+    const name = serviceName(profile)
     if (command.action === "install") {
       const paths = await pickLabel(command.stateDir, label)
       if (!(await readAccount(paths))) {
@@ -127,24 +153,44 @@ export async function runServiceCommand(argv: string[], io: CommandIo): Promise<
           "Installing the sync service requires an absolute built CLI entry path.",
         )
       }
+      const path = io.env.PATH ?? ""
+      const picked = await pickStableProgram({
+        program: io.program ?? process.execPath,
+        version: io.version ?? process.versions.node,
+        path,
+        home: host.home,
+        cwd: serviceWorkingDirectory(host),
+        volatileRoots: [io.env.TMPDIR ?? "", io.env.XDG_RUNTIME_DIR ?? ""],
+      })
+      // Removed first, so an install that fails part way leaves no record of an older program.
+      await removeServiceRecord(paths)
       await installService(
         {
           ...name,
           label,
           description: `Scheduled account sync (${label})`,
-          program: io.program ?? process.execPath,
+          program: picked.program,
           args: [io.entryPath, "sync", ACCOUNT_FLAG, label, STATE_DIR_FLAG, command.stateDir],
-          path: io.env.PATH ?? "",
+          path,
         },
         host,
       )
+      await writeServiceRecord(paths, { program: picked.program, script: io.entryPath })
       io.stdout(`Installed sync service for "${label}".\n`)
       io.stdout("Environment-based tokens must be supplied independently to the service environment.\n")
+      io.stdout("Install the service again after updating Node or this package, as it records both paths.\n")
+      if (picked.versioned) {
+        io.stderr(
+          `Warning: the service runs Node at a path that holds its version (${picked.program}); removing that version stops the service. Install the service again after updating Node, or put a node at a path without the version first on PATH.\n`,
+        )
+      }
     } else if (command.action === "uninstall") {
       await uninstallService(name, label, host)
+      await removeServiceRecord(labelPaths(command.stateDir, label))
       io.stdout(`Uninstalled sync service for "${label}".\n`)
     } else {
-      io.stdout(`${statusLines(label, await serviceStatus(name.id, label, host)).join("\n")}\n`)
+      const status = await serviceStatus(name.id, label, host)
+      io.stdout(`${[...statusLines(label, status), ...(await recordLines(command, label, profile.cli))].join("\n")}\n`)
     }
     return EXIT_OK
   } catch (error) {
