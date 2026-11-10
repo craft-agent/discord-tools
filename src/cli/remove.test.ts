@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { readdir, stat, writeFile } from "node:fs/promises"
+import { mkdir, readdir, stat, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { ToolError } from "../core"
 import { acquireSyncLock } from "../core/discord/sync-lock"
@@ -32,11 +32,25 @@ describe("remove confirmation", () => {
     })
     expect(result.code).toBe(EXIT_OK)
     expect(existedAtUninstall).toBe(true)
-    expect(host.calls).toHaveLength(1)
+    expect(host.calls.map((argv) => argv[1])).toEqual(["bootout", "print"])
     expect(host.calls[0]!.at(-1)).toContain(PROFILE.serviceId)
     expect(await readdir(dir)).toEqual(["other"])
     expect(result.stdout).toContain("local state is deleted")
     expect(result.stdout).toContain("environment are not removed")
+  })
+
+  test("--yes deletes the label's launcher script along with its service", async () => {
+    const dir = await tempStateDir()
+    await signedInAccount(dir, "work")
+    const launcherDir = join(dir, "Library", "Application Support", PROFILE.serviceId)
+    await mkdir(launcherDir, { recursive: true })
+    await writeFile(join(launcherDir, `${PROFILE.name}-sync-work`), "#!/bin/sh\n")
+    const result = await run(["--account=work", "--yes", `--state-dir=${dir}`], {
+      profile: PROFILE,
+      serviceHost: fakeHost(dir),
+    })
+    expect(result.code).toBe(EXIT_OK)
+    expect(await stat(launcherDir).catch(() => undefined)).toBeUndefined()
   })
 
   test("a terminal can confirm by typing the exact label", async () => {
@@ -146,7 +160,7 @@ describe("remove failures", () => {
     })
     expect(result.code).toBe(EXIT_FAILED)
     expect(result.stderr).toContain("cancelled")
-    expect(host.calls).toHaveLength(1)
+    expect(host.calls.map((argv) => argv[1])).toEqual(["bootout", "print"])
     expect(await readdir(account)).toEqual(["token"])
   })
 
@@ -201,7 +215,7 @@ describe("remove failures", () => {
       const result = await run(["--account", "work", "--yes", "--state-dir", dir], { serviceHost: host })
       expect(result.code).toBe(EXIT_FAILED)
       expect(result.stderr).toContain("sync lock")
-      expect(host.calls).toHaveLength(1)
+      expect(host.calls.map((argv) => argv[1])).toEqual(["bootout", "print"])
       expect(await readdir(account)).toContain("mirror-marker")
       expect(await readdir(account)).toContain("token")
     } finally {

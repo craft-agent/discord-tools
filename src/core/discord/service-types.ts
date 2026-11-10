@@ -1,6 +1,7 @@
 import { chmod, stat, unlink, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { isAbsolute } from "node:path"
+import { setTimeout } from "node:timers/promises"
 import { ToolError } from "../errors"
 import { exec, type ExecResult } from "../exec"
 import { checkLabel } from "./labels"
@@ -33,10 +34,19 @@ const MAX_BAD_ID_PREVIEW = 40
 /** Control characters (U+0000–U+001F, U+007F), which break line-oriented configs and XML. */
 const CONTROL_CHARACTERS = /[\x00-\x1f\x7f]/
 
-/** The specification for installing the scheduled sync of one label. */
-export type ServiceSpec = {
-  /** The reverse-DNS prefix of the service's names, supplied by the entry point. */
+/** What names one service across its labels, supplied by the entry point. */
+export type ServiceName = {
+  /** The reverse-DNS prefix of the service's names. */
   id: string
+  /**
+   * The file name the macOS launcher script is given, before `-<label>`; the agent is listed under it where the
+   * platform names background items after their program.
+   */
+  launcher: string
+}
+
+/** The specification for installing the scheduled sync of one label. */
+export type ServiceSpec = ServiceName & {
   /** The account label this service syncs. */
   label: string
   /** What the service is for, shown by the service manager. */
@@ -61,6 +71,8 @@ export type ServiceHost = {
   env: Record<string, string | undefined>
   /** Runs a program without a shell; rejects when it cannot be started. */
   run(argv: string[]): Promise<ExecResult>
+  /** Waits between polls; defaults to a timer. Tests pass one that returns at once. */
+  sleep?(ms: number): Promise<void>
 }
 
 /** The state of one label's scheduled sync. */
@@ -120,6 +132,17 @@ function checkServiceId(id: string): void {
   }
 }
 
+/** Refuses a launcher name that is not a plain file name. */
+export function checkLauncherName(launcher: string): void {
+  if (typeof launcher !== "string" || !SERVICE_ID_PATTERN.test(launcher)) {
+    const preview = typeof launcher === "string" ? launcher.slice(0, MAX_BAD_ID_PREVIEW) : String(launcher)
+    throw new ToolError(
+      "invalid_argument",
+      `Invalid launcher name ${JSON.stringify(preview)}: use letters, digits, ".", "_" and "-", starting with a letter or digit.`,
+    )
+  }
+}
+
 /** Refuses an id or label that is not safe to put in a name or path, and a relative home, before anything runs. */
 export function checkServiceTarget(id: string, label: string, home: string): void {
   checkServiceId(id)
@@ -159,6 +182,7 @@ export function defaultServiceHost(): ServiceHost {
     home: homedir(),
     uid: typeof process.getuid === "function" ? process.getuid() : 0,
     env,
+    sleep: (ms) => setTimeout(ms),
     async run(argv: string[]): Promise<ExecResult> {
       const commandEnv: Record<string, string> = { ...FIXED_ENV }
       for (const name of FORWARDED_ENV) {

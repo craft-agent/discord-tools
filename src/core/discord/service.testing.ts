@@ -7,6 +7,7 @@ import type { ServiceHost, ServiceSpec } from "./service-types"
 /** A spec with made-up names, as an entry point would pass one. */
 export const SPEC: ServiceSpec = {
   id: "io.example.tools",
+  launcher: "example-sync",
   label: "default",
   description: "Example sync service",
   program: "/usr/bin/node",
@@ -24,21 +25,33 @@ export function failed(code: number, stderr: string): ExecResult {
   return { code, stdout: "", stderr }
 }
 
-/** A fake host that records every command and answers through `answer` (success when it returns nothing). */
+/** What `launchctl print` says for a job that is not registered. */
+export const NOT_FOUND = failed(113, "Could not find service")
+
+/**
+ * A fake host that records every command and answers through `answer` (success when it returns nothing). It never
+ * sleeps, and where `answer` says nothing about `launchctl print`, it answers not-found once a `launchctl bootout`
+ * has succeeded and until the next `bootstrap`, as launchd does once the job is gone.
+ */
 export function fakeHost(
   platform: NodeJS.Platform,
   home: string,
   answer: (argv: string[]) => ExecResult | undefined = () => undefined,
 ): { host: ServiceHost; calls: string[][] } {
   const calls: string[][] = []
+  let bootedOut = false
   const host: ServiceHost = {
     platform,
     home,
     uid: 501,
     env: { PATH: "/usr/bin:/bin" },
+    sleep: async () => {},
     run: async (argv) => {
       calls.push(argv)
-      return answer(argv) ?? ok()
+      const result = answer(argv) ?? (argv[1] === "print" && bootedOut ? NOT_FOUND : ok())
+      if (argv[1] === "bootout" && result.code === 0) bootedOut = true
+      if (argv[1] === "bootstrap") bootedOut = false
+      return result
     },
   }
   return { host, calls }

@@ -351,6 +351,11 @@ does not automatically inherit the terminal's environment: when using
 `DISCORD_TOOLS_TOKEN_<LABEL>`, supply it independently to the scheduled
 service's environment, as well as to the harness that starts the MCP server.
 
+On macOS, Login Items lists the service as `discord-tools-sync-<label>`: the
+agent starts through that launcher script, which `service install` writes to
+`~/Library/Application Support/io.github.craft-agent.discord-tools/` and
+`service uninstall` deletes. Switching the item off there stops syncing.
+
 `remove` asks you to type the label. For a non-interactive command, pass
 `--yes`. It uninstalls the scheduled job, refuses while the label is busy,
 and deletes that label's local state, including its mirror and token file.

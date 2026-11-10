@@ -14,18 +14,28 @@ export const FAKE_TOKEN_FILE_TEXT = "made-up-token-for-tests"
 /** A service host that records what it is asked to run and never touches the machine. */
 export type FakeHost = ServiceHost & { calls: string[][] }
 
-/** A macOS-like host whose commands all succeed silently, unless `overrides` say otherwise. */
+/**
+ * A macOS-like host whose commands all succeed silently, unless `overrides` say otherwise. It never sleeps, and once a
+ * `launchctl bootout` has succeeded it answers `launchctl print` with not-found until the next `bootstrap`, as launchd
+ * does once the job is gone.
+ */
 export function fakeHost(home: string, overrides: Partial<ServiceHost> = {}): FakeHost {
   const calls: string[][] = []
+  let bootedOut = false
   return {
     platform: "darwin",
     home,
     uid: 501,
     env: { PATH: "/bin" },
+    sleep: async () => {},
     ...overrides,
     run: async (argv: string[]) => {
       calls.push(argv)
-      return overrides.run ? overrides.run(argv) : { code: 0, stdout: "", stderr: "" }
+      if (argv[1] === "print" && bootedOut) return { code: 113, stdout: "", stderr: "Could not find service" }
+      const result = overrides.run ? await overrides.run(argv) : { code: 0, stdout: "", stderr: "" }
+      if (argv[1] === "bootout" && result.code === 0) bootedOut = true
+      if (argv[1] === "bootstrap") bootedOut = false
+      return result
     },
     calls,
   }
