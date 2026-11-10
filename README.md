@@ -345,8 +345,15 @@ for that label.
 `service install` requires a signed-in label and schedules the installed CLI
 every five minutes: a launchd agent on macOS, or a systemd user timer and
 oneshot service on Linux. Keep that CLI installation and its Node runtime
-available at their installed paths. The service definition records the
-runtime, command, state directory and `PATH`, never a token. A service manager
+available at their installed paths, and run `service install` again after
+updating either. The service definition records the
+runtime, command, state directory and `PATH`, never a token. Where Node's path
+holds its version, as under a version manager, `service install` records a
+`node` on `PATH` at a path without it that starts the same Node, and warns when
+there is none; that `node` then runs whichever Node the manager makes current.
+The label's `service.json` keeps the runtime and CLI paths; `service status`
+and `discord_account_read` say when either is gone, once the service has been
+installed with this version. A service manager
 does not automatically inherit the terminal's environment: when using
 `DISCORD_TOOLS_TOKEN_<LABEL>`, supply it independently to the scheduled
 service's environment, as well as to the harness that starts the MCP server.

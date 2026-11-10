@@ -46,7 +46,9 @@ description: 'Use when asking "which Discord account is signed in?", checking a 
   diagnostic codes. Preserve unknowns instead of guessing. `action` is
   `login`, `sync`, `install_service`, `check_service` or `null`; `hint` and
   `recovery_command` explain the next step with the correct label and state
-  directory.
+  directory. `install_service` also means installing again when the program
+  or script the scheduled sync was installed with is gone, as after an update
+  of Node or the package; the `hint` says which case it is.
 
 ## Recovery belongs to the person
 
