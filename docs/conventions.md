@@ -637,6 +637,13 @@ Every entry point takes the same settings:
   stay the same while the text past it changes, so an edit pins a hash of
   the whole current text, and a message edited after the prompt makes the
   call `stale`.
+- **A file send pins the files it sends.** The prompt names each file and its
+  size, which says little about its bytes, so the `files` pin holds the
+  SHA-256 of each file's content in the order given, joined with `,`; a file
+  changed after the prompt makes the call `stale`. The files are found by the
+  send's own rules (where they are, what they are, their size), so one the
+  send would refuse for those gives no description. What the send checks in
+  its copy (names, bytes, archives) is left to the send.
 - **A save lists what the mirror holds.** Its prompt's text, under the label
   `Attachments`, is the attachment names the mirror stores for the message,
   one to a line; link previews and stickers are read from Discord when the call
@@ -660,6 +667,7 @@ Every entry point takes the same settings:
   | `Reply to`      | the message replied to, quoted short                              | a reply                              |
   | `Mass mentions` | `Notify`                                                          | `mass_mentions` of a send or an edit |
   | `Notifications` | `Silent`                                                          | `silent`                             |
+  | `Files`         | each file's name and size, as `a.pdf (1.2 MB)`, joined with `, `  | a file send                          |
   | `Follows`       | `Whole server` or `Named channels`                                | an addition to the sync list         |
   | `Channels`      | the channels named, as `#name`, joined with `, `                  | a sync list change with `channels`   |
   | `Excluded`      | the channels excluded, as `#name`, joined with `, `               | an addition with `exclude`           |
