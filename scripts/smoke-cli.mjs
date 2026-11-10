@@ -16,7 +16,12 @@ const ACCOUNT_READ = "discord_account_read"
 const CHAT_READ = "discord_chat_read"
 const SEARCH_READ = "discord_search_read"
 const SYNC_READ = "discord_sync_read"
-const WRITE_TOOLS = { discord_sync_add: "idempotent", discord_sync_remove: "overwrite", discord_message_send: "add" }
+const WRITE_TOOLS = {
+  discord_sync_add: "idempotent",
+  discord_sync_remove: "overwrite",
+  discord_message_send: "add",
+  discord_file_send: "add",
+}
 const ACTION_TOOLS = {
   discord_message_edit: "overwrite",
   discord_message_delete: "administrative",

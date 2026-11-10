@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { mkdtempSync, realpathSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { delimiter, join } from "node:path"
 import { PIN_PATTERN } from "../core"
 import { EXIT_FAILED, EXIT_OK } from "./cli"
 import { ADD_ID, DESCRIBED_ID, ENGLISH_WORDS, HANGING_DESCRIBE_ID, READ_ID, cli, json, specs } from "./testing"
@@ -156,5 +156,28 @@ describe("target", () => {
     expect(run.code).toBe(EXIT_OK)
     expect(seen).toEqual({ downloadDir: "/flag/get", downloadMaxMb: 12 })
     expect(json(run)).toMatchObject({ resources: ["/flag/get/file"] })
+  })
+
+  test("accepts --send-dirs and passes the send settings into context for targets", async () => {
+    let seen: { sendDirs?: readonly string[]; sendMaxMb?: number } = {}
+    const checkTool = {
+      ...specs[1]!,
+      id: "demo_target_send",
+      async targets(_args: unknown, ctx: { sendDirs?: readonly string[]; sendMaxMb?: number }) {
+        seen = { sendDirs: ctx.sendDirs, sendMaxMb: ctx.sendMaxMb }
+        return ctx.sendDirs ? [...ctx.sendDirs] : ["cwd"]
+      },
+    }
+    const run = await cli(
+      ["target", "demo_target_send", "--cwd", "/x", "--send-dirs", ["/flag/send1", "/flag/send2"].join(delimiter)],
+      "",
+      {
+        specs: [checkTool as any],
+        env: { DEMO_SEND_MAX_MB: "15" },
+      },
+    )
+    expect(run.code).toBe(EXIT_OK)
+    expect(seen).toEqual({ sendDirs: ["/flag/send1", "/flag/send2"], sendMaxMb: 15 })
+    expect(json(run)).toMatchObject({ resources: ["/flag/send1", "/flag/send2"] })
   })
 })

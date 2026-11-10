@@ -150,6 +150,7 @@ Each toolset comes with a skill that tells an agent how to use its tools.
 | chats   | `discord_chat_read`       | [discord-chats](skills/discord-chats/SKILL.md)     | reads servers, channels, DMs and messages  |
 | search  | `discord_search_read`     | [discord-search](skills/discord-search/SKILL.md)   | searches the mirror or Discord's search    |
 | sends   | `discord_message_send`    | [discord-sends](skills/discord-sends/SKILL.md)     | sends a text, optionally as a reply        |
+| sends   | `discord_file_send`       | [discord-sends](skills/discord-sends/SKILL.md)     | sends files, optionally with a text        |
 | files   | `discord_file_save`       | [discord-files](skills/discord-files/SKILL.md)     | saves the files of a message to disk       |
 | actions | `discord_message_edit`    | [discord-actions](skills/discord-actions/SKILL.md) | edits the account's own message            |
 | actions | `discord_message_delete`  | [discord-actions](skills/discord-actions/SKILL.md) | deletes the account's own message          |
@@ -245,6 +246,15 @@ by id, and never opens a new DM. The text arrives exactly as given. `reply_to`
 answers a mirrored message of that chat without pinging its author;
 `@everyone`, `@here` and role mentions notify only with `mass_mentions`, and
 `silent` sends without notifications. Every send is asked about.
+
+`discord_file_send` sends 1 to 10 files, optionally with a text, the same way.
+The files must lie inside the folders `send_dirs` allows (by default the
+working directory, never a home directory), each at most `send_max_mb`.
+Credentials, keys and databases, programs and archives that cannot be
+inspected are refused, and one refused file refuses the whole send. What is
+checked is a private copy, and the copy is what is uploaded; a file changed
+after the prompt makes the call `stale`. Files go only to Discord's storage,
+without the token, and nothing is posted unless every file is up.
 
 A send goes out once and is never retried. Its nonce is recorded in the
 mirror's send ledger before it leaves, with a hash of the text, never the
@@ -416,6 +426,8 @@ variable, and an option or setting wins over the variable too.
 | `state_dir`       | `--state-dir`       | `DISCORD_TOOLS_STATE_DIR`       | where every label's state lives; default `$XDG_STATE_HOME/discord-tools`      |
 | `download_dir`    | `--download-dir`    | `DISCORD_TOOLS_DOWNLOAD_DIR`    | where received files are saved; default `~/Downloads/discord-tools`           |
 | `download_max_mb` | `--download-max-mb` | `DISCORD_TOOLS_DOWNLOAD_MAX_MB` | the most megabytes a received file may have, 1 to 500; default 100            |
+| `send_dirs`       | `--send-dirs`       | `DISCORD_TOOLS_SEND_DIRS`       | where files may be sent from; default the working directory                   |
+| `send_max_mb`     | `--send-max-mb`     | `DISCORD_TOOLS_SEND_MAX_MB`     | the most megabytes a sent file may have, 1 to 500; default 10                 |
 
 Lists are comma-separated in a flag or a variable. Where each harness reads them:
 

@@ -29,6 +29,9 @@ type RequestHeaderName = (typeof REQUEST_HEADER_ORDER)[number]
 /** The page the web client sends requests from. */
 export const WEB_ORIGIN = "https://discord.com"
 
+/** The `accept-encoding` Chrome sends on every request. */
+const ACCEPT_ENCODING = "gzip, deflate, br, zstd"
+
 /** The page a request claims to come from when it names none. */
 export const DEFAULT_REFERER = "/channels/@me"
 
@@ -78,10 +81,52 @@ export function mediaHeaders(input: MediaHeaderInput): [string, string][] {
     "sec-fetch-mode": "no-cors",
     "sec-fetch-dest": "image",
     referer: `${WEB_ORIGIN}/`,
-    "accept-encoding": "gzip, deflate, br, zstd",
+    "accept-encoding": ACCEPT_ENCODING,
     "accept-language": acceptLanguage(input.locale),
   }
   return MEDIA_HEADER_ORDER.map((name) => [name, values[name]])
+}
+
+/** The headers of a file upload to Discord's storage, in the order they are sent. */
+export const UPLOAD_HEADER_ORDER = [
+  "sec-ch-ua-platform",
+  "sec-ch-ua",
+  "sec-ch-ua-mobile",
+  "user-agent",
+  "accept",
+  "origin",
+  "sec-fetch-site",
+  "sec-fetch-mode",
+  "sec-fetch-dest",
+  "referer",
+  "accept-encoding",
+  "accept-language",
+] as const
+
+export type UploadHeaderInput = Pick<RequestHeaderInput, "os" | "hints" | "locale" | "referer">
+
+/**
+ * The headers of an upload: Chrome's for a cross-site `fetch` from the web
+ * client's page to the signed storage URL. It carries no token, none of the
+ * API's own headers and no content type. The set follows the web client and is
+ * not yet confirmed against Discord.
+ */
+export function uploadHeaders(input: UploadHeaderInput): [string, string][] {
+  const values: Record<(typeof UPLOAD_HEADER_ORDER)[number], string> = {
+    "sec-ch-ua-platform": input.hints.platform,
+    "sec-ch-ua": input.hints.ua,
+    "sec-ch-ua-mobile": input.hints.mobile,
+    "user-agent": userAgent(input.os),
+    accept: "*/*",
+    origin: WEB_ORIGIN,
+    "sec-fetch-site": "cross-site",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-dest": "empty",
+    referer: `${WEB_ORIGIN}${input.referer}`,
+    "accept-encoding": ACCEPT_ENCODING,
+    "accept-language": acceptLanguage(input.locale),
+  }
+  return UPLOAD_HEADER_ORDER.map((name) => [name, values[name]])
 }
 
 /** Percent-encodes a reason the way the web client does: spaces and slashes stay. */
@@ -112,7 +157,7 @@ export function requestHeaders(input: RequestHeaderInput): [string, string][] {
     "sec-fetch-mode": "cors",
     "sec-fetch-dest": "empty",
     referer: `${WEB_ORIGIN}${input.referer}`,
-    "accept-encoding": "gzip, deflate, br, zstd",
+    "accept-encoding": ACCEPT_ENCODING,
     "accept-language": acceptLanguage(input.locale),
     priority: "u=1, i",
   }

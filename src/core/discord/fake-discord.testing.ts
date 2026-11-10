@@ -21,6 +21,8 @@ export type RecordedRequest = {
   query: URLSearchParams
   headers: [string, string][]
   body?: string
+  /** The raw body, when it was sent as bytes. */
+  bytes?: Uint8Array
   navigation?: true
   timeoutMs: number
 }
@@ -126,5 +128,6 @@ function record(request: TransportRequest): RecordedRequest {
     timeoutMs: request.timeoutMs,
     ...(request.navigation ? { navigation: true as const } : {}),
     ...(body === undefined ? {} : { body }),
+    ...(request.body instanceof Uint8Array ? { bytes: request.body } : {}),
   }
 }

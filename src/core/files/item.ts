@@ -7,6 +7,7 @@ import type { SaveItem } from "./items"
 import { cleanName } from "./names"
 import { MessageFolder } from "./publish"
 import type { SavedFile } from "./schemas"
+import { BYTES_PER_MB } from "./size"
 import type { Staging } from "./staging"
 
 /** How long a whole call may take, in milliseconds, downloads included. */
@@ -19,8 +20,6 @@ const DOWNLOAD_TIMEOUT_MS = 180_000
 const MIN_DOWNLOAD_MS = 5000
 
 const OUT_OF_TIME = "out of time for this call"
-
-const BYTES_PER_MB = 1024 * 1024
 
 /** What saving one item needs, the same for every item of a call. */
 export type SaveRun = {

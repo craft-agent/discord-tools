@@ -1,5 +1,6 @@
 import { constants } from "node:fs"
 import { type FileHandle, open } from "node:fs/promises"
+import { plainHttpsUrl } from "./plain-https-url"
 import type { DownloadResponse } from "./transport"
 
 /** Where a download goes, and how much it may be. */
@@ -46,9 +47,8 @@ export const NOT_MEDIA_URL = "not on Discord's media hosts"
 
 /** The URL as the transport must send it, when it is on Discord's media hosts: `https`, no userinfo, the default port. */
 export function mediaUrl(url: string): URL | undefined {
-  if (!URL.canParse(url)) return undefined
-  const parsed = new URL(url)
-  if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port) return undefined
+  const parsed = plainHttpsUrl(url)
+  if (!parsed) return undefined
   return MEDIA_HOSTS.has(parsed.hostname) || MEDIA_PROXY_HOST.test(parsed.hostname) ? parsed : undefined
 }
 

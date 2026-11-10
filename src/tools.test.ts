@@ -57,6 +57,15 @@ describe("the registry", () => {
     )
   })
 
+  test("file send is an add tool in the sends toolset, on by default and left out in read-only mode", () => {
+    const id = "discord_file_send"
+    expect(ALL_TOOLS.find((spec) => spec.id === id)).toMatchObject({ toolset: "sends", class: "add" })
+    expect(selectTools(ALL_TOOLS, {}, PROJECT_PROFILE.toolsets).map((spec) => spec.id)).toContain(id)
+    expect(selectTools(ALL_TOOLS, { read_only: true }, PROJECT_PROFILE.toolsets).map((spec) => spec.id)).not.toContain(
+      id,
+    )
+  })
+
   test.each([
     ["discord_message_edit", "overwrite"],
     ["discord_message_delete", "administrative"],

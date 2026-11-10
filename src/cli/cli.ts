@@ -170,6 +170,8 @@ async function runTool(command: Extract<Command, { name: "run" }>, io: CliIo): P
       stateDir: command.stateDir,
       downloadDir: command.downloadDir,
       downloadMaxMb: command.downloadMaxMb,
+      sendDirs: command.sendDirs,
+      sendMaxMb: command.sendMaxMb,
       runtime: createToolRuntime(io),
       signal: io.signal,
     }
@@ -196,6 +198,8 @@ async function targetOf(command: Extract<Command, { name: "target" }>, io: CliIo
       stateDir: command.stateDir,
       downloadDir: command.downloadDir,
       downloadMaxMb: command.downloadMaxMb,
+      sendDirs: command.sendDirs,
+      sendMaxMb: command.sendMaxMb,
       runtime: createToolRuntime(io),
       signal: io.signal,
     }

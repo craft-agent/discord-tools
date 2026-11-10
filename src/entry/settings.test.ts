@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { delimiter } from "node:path"
 import { PROJECT } from "../project"
 import type { EntryProfile } from "./profile"
 import {
@@ -25,6 +26,8 @@ describe("settingVariables", () => {
       "DEMO_STATE_DIR",
       "DEMO_DOWNLOAD_DIR",
       "DEMO_DOWNLOAD_MAX_MB",
+      "DEMO_SEND_DIRS",
+      "DEMO_SEND_MAX_MB",
     ])
   })
 
@@ -66,6 +69,10 @@ describe("parseSettings", () => {
         "/custom/downloads",
         "--download-max-mb",
         "250",
+        "--send-dirs",
+        ["/custom/send1", "/custom/send2"].join(delimiter),
+        "--send-max-mb",
+        "25",
       ]),
     ).toEqual({
       toolsets: ["alpha", "beta"],
@@ -76,6 +83,8 @@ describe("parseSettings", () => {
       state_dir: "/custom/state",
       download_dir: "/custom/downloads",
       download_max_mb: 250,
+      send_dirs: ["/custom/send1", "/custom/send2"],
+      send_max_mb: 25,
     })
   })
 
@@ -90,6 +99,8 @@ describe("parseSettings", () => {
         "--state-dir=/custom/state",
         "--download-dir=/custom/downloads",
         "--download-max-mb=7",
+        `--send-dirs=${["/custom/send1", "/custom/send2"].join(delimiter)}`,
+        "--send-max-mb=8",
       ]),
     ).toEqual({
       toolsets: ["gamma"],
@@ -100,6 +111,8 @@ describe("parseSettings", () => {
       state_dir: "/custom/state",
       download_dir: "/custom/downloads",
       download_max_mb: 7,
+      send_dirs: ["/custom/send1", "/custom/send2"],
+      send_max_mb: 8,
     })
   })
 
@@ -114,6 +127,8 @@ describe("parseSettings", () => {
         DEMO_STATE_DIR: "/env/state",
         DEMO_DOWNLOAD_DIR: "/env/downloads",
         DEMO_DOWNLOAD_MAX_MB: "30",
+        DEMO_SEND_DIRS: ["/env/send1", "/env/send2"].join(delimiter),
+        DEMO_SEND_MAX_MB: "12",
       }),
     ).toEqual({
       toolsets: ["beta", "gamma"],
@@ -124,6 +139,8 @@ describe("parseSettings", () => {
       state_dir: "/env/state",
       download_dir: "/env/downloads",
       download_max_mb: 30,
+      send_dirs: ["/env/send1", "/env/send2"],
+      send_max_mb: 12,
     })
   })
 
@@ -165,6 +182,8 @@ describe("parseSettings", () => {
       DEMO_STATE_DIR: "/env/state",
       DEMO_DOWNLOAD_DIR: "/env/downloads",
       DEMO_DOWNLOAD_MAX_MB: "30",
+      DEMO_SEND_DIRS: "/env/send",
+      DEMO_SEND_MAX_MB: "20",
     }
     expect(
       parse(
@@ -184,6 +203,10 @@ describe("parseSettings", () => {
           "/flag/downloads",
           "--download-max-mb",
           "5",
+          "--send-dirs",
+          ["/flag/send1", "/flag/send2"].join(delimiter),
+          "--send-max-mb",
+          "6",
         ],
         env,
       ),
@@ -196,6 +219,8 @@ describe("parseSettings", () => {
       state_dir: "/flag/state",
       download_dir: "/flag/downloads",
       download_max_mb: 5,
+      send_dirs: ["/flag/send1", "/flag/send2"],
+      send_max_mb: 6,
     })
   })
 
@@ -222,6 +247,19 @@ describe("parseSettings", () => {
       const message = "download_max_mb must be a whole number from 1 to 500"
       expect(failure(() => parse(["--download-max-mb", text])).message).toBe(message)
       expect(failure(() => parse([], { DEMO_DOWNLOAD_MAX_MB: text })).message).toBe(message)
+    }
+  })
+
+  test("rejects a relative send_dirs in flag or environment", () => {
+    expect(failure(() => parse(["--send-dirs", "rel/path"])).message).toContain("--send-dirs")
+    expect(failure(() => parse([], { DEMO_SEND_DIRS: "rel/path" })).message).toContain("DEMO_SEND_DIRS")
+  })
+
+  test("rejects a send_max_mb that is not a whole number from 1 to 500", () => {
+    for (const text of ["0", "501", "1.5", "many"]) {
+      const message = "send_max_mb must be a whole number from 1 to 500"
+      expect(failure(() => parse(["--send-max-mb", text])).message).toBe(message)
+      expect(failure(() => parse([], { DEMO_SEND_MAX_MB: text })).message).toBe(message)
     }
   })
 
@@ -284,8 +322,16 @@ describe("parseToolSettings", () => {
     expect(parseTool([])).toEqual({ state_dir: expect.any(String), ...DEFAULT_DOWNLOADS })
     expect(
       parseTool(
-        ["--toolsets=gamma", "--read-only", "--tools", "a", "--state-dir=/tool/state", "--download-dir=/tool/get"],
-        { DEMO_EXCLUDE_TOOLS: "b", DEMO_DOWNLOAD_MAX_MB: "9" },
+        [
+          "--toolsets=gamma",
+          "--read-only",
+          "--tools",
+          "a",
+          "--state-dir=/tool/state",
+          "--download-dir=/tool/get",
+          `--send-dirs=${["/tool/send1", "/tool/send2"].join(delimiter)}`,
+        ],
+        { DEMO_EXCLUDE_TOOLS: "b", DEMO_DOWNLOAD_MAX_MB: "9", DEMO_SEND_MAX_MB: "11" },
       ),
     ).toEqual({
       toolsets: ["gamma"],
@@ -295,6 +341,8 @@ describe("parseToolSettings", () => {
       state_dir: "/tool/state",
       download_dir: "/tool/get",
       download_max_mb: 9,
+      send_dirs: ["/tool/send1", "/tool/send2"],
+      send_max_mb: 11,
     })
   })
 
@@ -312,21 +360,30 @@ describe("parseStorageSettings", () => {
   const parseStorage = (argv: string[], env: Record<string, string | undefined> = {}) =>
     parseStorageSettings(argv, env, profile)
 
-  test("reads --state-dir and --download-dir, and download_max_mb from the environment", () => {
-    expect(parseStorage(["--state-dir=/s", "--download-dir", "/d"], { DEMO_DOWNLOAD_MAX_MB: "12" })).toEqual({
+  test("reads --state-dir, --download-dir and --send-dirs, and max_mb settings from the environment", () => {
+    expect(
+      parseStorage(["--state-dir=/s", "--download-dir", "/d", "--send-dirs", ["/send/a", "/send/b"].join(delimiter)], {
+        DEMO_DOWNLOAD_MAX_MB: "12",
+        DEMO_SEND_MAX_MB: "15",
+      }),
+    ).toEqual({
       state_dir: "/s",
       download_dir: "/d",
       download_max_mb: 12,
+      send_dirs: ["/send/a", "/send/b"],
+      send_max_mb: 15,
     })
-    expect(parseStorage([], { DEMO_DOWNLOAD_DIR: "/env/d" })).toEqual({
+    expect(parseStorage([], { DEMO_DOWNLOAD_DIR: "/env/d", DEMO_SEND_DIRS: "/env/send" })).toEqual({
       state_dir: expect.any(String),
       download_dir: "/env/d",
       download_max_mb: 100,
+      send_dirs: ["/env/send"],
+      send_max_mb: 10,
     })
   })
 
   test("rejects any other setting flag, naming it", () => {
-    for (const flag of ["--read-only", "--download-max-mb=5", "--tools=a"]) {
+    for (const flag of ["--read-only", "--download-max-mb=5", "--send-max-mb=5", "--tools=a"]) {
       expect(failure(() => parseStorage([flag])).message).toContain(flag.split("=")[0]!)
     }
   })

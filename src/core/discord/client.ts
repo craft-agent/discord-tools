@@ -25,7 +25,7 @@ import {
 import type { LabelPaths } from "./labels"
 import { maskTokens } from "./mask"
 import { createPacer } from "./pacing"
-import { DEFAULT_REFERER, REQUEST_HEADER_ORDER, mediaHeaders, requestHeaders } from "./request-headers"
+import { DEFAULT_REFERER, REQUEST_HEADER_ORDER, mediaHeaders, requestHeaders, uploadHeaders } from "./request-headers"
 import { readToken, recordRejected, rejectedAt } from "./token"
 import {
   type DownloadTransport,
@@ -34,10 +34,12 @@ import {
   type TransportResponse,
   TransportFailure,
 } from "./transport"
+import { type UploadOptions, type UploadResult, NOT_STORAGE_URL, storageUrl } from "./upload"
 
 export { REQUEST_HEADER_ORDER }
 export { isMediaUrl } from "./download"
-export type { DownloadOptions, DownloadResult }
+export { isStorageUrl } from "./upload"
+export type { DownloadOptions, DownloadResult, UploadOptions, UploadResult }
 
 /** Where every API request goes. */
 export const API_BASE = "https://discord.com/api/v9"
@@ -65,6 +67,9 @@ const MAX_ERROR_DETAIL_LENGTH = 200
 
 /** Milliseconds in one second. */
 const MS_PER_SECOND = 1000
+
+/** A referer that is not a path on the web client's own origin. */
+const FORBIDDEN_REFERER = /^\/\/|[\s\p{Cc}]/u
 
 type RequestKind = "read" | "write"
 
@@ -122,7 +127,14 @@ export type DiscordClient = {
    * result leaves a file. See `DownloadResult` for the other outcomes.
    */
   download(url: string, options: DownloadOptions): Promise<DownloadResult>
-  /** The requests sent so far, the build number page and the downloads included. */
+  /**
+   * Puts `body` to a signed URL on Discord's storage: paced and counted like
+   * any request, but without the token, a build number or the API's headers,
+   * never retried and never following a redirect. A URL elsewhere is `refused`
+   * with no request. See `UploadResult` for the other outcomes.
+   */
+  upload(url: string, body: Uint8Array, options: UploadOptions): Promise<UploadResult>
+  /** The requests sent so far, the build number page and the uploads and downloads included. */
   readonly requests: number
 }
 
@@ -196,7 +208,7 @@ function checkedPath(value: string, what: string, forbidden: RegExp): string {
 /** The URL of a request; throws `internal_error` for a path or referer that is not what a tool may ask for. */
 function requestUrl(path: string, request: RequestOptions): string {
   checkedPath(path, "Discord API path", /:\/\/|\.\.|[?#]|[\s\p{Cc}]/u)
-  checkedPath(request.referer ?? DEFAULT_REFERER, "referer", /^\/\/|[\s\p{Cc}]/u)
+  checkedPath(request.referer ?? DEFAULT_REFERER, "referer", FORBIDDEN_REFERER)
   const search = new URLSearchParams()
   for (const [key, value] of Object.entries(request.query ?? {})) {
     if (typeof value === "object") {
@@ -510,10 +522,45 @@ export function createDiscordClient(options: DiscordClientOptions): DiscordClien
     }
   }
 
+  const uploadFile = async (url: string, body: Uint8Array, request: UploadOptions): Promise<UploadResult> => {
+    checkAbort(request.signal)
+    const target = storageUrl(url)
+    if (!target) return { status: "refused", why: NOT_STORAGE_URL }
+    checkedPath(request.referer, "referer", FORBIDDEN_REFERER)
+    try {
+      const response = await dispatchWith(
+        {
+          method: "PUT",
+          url: target.href,
+          headers: uploadHeaders({ os, hints: clientHints(os), locale: discordTag, referer: request.referer }),
+          body,
+          timeoutMs: request.timeoutMs,
+          ...(request.signal ? { signal: request.signal } : {}),
+        },
+        transport,
+      )
+      if (response.status >= 200 && response.status < 300) return { status: "uploaded" }
+      return { status: "failed", why: `Discord's storage answered ${response.status}`, dispatched: true }
+    } catch (error) {
+      if (request.signal?.aborted) throw abortError(request.signal)
+      if (error instanceof BudgetSpent || error instanceof ToolError) throw error
+      const detail = maskTokens(error instanceof Error ? error.message : String(error)).slice(
+        0,
+        MAX_ERROR_DETAIL_LENGTH,
+      )
+      return {
+        status: "failed",
+        why: detail,
+        dispatched: error instanceof TransportFailure ? error.dispatched : true,
+      }
+    }
+  }
+
   return {
     read,
     write,
     download: downloadFile,
+    upload: uploadFile,
     get requests() {
       return requests
     },

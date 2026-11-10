@@ -2,19 +2,26 @@ import { ToolError, type ToolContext, type ToolSettings, type Toolsets } from ".
 import { PROJECT } from "../project"
 import { PROJECT_PROFILE, type EntryProfile } from "./profile"
 import { resolveDownloadDir, resolveDownloadMaxMb } from "./download-dir"
+import { resolveSendDirs, resolveSendMaxMb } from "./send-dirs"
 import { type SettingText, resolveStateDir } from "./state-dir"
 
 /** Who asks the person before an administrative tool acts: the harness, or the tool through the client's form. */
 export type ConfirmMode = "harness" | "elicitation"
 
-/** Where state and received files live, and how large a received file may be, all resolved. */
-export type StorageSettings = { state_dir: string; download_dir: string; download_max_mb: number }
+/** Where state, received files, and sendable files live, and how large received or sent files may be, all resolved. */
+export type StorageSettings = {
+  state_dir: string
+  download_dir: string
+  download_max_mb: number
+  send_dirs?: string[]
+  send_max_mb: number
+}
 
-/** The settings needed to run tools: tool selection, read-only mode, and the resolved state and download settings. */
+/** The settings needed to run tools: tool selection, read-only mode, and the resolved state, download and send settings. */
 export type RunSettings = ToolSettings & StorageSettings
 
 /** The parts of a call's context that the storage settings give. */
-export type StorageContext = Pick<ToolContext, "stateDir" | "downloadDir" | "downloadMaxMb">
+export type StorageContext = Pick<ToolContext, "stateDir" | "downloadDir" | "downloadMaxMb" | "sendDirs" | "sendMaxMb">
 
 /** Hands the storage settings to a tool as the context fields they become. */
 export function storageContext(settings: StorageSettings): StorageContext {
@@ -22,6 +29,8 @@ export function storageContext(settings: StorageSettings): StorageContext {
     stateDir: settings.state_dir,
     downloadDir: settings.download_dir,
     downloadMaxMb: settings.download_max_mb,
+    ...(settings.send_dirs !== undefined && { sendDirs: settings.send_dirs }),
+    sendMaxMb: settings.send_max_mb,
   }
 }
 
@@ -34,7 +43,16 @@ const TRUE_VALUES: readonly string[] = ["1", "true"]
 const FALSE_VALUES: readonly string[] = ["0", "false"]
 
 type OptionName =
-  "toolsets" | "read_only" | "tools" | "exclude_tools" | "confirm" | "state_dir" | "download_dir" | "download_max_mb"
+  | "toolsets"
+  | "read_only"
+  | "tools"
+  | "exclude_tools"
+  | "confirm"
+  | "state_dir"
+  | "download_dir"
+  | "download_max_mb"
+  | "send_dirs"
+  | "send_max_mb"
 
 /** A setting's command-line flag and the end of its environment variable, which follows the profile's prefix; a boolean flag takes no value. */
 type Option = { flag: string; envSuffix: string; boolean?: true }
@@ -48,6 +66,8 @@ const OPTIONS: Record<OptionName, Option> = {
   state_dir: { flag: "--state-dir", envSuffix: "STATE_DIR" },
   download_dir: { flag: "--download-dir", envSuffix: "DOWNLOAD_DIR" },
   download_max_mb: { flag: "--download-max-mb", envSuffix: "DOWNLOAD_MAX_MB" },
+  send_dirs: { flag: "--send-dirs", envSuffix: "SEND_DIRS" },
+  send_max_mb: { flag: "--send-max-mb", envSuffix: "SEND_MAX_MB" },
 }
 
 function envName(name: OptionName, profile: EntryProfile): string {
@@ -158,11 +178,14 @@ export function parseSettings(
   const value = (name: OptionName): SettingText | undefined =>
     flags[name] !== undefined ? { text: flags[name], source: OPTIONS[name].flag } : envText(name, env, profile)
 
+  const sendDirs = resolveSendDirs(value("send_dirs"), env)
   const settings: EntrySettings = {
     confirm: DEFAULT_CONFIRM_MODE,
     state_dir: resolveStateDir(value("state_dir"), env, profile),
     download_dir: resolveDownloadDir(value("download_dir"), env, profile),
     download_max_mb: resolveDownloadMaxMb(value("download_max_mb")),
+    ...(sendDirs !== undefined && { send_dirs: sendDirs }),
+    send_max_mb: resolveSendMaxMb(value("send_max_mb")),
   }
   const toolsets = value("toolsets")
   if (toolsets) settings.toolsets = checkToolsets(splitList(toolsets.text), toolsets.source, profile.toolsets)
@@ -202,10 +225,10 @@ export function parseToolSettings(
 
 /**
  * Reads only the storage settings from a command line that takes no other
- * setting, for commands that select no tools: `--state-dir` and
- * `--download-dir` are read, any other settings flag is `invalid_argument`,
- * and `download_max_mb` comes from its environment variable. A flag wins over
- * its environment variable.
+ * setting, for commands that select no tools: `--state-dir`, `--download-dir`
+ * and `--send-dirs` are read, any other settings flag is `invalid_argument`,
+ * and `download_max_mb` and `send_max_mb` come from their environment
+ * variables. A flag wins over its environment variable.
  */
 export function parseStorageSettings(
   argv: string[],
@@ -213,15 +236,20 @@ export function parseStorageSettings(
   profile: EntryProfile = PROJECT_PROFILE,
 ): StorageSettings {
   const flags = readFlags(argv)
-  const other = (Object.keys(flags) as OptionName[]).find((name) => name !== "state_dir" && name !== "download_dir")
+  const other = (Object.keys(flags) as OptionName[]).find(
+    (name) => name !== "state_dir" && name !== "download_dir" && name !== "send_dirs",
+  )
   if (other !== undefined)
     throw new ToolError("invalid_argument", `Option ${OPTIONS[other].flag} is not available here.`)
-  const value = (name: "state_dir" | "download_dir"): SettingText | undefined =>
+  const value = (name: "state_dir" | "download_dir" | "send_dirs"): SettingText | undefined =>
     flags[name] !== undefined ? { text: flags[name], source: OPTIONS[name].flag } : envText(name, env, profile)
+  const sendDirs = resolveSendDirs(value("send_dirs"), env)
   return {
     state_dir: resolveStateDir(value("state_dir"), env, profile),
     download_dir: resolveDownloadDir(value("download_dir"), env, profile),
     download_max_mb: resolveDownloadMaxMb(envText("download_max_mb", env, profile)),
+    ...(sendDirs !== undefined && { send_dirs: sendDirs }),
+    send_max_mb: resolveSendMaxMb(envText("send_max_mb", env, profile)),
   }
 }
 
@@ -233,6 +261,8 @@ const TOOL_OPTION_NAMES = [
   "state_dir",
   "download_dir",
   "download_max_mb",
+  "send_dirs",
+  "send_max_mb",
 ] as const satisfies readonly OptionName[]
 type ToolOptionName = (typeof TOOL_OPTION_NAMES)[number]
 
@@ -249,9 +279,16 @@ function pathOption(name: "state_dir" | "download_dir", value: unknown): string 
   return value
 }
 
-function downloadMaxMbOption(value: unknown): string {
+function sendDirsOption(value: unknown): string[] {
+  if (typeof value === "string") return [value]
+  const list = stringList(value)
+  if (list) return list
+  throw optionError("send_dirs", "a path or a list of paths")
+}
+
+function maxMbOption(name: "download_max_mb" | "send_max_mb", value: unknown): string {
   if (typeof value === "number") return String(value)
-  if (typeof value !== "string") throw optionError("download_max_mb", "a whole number from 1 to 500")
+  if (typeof value !== "string") throw optionError(name, "a whole number from 1 to 500")
   return value
 }
 
@@ -340,12 +377,16 @@ export function settingsFromOptions(
   }
 
   const text = (
-    name: "state_dir" | "download_dir" | "download_max_mb",
+    name: "state_dir" | "download_dir" | "download_max_mb" | "send_max_mb",
     fromOption: (value: unknown) => string,
   ): SettingText | undefined =>
     given[name] !== undefined
       ? { text: fromOption(given[name]), source: `Option "${name}"` }
       : envText(name, env, profile)
+  const sendDirs =
+    given.send_dirs !== undefined
+      ? resolveSendDirs({ entries: sendDirsOption(given.send_dirs), source: 'Option "send_dirs"' }, env)
+      : resolveSendDirs(envText("send_dirs", env, profile), env)
   const settings: PluginSettings = {
     state_dir: resolveStateDir(
       text("state_dir", (value) => pathOption("state_dir", value)),
@@ -357,7 +398,9 @@ export function settingsFromOptions(
       env,
       profile,
     ),
-    download_max_mb: resolveDownloadMaxMb(text("download_max_mb", downloadMaxMbOption)),
+    download_max_mb: resolveDownloadMaxMb(text("download_max_mb", (value) => maxMbOption("download_max_mb", value))),
+    ...(sendDirs !== undefined && { send_dirs: sendDirs }),
+    send_max_mb: resolveSendMaxMb(text("send_max_mb", (value) => maxMbOption("send_max_mb", value))),
   }
   const toolsets = resolve(
     "toolsets",

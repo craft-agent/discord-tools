@@ -18,6 +18,7 @@ const SYNC_READ = "discord_sync_read"
 const SYNC_ADD = "discord_sync_add"
 const SYNC_REMOVE = "discord_sync_remove"
 const MESSAGE_SEND = "discord_message_send"
+const FILE_SEND = "discord_file_send"
 const MESSAGE_EDIT = "discord_message_edit"
 const MESSAGE_DELETE = "discord_message_delete"
 const REACTION_ADD = "discord_reaction_add"
@@ -104,8 +105,10 @@ async function listTools(settings) {
     console.log(`${SEARCH_READ} is read-only and refuses a name for an id under ${JSON.stringify(settings)}.`)
 
     if (settings.includes("--read-only")) {
-      for (const name of [SYNC_ADD, SYNC_REMOVE, MESSAGE_SEND]) expectAbsent(tools, name, settings)
-      console.log(`${SYNC_ADD}, ${SYNC_REMOVE} and ${MESSAGE_SEND} are absent under ${JSON.stringify(settings)}.`)
+      for (const name of [SYNC_ADD, SYNC_REMOVE, MESSAGE_SEND, FILE_SEND]) expectAbsent(tools, name, settings)
+      console.log(
+        `${SYNC_ADD}, ${SYNC_REMOVE}, ${MESSAGE_SEND} and ${FILE_SEND} are absent under ${JSON.stringify(settings)}.`,
+      )
     } else {
       expectAnnotations(
         tools,
@@ -129,6 +132,14 @@ async function listTools(settings) {
       )
       await expectToolError(client, MESSAGE_SEND, { channel: "general", text: "hi" }, "invalid_argument")
       console.log(`${MESSAGE_SEND} carries its write annotations and refuses a name for an id.`)
+      expectAnnotations(
+        tools,
+        FILE_SEND,
+        { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+        settings,
+      )
+      await expectToolError(client, FILE_SEND, { channel: "general", files: ["a.txt"] }, "invalid_argument")
+      console.log(`${FILE_SEND} carries its write annotations and refuses a name for an id.`)
     }
 
     if (settings.includes("all") && !settings.includes("--read-only")) {

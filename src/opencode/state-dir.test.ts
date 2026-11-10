@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { delimiter } from "node:path"
 import { z } from "zod"
 import { defineTool, type ToolSpec } from "../core"
 import { PROFILE } from "./testing"
@@ -138,6 +139,82 @@ describe("OpenCode state_dir setting", () => {
       const server = createV1Server([], { profile: PROFILE })
       await expect(server({}, { download_dir: "relative/path" })).rejects.toThrow('Option "download_dir"')
       await expect(server({}, { download_max_mb: 0 })).rejects.toThrow("download_max_mb")
+    })
+  })
+
+  describe("send settings", () => {
+    function sendTool(recorder: { seen?: unknown }): ToolSpec {
+      return defineTool({
+        id: "demo_send_read",
+        title: "Send Tool",
+        description: "Send Tool",
+        toolset: "alpha",
+        class: "read",
+        input: z.object({}),
+        output: z.object({ ok: z.boolean() }),
+        async execute(_args, ctx) {
+          recorder.seen = { sendDirs: ctx.sendDirs, sendMaxMb: ctx.sendMaxMb }
+          return { ok: true }
+        },
+      })
+    }
+
+    test("V1 passes send_dirs (array or string) and send_max_mb from options, and the number may be a string", async () => {
+      const context: V1ToolContext = {
+        directory: "/work/project",
+        worktree: "/work/project",
+        abort: new AbortController().signal,
+        async ask() {},
+      }
+      for (const [dirs, max, expectedDirs, expectedMax] of [
+        [["/v1/send1", "/v1/send2"], 25, ["/v1/send1", "/v1/send2"], 25],
+        ["/v1/single", "26", ["/v1/single"], 26],
+      ] as const) {
+        const recorder: { seen?: unknown } = {}
+        const { tool } = await createV1Server([sendTool(recorder)], { profile: PROFILE })(
+          {},
+          { send_dirs: dirs, send_max_mb: max },
+        )
+        await tool.demo_send_read!.execute({}, context)
+        expect(recorder.seen).toEqual({ sendDirs: expectedDirs, sendMaxMb: expectedMax })
+      }
+    })
+
+    test("V2 passes send_dirs and send_max_mb from options and falls back to the environment", async () => {
+      const signal = new AbortController().signal
+      for (const [options, env, expected] of [
+        [
+          { send_dirs: ["/v2/send1", "/v2/send2"], send_max_mb: 30 },
+          {},
+          { sendDirs: ["/v2/send1", "/v2/send2"], sendMaxMb: 30 },
+        ],
+        [
+          {},
+          { DEMO_SEND_DIRS: ["/v2/env1", "/v2/env2"].join(delimiter), DEMO_SEND_MAX_MB: "31" },
+          { sendDirs: ["/v2/env1", "/v2/env2"], sendMaxMb: 31 },
+        ],
+      ] as const) {
+        const recorder: { seen?: unknown } = {}
+        const tools = new Map<string, V2Tool>()
+        const ctx: V2Context = {
+          options: { ...options },
+          session: { get: async () => ({ location: { directory: "/work/project" } }) },
+          permission: { async assert() {} },
+          tool: { transform: async (cb) => cb({ add: (t) => tools.set(t.name, t) }) },
+          skill: { transform: async () => {} },
+        }
+        await createV2Setup([sendTool(recorder)], { profile: PROFILE, env })(ctx)
+        await tools.get("demo_send_read")!.execute({}, { sessionID: SESSION_ID, signal })
+        expect(recorder.seen).toEqual(expected)
+      }
+    })
+
+    test("rejects an invalid send option", async () => {
+      const server = createV1Server([], { profile: PROFILE })
+      await expect(server({}, { send_dirs: "relative/path" })).rejects.toThrow('Option "send_dirs"')
+      await expect(server({}, { send_dirs: ["/abs", "relative/path"] })).rejects.toThrow('Option "send_dirs"')
+      await expect(server({}, { send_dirs: 123 })).rejects.toThrow('Option "send_dirs"')
+      await expect(server({}, { send_max_mb: 0 })).rejects.toThrow("send_max_mb")
     })
   })
 

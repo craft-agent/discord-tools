@@ -5,7 +5,7 @@ import { sendMessage } from "./send"
 import { type SendInput, sendInput, sendOutput } from "./schemas"
 
 /** What a send writes to, as the permission rules name it: `<label>/channel/<channel>`. */
-export async function sendTargets(args: SendInput, ctx: ToolContext): Promise<string[]> {
+export async function sendTargets(args: Pick<SendInput, "account" | "channel">, ctx: ToolContext): Promise<string[]> {
   const { label } = await pickLabel(ctx.stateDir!, args.account)
   return [`${label}/channel/${args.channel}`]
 }

@@ -2,7 +2,8 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { Scratch } from "./archive.testing"
 import { inspectTar, inspectZip } from "./inspect.testing"
 import { ZIP_EXTERNAL } from "./zip.testing"
-import { ArchiveRefused, shownName } from "./inspect"
+import { ArchiveRefused } from "./inspect"
+import { shownName } from "./names"
 
 const scratch = new Scratch()
 afterEach(() => scratch.remove())
