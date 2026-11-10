@@ -49,7 +49,7 @@ function reactionKey(emoji: string): string {
 }
 
 /** SQL that is true when some element `e` of the JSON list in `column` satisfies `test`; false when the column is empty or not JSON. */
-function someElement(column: string, test: string): string {
+export function someElement(column: string, test: string): string {
   return `CASE WHEN json_valid(${column}) THEN EXISTS (SELECT 1 FROM json_each(${column}) AS e WHERE ${test}) ELSE 0 END`
 }
 
