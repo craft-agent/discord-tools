@@ -15,12 +15,13 @@ import {
   defaultServiceHost,
   type ServiceHost,
   type ServiceInstallResult,
+  type ServiceName,
   type ServiceSpec,
   type ServiceStatus,
 } from "./service-types"
 
 export { defaultServiceHost, SYNC_INTERVAL_SECONDS } from "./service-types"
-export type { ServiceHost, ServiceInstallResult, ServiceSpec, ServiceStatus } from "./service-types"
+export type { ServiceHost, ServiceInstallResult, ServiceName, ServiceSpec, ServiceStatus } from "./service-types"
 
 const UNSUPPORTED_PLATFORM = "Running the sync service is supported on macOS and Linux only."
 
@@ -52,16 +53,19 @@ export async function suspendService(
   return host.platform === "darwin" ? suspendLaunchdService(id, label, host) : suspendSystemdService(id, label, host)
 }
 
-/** Stops and deletes the scheduled sync for one label; one that is already gone completes without error. */
+/**
+ * Stops and deletes the scheduled sync for one label; one that is already gone completes without error. On macOS
+ * the launcher script goes too, and its directory once empty.
+ */
 export async function uninstallService(
-  id: string,
+  name: ServiceName,
   label: string,
   host: ServiceHost = defaultServiceHost(),
 ): Promise<void> {
   checkPlatform(host.platform)
   return host.platform === "darwin"
-    ? uninstallLaunchdService(id, label, host)
-    : uninstallSystemdService(id, label, host)
+    ? uninstallLaunchdService(name, label, host)
+    : uninstallSystemdService(name.id, label, host)
 }
 
 /** Reads whether the scheduled sync for one label is installed, scheduled and running. */

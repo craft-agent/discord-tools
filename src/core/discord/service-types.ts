@@ -33,10 +33,19 @@ const MAX_BAD_ID_PREVIEW = 40
 /** Control characters (U+0000–U+001F, U+007F), which break line-oriented configs and XML. */
 const CONTROL_CHARACTERS = /[\x00-\x1f\x7f]/
 
-/** The specification for installing the scheduled sync of one label. */
-export type ServiceSpec = {
-  /** The reverse-DNS prefix of the service's names, supplied by the entry point. */
+/** What names one service across its labels, supplied by the entry point. */
+export type ServiceName = {
+  /** The reverse-DNS prefix of the service's names. */
   id: string
+  /**
+   * The file name the macOS launcher script is given, before `-<label>`; the agent is listed under it where the
+   * platform names background items after their program.
+   */
+  launcher: string
+}
+
+/** The specification for installing the scheduled sync of one label. */
+export type ServiceSpec = ServiceName & {
   /** The account label this service syncs. */
   label: string
   /** What the service is for, shown by the service manager. */
@@ -116,6 +125,17 @@ function checkServiceId(id: string): void {
     throw new ToolError(
       "invalid_argument",
       `Invalid service id ${JSON.stringify(preview)}: use letters, digits, ".", "_" and "-", starting with a letter or digit, without "..".`,
+    )
+  }
+}
+
+/** Refuses a launcher name that is not a plain file name. */
+export function checkLauncherName(launcher: string): void {
+  if (typeof launcher !== "string" || !SERVICE_ID_PATTERN.test(launcher)) {
+    const preview = typeof launcher === "string" ? launcher.slice(0, MAX_BAD_ID_PREVIEW) : String(launcher)
+    throw new ToolError(
+      "invalid_argument",
+      `Invalid launcher name ${JSON.stringify(preview)}: use letters, digits, ".", "_" and "-", starting with a letter or digit.`,
     )
   }
 }

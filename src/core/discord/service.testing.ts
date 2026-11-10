@@ -7,6 +7,7 @@ import type { ServiceHost, ServiceSpec } from "./service-types"
 /** A spec with made-up names, as an entry point would pass one. */
 export const SPEC: ServiceSpec = {
   id: "io.example.tools",
+  launcher: "example-sync",
   label: "default",
   description: "Example sync service",
   program: "/usr/bin/node",

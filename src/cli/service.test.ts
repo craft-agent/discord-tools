@@ -211,6 +211,23 @@ describe("service install", () => {
     },
   )
 
+  test("on macOS the plist starts the launcher named after the package, then the runtime", async () => {
+    const dir = await tempStateDir()
+    await signedInAccount(dir, "work")
+    await writeAccount(labelPaths(dir, "work"), { id: "123456789012345678", name: "test", verifiedAt: 1 })
+    const result = await run(["install", "--account=work", `--state-dir=${dir}`], {
+      profile: PROFILE,
+      serviceHost: fakeHost(dir),
+      program: "/runtime/node",
+      entryPath: "/package/dist/cli.js",
+    })
+    expect(result.code).toBe(EXIT_OK)
+    const launcher = join(dir, "Library", "Application Support", PROFILE.serviceId, `${PROFILE.name}-sync-work`)
+    const plist = await readFile(join(dir, "Library", "LaunchAgents", `${PROFILE.serviceId}.work.plist`), "utf8")
+    expect(plist).toContain(`<array>\n\t\t<string>${launcher}</string>\n\t\t<string>/runtime/node</string>`)
+    expect((await readFile(launcher, "utf8")).startsWith("#!/bin/sh")).toBe(true)
+  })
+
   test.each([undefined, "relative/cli.js"])("refuses unusable entry path %j before installing", async (entryPath) => {
     const dir = await tempStateDir()
     await signedInAccount(dir, "work")

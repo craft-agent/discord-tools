@@ -8,9 +8,10 @@ import {
   serviceStatus,
   uninstallService,
   type ServiceHost,
+  type ServiceName,
   type ServiceStatus,
 } from "../core/discord/service"
-import { PROJECT_PROFILE } from "../entry/profile"
+import { PROJECT_PROFILE, type EntryProfile } from "../entry/profile"
 import {
   ACCOUNT_FLAG,
   handleCommandError,
@@ -27,6 +28,11 @@ const SERVICE_PLATFORMS: readonly NodeJS.Platform[] = ["darwin", "linux"]
 /** Whether the host has a service manager to register the sync service with. */
 export function serviceSupported(host: ServiceHost): boolean {
   return SERVICE_PLATFORMS.includes(host.platform)
+}
+
+/** What names the profile's service on disk: its id, and the launcher Login Items lists on macOS, before `-<label>`. */
+export function serviceName(profile: EntryProfile): ServiceName {
+  return { id: profile.serviceId, launcher: `${profile.name}-sync` }
 }
 
 type ServiceAction = "install" | "uninstall" | "status"
@@ -109,7 +115,7 @@ export async function runServiceCommand(argv: string[], io: CommandIo): Promise<
 
   try {
     const host: ServiceHost = io.serviceHost ?? defaultServiceHost()
-    const serviceId = (io.profile ?? PROJECT_PROFILE).serviceId
+    const name = serviceName(io.profile ?? PROJECT_PROFILE)
     if (command.action === "install") {
       const paths = await pickLabel(command.stateDir, label)
       if (!(await readAccount(paths))) {
@@ -123,7 +129,7 @@ export async function runServiceCommand(argv: string[], io: CommandIo): Promise<
       }
       await installService(
         {
-          id: serviceId,
+          ...name,
           label,
           description: `Scheduled account sync (${label})`,
           program: io.program ?? process.execPath,
@@ -135,10 +141,10 @@ export async function runServiceCommand(argv: string[], io: CommandIo): Promise<
       io.stdout(`Installed sync service for "${label}".\n`)
       io.stdout("Environment-based tokens must be supplied independently to the service environment.\n")
     } else if (command.action === "uninstall") {
-      await uninstallService(serviceId, label, host)
+      await uninstallService(name, label, host)
       io.stdout(`Uninstalled sync service for "${label}".\n`)
     } else {
-      io.stdout(`${statusLines(label, await serviceStatus(serviceId, label, host)).join("\n")}\n`)
+      io.stdout(`${statusLines(label, await serviceStatus(name.id, label, host)).join("\n")}\n`)
     }
     return EXIT_OK
   } catch (error) {
