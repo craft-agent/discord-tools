@@ -77,6 +77,7 @@ describe("labelPaths", () => {
       lock: join(dir, "sync.lock"),
       transfers: join(dir, "transfers"),
       incoming: join(dir, "incoming"),
+      outgoing: join(dir, "outgoing"),
     })
   })
 

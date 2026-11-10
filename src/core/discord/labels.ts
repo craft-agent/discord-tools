@@ -54,6 +54,8 @@ export type LabelPaths = {
   transfers: string
   /** Where a call saving received files keeps them until they are checked: `<dir>/incoming`. */
   incoming: string
+  /** Where a call sending files keeps the copies it checks and uploads: `<dir>/outgoing`. */
+  outgoing: string
 }
 
 /** Resolves the state paths for `label`; throws `invalid_argument` for a bad label and `internal_error` for a relative `stateDir`. */
@@ -73,6 +75,7 @@ export function labelPaths(stateDir: string, label: string): LabelPaths {
     lock: join(dir, "sync.lock"),
     transfers: join(dir, "transfers"),
     incoming: join(dir, "incoming"),
+    outgoing: join(dir, "outgoing"),
   }
 }
 

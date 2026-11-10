@@ -1,7 +1,7 @@
 import { mkdir, rm } from "node:fs/promises"
 import { isAbsolute } from "node:path"
 import { ToolError } from "../errors"
-import { isWithin } from "../paths"
+import { overlapsPrivate } from "../paths"
 import type { ToolContext } from "../tool"
 
 /** Mode of the download directory and of each message's folder. */
@@ -33,17 +33,13 @@ export async function ensureDownloadDir(dir: string, ctx: ToolContext): Promise<
     const code = (error as NodeJS.ErrnoException).code ?? "an error"
     throw new ToolError("invalid_argument", `The download directory ${dir} cannot be made (${code}).`)
   }
-  for (const [root, what] of [
-    [ctx.stateDir, "the state directory"],
-    [ctx.ownDir, "the tools' install directory"],
-  ] as const) {
-    if (root !== undefined && ((await isWithin(dir, root)) || (await isWithin(root, dir)))) {
-      // What was just made must not stay: a folder in the state directory would read as another account.
-      if (created !== undefined) await rm(created, { recursive: true, force: true })
-      throw new ToolError(
-        "invalid_argument",
-        `The download directory ${dir} is, holds or is inside ${what} ${root}; choose another with download_dir.`,
-      )
-    }
+  const overlap = await overlapsPrivate(dir, ctx)
+  if (overlap) {
+    // What was just made must not stay: a folder in the state directory would read as another account.
+    if (created !== undefined) await rm(created, { recursive: true, force: true })
+    throw new ToolError(
+      "invalid_argument",
+      `The download directory ${dir} is, holds or is inside ${overlap.what} ${overlap.root}; choose another with download_dir.`,
+    )
   }
 }

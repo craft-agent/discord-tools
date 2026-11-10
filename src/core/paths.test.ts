@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { isWithin } from "./paths"
+import { isWithin, overlapsPrivate } from "./paths"
 
 let root: string
 
@@ -39,5 +39,29 @@ describe("isWithin", () => {
   test("a path that cannot be resolved is not within", async () => {
     expect(await isWithin(join(root, "missing"), join(root, "inside"))).toBe(false)
     expect(await isWithin(join(root, "inside"), join(root, "missing"))).toBe(false)
+  })
+})
+
+describe("overlapsPrivate", () => {
+  const ctx = () => ({ stateDir: join(root, "inside"), ownDir: join(root, "outside") })
+
+  test("names the directory a path is, holds or sits inside", async () => {
+    expect(await overlapsPrivate(join(root, "inside"), ctx())).toEqual({
+      root: join(root, "inside"),
+      what: "the state directory",
+    })
+    expect(await overlapsPrivate(join(root, "inside", "deeper"), ctx())).toMatchObject({ what: "the state directory" })
+    expect(await overlapsPrivate(root, ctx())).toMatchObject({ what: "the state directory" })
+    expect(await overlapsPrivate(join(root, "outside"), ctx())).toMatchObject({
+      what: "the tools' install directory",
+    })
+  })
+
+  test("is judged by real path and ignores a directory the context does not name", async () => {
+    symlinkSync(join(root, "inside"), join(root, "link"))
+    expect(await overlapsPrivate(join(root, "link"), ctx())).toMatchObject({ what: "the state directory" })
+    mkdirSync(join(root, "free"))
+    expect(await overlapsPrivate(join(root, "free"), ctx())).toBeUndefined()
+    expect(await overlapsPrivate(join(root, "inside"), {})).toBeUndefined()
   })
 })

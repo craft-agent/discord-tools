@@ -59,7 +59,7 @@ export async function saveFiles(args: SaveInput, ctx: ToolContext): Promise<Save
         signal: session.signal,
       })
     const files: SavedFile[] = []
-    const staging = await openStaging(session.paths, session.now())
+    const staging = await openStaging(session.paths.incoming, session.now())
     try {
       const run = {
         client: session.client(),
