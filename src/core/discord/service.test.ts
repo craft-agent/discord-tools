@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { ToolError } from "../errors"
 import { fakeToken } from "./fake-token.testing"
-import { installService, serviceStatus, suspendService, uninstallService } from "./service"
+import { installService, serviceStatus, serviceWorkingDirectory, suspendService, uninstallService } from "./service"
 import { failed, fakeHost, SPEC, withHome } from "./service.testing"
 import { checkServiceSpec, defaultServiceHost, isKnownAbsent, mapProgramError } from "./service-types"
 
@@ -85,6 +85,14 @@ describe("service dispatcher", () => {
     expect(isKnownAbsent(failed(1, "permission denied"), known)).toBe(false)
     expect(isKnownAbsent({ code: -1, stdout: "", stderr: "not loaded", timedOut: true }, known)).toBe(false)
     expect(isKnownAbsent({ code: -1, stdout: "", stderr: "not loaded", signal: "SIGKILL" }, known)).toBe(false)
+  })
+
+  test("serviceWorkingDirectory is the directory the service manager starts the service in", () => {
+    expect(serviceWorkingDirectory(fakeHost("darwin", "/home/test").host)).toBe("/")
+    expect(serviceWorkingDirectory(fakeHost("linux", "/home/test").host)).toBe("/home/test")
+    expect(() => serviceWorkingDirectory(fakeHost("win32", "/home/test").host)).toThrow(
+      "Running the sync service is supported on macOS and Linux only.",
+    )
   })
 
   test("defaultServiceHost gives the process's platform and a run that reports a missing program", async () => {
