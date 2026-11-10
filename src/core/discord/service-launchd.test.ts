@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { existsSync } from "node:fs"
 import { lstat, mkdir, readdir, readFile, readlink, stat, symlink, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import {
@@ -9,10 +10,10 @@ import {
   uninstallLaunchdService as uninstallService,
   xmlEscape,
 } from "./service-launchd"
-import { failed, fakeHost, ok, SPEC, withHome } from "./service.testing"
+import { failed, fakeHost, NOT_FOUND, ok, SPEC, withHome } from "./service.testing"
 
 const TARGET = "gui/501/io.example.tools.default"
-const NOT_FOUND = failed(113, "Could not find service")
+const FOUND = ok("state = running\n")
 
 /** The launcher directory and the launcher of the default label, under a made-up home. */
 function launcherLocation(home: string, label = SPEC.label) {
@@ -196,9 +197,86 @@ describe("launchd service", () => {
       await expect(uninstallService({ ...SPEC, launcher: "../evil" }, SPEC.label, host)).rejects.toThrow(
         "Invalid launcher name",
       )
-      expect(calls).toEqual([["launchctl", "bootout", TARGET]])
+      expect(calls).toEqual([
+        ["launchctl", "bootout", TARGET],
+        ["launchctl", "print", TARGET],
+      ])
       expect(await stat(file).catch(() => undefined)).toBeUndefined()
       expect((await stat(launcherLocation(home).path)).isFile()).toBe(true)
+    })
+  })
+
+  describe("waiting for launchd to let go of the job", () => {
+    const MAX_POLLS = 150
+
+    /** A host whose `print` finds the job for the first `found` polls (always when `Infinity`), counting the sleeps. */
+    function lingeringHost(home: string, found: number, onPrint: () => void = () => {}) {
+      const sleeps: number[] = []
+      let prints = 0
+      const { host, calls } = fakeHost("darwin", home, (argv) => {
+        if (argv[1] !== "print") return undefined
+        prints++
+        onPrint()
+        return prints <= found ? FOUND : NOT_FOUND
+      })
+      host.sleep = async (ms) => {
+        sleeps.push(ms)
+      }
+      return { host, calls, sleeps, prints: () => prints }
+    }
+
+    test("install enables and bootstraps only once the job is gone", async () => {
+      await withHome(async (home) => {
+        const { host, calls, sleeps } = lingeringHost(home, 2)
+        await installService(SPEC, host)
+        expect(calls.map((argv) => argv[1])).toEqual(["bootout", "print", "print", "print", "enable", "bootstrap"])
+        expect(sleeps).toEqual([200, 200])
+      })
+    })
+
+    test("install gives up when the job never goes, polling 150 times and never bootstrapping", async () => {
+      await withHome(async (home) => {
+        const { host, calls, prints } = lingeringHost(home, Infinity)
+        const error = await installService(SPEC, host).catch((caught: unknown) => caught)
+        expect(error).toMatchObject({
+          code: "upstream_error",
+          message: "The service did not stop within 30 seconds; run the command again.",
+        })
+        expect(prints()).toBe(MAX_POLLS)
+        expect(calls.some((argv) => argv[1] === "enable" || argv[1] === "bootstrap")).toBe(false)
+      })
+    })
+
+    test("install does not poll when the job was not loaded", async () => {
+      await withHome(async (home) => {
+        const { host, calls } = fakeHost("darwin", home, (argv) => (argv[1] === "bootout" ? NOT_FOUND : undefined))
+        await installService(SPEC, host)
+        expect(calls.some((argv) => argv[1] === "print")).toBe(false)
+      })
+    })
+
+    test("uninstall keeps the plist until the job is gone", async () => {
+      await withHome(async (home) => {
+        const { file } = await installService(SPEC, fakeHost("darwin", home).host)
+        const plistPresentAtPrint: boolean[] = []
+        const { host } = lingeringHost(home, 2, () => {
+          plistPresentAtPrint.push(existsSync(file))
+        })
+        await uninstallService(SPEC, SPEC.label, host)
+        expect(plistPresentAtPrint).toEqual([true, true, true])
+        expect(existsSync(file)).toBe(false)
+      })
+    })
+
+    test("uninstall that times out leaves the plist and the launcher in place", async () => {
+      await withHome(async (home) => {
+        const { file } = await installService(SPEC, fakeHost("darwin", home).host)
+        const { host, prints } = lingeringHost(home, Infinity)
+        await expect(uninstallService(SPEC, SPEC.label, host)).rejects.toMatchObject({ code: "upstream_error" })
+        expect(prints()).toBe(MAX_POLLS)
+        expect((await stat(file)).isFile()).toBe(true)
+        expect((await stat(launcherLocation(home).path)).isFile()).toBe(true)
+      })
     })
   })
 

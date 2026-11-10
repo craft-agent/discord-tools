@@ -1,6 +1,7 @@
 import { chmod, stat, unlink, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { isAbsolute } from "node:path"
+import { setTimeout } from "node:timers/promises"
 import { ToolError } from "../errors"
 import { exec, type ExecResult } from "../exec"
 import { checkLabel } from "./labels"
@@ -70,6 +71,8 @@ export type ServiceHost = {
   env: Record<string, string | undefined>
   /** Runs a program without a shell; rejects when it cannot be started. */
   run(argv: string[]): Promise<ExecResult>
+  /** Waits between polls; defaults to a timer. Tests pass one that returns at once. */
+  sleep?(ms: number): Promise<void>
 }
 
 /** The state of one label's scheduled sync. */
@@ -179,6 +182,7 @@ export function defaultServiceHost(): ServiceHost {
     home: homedir(),
     uid: typeof process.getuid === "function" ? process.getuid() : 0,
     env,
+    sleep: (ms) => setTimeout(ms),
     async run(argv: string[]): Promise<ExecResult> {
       const commandEnv: Record<string, string> = { ...FIXED_ENV }
       for (const name of FORWARDED_ENV) {

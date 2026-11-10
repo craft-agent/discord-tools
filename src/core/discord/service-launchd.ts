@@ -1,5 +1,7 @@
 import { chmod, lstat, mkdir, rename, rmdir, unlink, writeFile } from "node:fs/promises"
 import { basename, dirname, join } from "node:path"
+import { setTimeout } from "node:timers/promises"
+import { ToolError } from "../errors"
 import {
   checkLauncherName,
   checkServiceSpec,
@@ -32,6 +34,18 @@ const LAUNCHER_DIR_MODE = 0o700
 
 /** Mode of the launcher script. */
 const LAUNCHER_MODE = 0o755
+
+/** How long to wait between checks that launchd has let go of the job. */
+const STOP_POLL_INTERVAL_MS = 200
+
+/**
+ * How long to wait for the job to go. launchd kills a job 20 seconds after asking it to stop (the default
+ * `ExitTimeOut`), so it is gone well within this.
+ */
+const STOP_TIMEOUT_MS = 30_000
+
+/** How many checks fit in `STOP_TIMEOUT_MS`. */
+const STOP_POLLS = Math.ceil(STOP_TIMEOUT_MS / STOP_POLL_INTERVAL_MS)
 
 /** Hands over to the program and arguments after it, so the agent is listed under the script's own name. */
 export const LAUNCHER_SCRIPT = '#!/bin/sh\nexec "$@"\n'
@@ -153,6 +167,25 @@ async function printJob(target: string, host: ServiceHost): Promise<string | und
   throw mapProgramError("launchctl", result)
 }
 
+/**
+ * Unloads the job and, when it was loaded, returns only once launchd no longer lists it: `bootout` returns before the
+ * job is torn down, and loading it again until then fails with an input/output error. Gives up after
+ * `STOP_TIMEOUT_MS` of polls, counted rather than timed.
+ */
+async function bootoutAndWait(target: string, host: ServiceHost): Promise<void> {
+  if (!(await bootout(target, host))) return
+
+  const sleep = host.sleep ?? setTimeout
+  for (let poll = 0; poll < STOP_POLLS; poll++) {
+    if ((await printJob(target, host)) === undefined) return
+    await sleep(STOP_POLL_INTERVAL_MS)
+  }
+  throw new ToolError(
+    "upstream_error",
+    `The service did not stop within ${STOP_TIMEOUT_MS / 1000} seconds; run the command again.`,
+  )
+}
+
 /** Writes the launcher script and the launchd agent and loads it, replacing a loaded earlier one. */
 export async function installLaunchdService(spec: ServiceSpec, host: ServiceHost): Promise<ServiceInstallResult> {
   checkServiceSpec(spec, host.home)
@@ -160,7 +193,7 @@ export async function installLaunchdService(spec: ServiceSpec, host: ServiceHost
   const { target, plistPath, logDir, logPath } = launchdPaths(spec.id, spec.label, host)
   const { launcherDir, launcherPath } = launcherPaths(spec.id, spec.label, spec.launcher, host)
 
-  await bootout(target, host)
+  await bootoutAndWait(target, host)
 
   await mkdir(logDir, { recursive: true, mode: LOG_DIR_MODE })
   await chmod(logDir, LOG_DIR_MODE)
@@ -194,7 +227,7 @@ export async function uninstallLaunchdService(name: ServiceName, label: string, 
   checkServiceTarget(name.id, label, host.home)
   const { target, plistPath } = launchdPaths(name.id, label, host)
 
-  await bootout(target, host)
+  await bootoutAndWait(target, host)
   await removeFile(plistPath)
 
   checkLauncherName(name.launcher)

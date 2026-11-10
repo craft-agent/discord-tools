@@ -30,6 +30,7 @@ describe("suspend service", () => {
         platform === "darwin"
           ? [
               ["launchctl", "bootout", TARGET],
+              ["launchctl", "print", TARGET],
               ["launchctl", "enable", TARGET],
               ["launchctl", "bootstrap", "gui/501", installed.file],
             ]
@@ -76,14 +77,33 @@ describe("suspend service", () => {
     await withHome(async (home) => {
       const { file } = await installService(SPEC, fakeHost("darwin", home).host)
       const { host, calls } = fakeHost("darwin", home, (argv) =>
-        argv[1] === "enable" ? failed(1, "permission denied") : ok(),
+        argv[1] === "enable" ? failed(1, "permission denied") : undefined,
       )
       await expect(installService(SPEC, host)).rejects.toThrow("permission denied")
       expect(await readFile(file, "utf8")).toContain("<key>StartInterval</key>")
       expect(calls).toEqual([
         ["launchctl", "bootout", TARGET],
+        ["launchctl", "print", TARGET],
         ["launchctl", "enable", TARGET],
       ])
+    })
+  })
+
+  test("launchd suspend returns right after bootout, without waiting for the job to go", async () => {
+    await withHome(async (home) => {
+      const sleeps: number[] = []
+      const { host, calls } = fakeHost("darwin", home, (argv) =>
+        argv[1] === "print" ? ok("state = running\n") : undefined,
+      )
+      host.sleep = async (ms) => {
+        sleeps.push(ms)
+      }
+      await suspendService(SPEC.id, SPEC.label, host)
+      expect(calls).toEqual([
+        ["launchctl", "disable", TARGET],
+        ["launchctl", "bootout", TARGET],
+      ])
+      expect(sleeps).toEqual([])
     })
   })
 
