@@ -1,6 +1,6 @@
 ---
 name: discord-sends
-description: 'Use when sending a text to one of the user''s Discord chats as the user: answering a DM, a group chat, a server channel or a thread, or replying to a specific message ("reply to Alice that I''ll be late", "post this in #general", "answer that message"). Covers finding the chat and message ids, mentions, silent sends and what to do when a send is uncertain. Not for sending files, creating threads, starting a new DM, or reading chats; editing or deleting a message, reactions and pins are discord-actions.'
+description: 'Use when sending a text or files to one of the user''s Discord chats as the user: answering a DM, a group chat, a server channel or a thread, replying to a specific message, or attaching files ("reply to Alice that I''ll be late", "post this in #general", "send the report to Bob", "answer that message"). Covers finding the chat and message ids, mentions, silent sends, which files may be sent and what to do when a send is uncertain. Not for saving received files (discord-files), creating threads, starting a new DM, or reading chats; editing or deleting a message, reactions and pins are discord-actions.'
 ---
 
 # Sending a text
@@ -27,7 +27,8 @@ DM, and a sent message cannot be taken back by this tool.
 | Argument        | Meaning                                                                   |
 | --------------- | ------------------------------------------------------------------------- |
 | `channel`       | the chat's id: a DM, group DM, server channel or thread                   |
-| `text`          | the message, exactly as it should arrive                                  |
+| `text`          | the message, exactly as it should arrive; optional in a file send         |
+| `files`         | a file send only: 1 to 10 file paths to attach                            |
 | `reply_to`      | a message of that chat to answer; its author is not pinged                |
 | `silent`        | `true` sends without push or desktop notifications                        |
 | `mass_mentions` | `true` lets `@everyone`, `@here` and role mentions notify; off by default |
@@ -36,6 +37,25 @@ DM, and a sent message cannot be taken back by this tool.
 User mentions (`<@id>`) always notify. `@everyone`, `@here` and role mentions
 arrive as text but notify nobody unless the person asked for
 `mass_mentions: true`.
+
+## Sending files
+
+`discord_file_send` takes the same arguments plus `files`. Send files only
+when the person asks, and show them the chat, the text and each file first.
+
+- Files must lie inside `send_dirs`: by default the working directory. A home
+  directory never qualifies. At most 10 files, each at most `send_max_mb`
+  (default 10); raise it, up to 500, only if the person wants.
+- Refused: credentials, keys and databases wherever they are; programs; and
+  archives this cannot read. One refused file refuses the whole send, so
+  nothing was sent. Tell the person which file and why. Never work around a
+  refusal: do not rename the file, copy it elsewhere or paste a secret's
+  content into the text.
+- The checked private copy is what is uploaded. If a file changed after the
+  prompt, the call fails `stale`: show the person and ask again.
+- A failed upload means nothing was posted.
+- `uncertain` is as for a text: `details.matches` lists the account's messages
+  with the same text and as many attachments since the send.
 
 ## The outcome
 
