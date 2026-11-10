@@ -3,6 +3,7 @@ import { isAbsolute } from "node:path"
 import { ToolError } from "../errors"
 import { overlapsPrivate } from "../paths"
 import type { ToolContext } from "../tool"
+import { errorCode } from "./errno"
 
 /** Mode of the download directory and of each message's folder. */
 export const FOLDER_MODE = 0o755
@@ -30,8 +31,7 @@ export async function ensureDownloadDir(dir: string, ctx: ToolContext): Promise<
   try {
     created = await mkdir(dir, { recursive: true, mode: FOLDER_MODE })
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code ?? "an error"
-    throw new ToolError("invalid_argument", `The download directory ${dir} cannot be made (${code}).`)
+    throw new ToolError("invalid_argument", `The download directory ${dir} cannot be made (${errorCode(error)}).`)
   }
   const overlap = await overlapsPrivate(dir, ctx)
   if (overlap) {

@@ -7,7 +7,9 @@ import { ArchiveRefused, type ArchiveReport } from "../archive/inspect"
 import { shownName } from "../archive/names"
 import { checkSentFile } from "../archive/sent"
 import { ToolError } from "../errors"
+import { errorCode } from "../files/errno"
 import { cleanName } from "../files/names"
+import { BYTES_PER_MB } from "../files/size"
 import { openStaging } from "../files/staging"
 import { isWithin, overlapsPrivate } from "../paths"
 import type { ToolContext } from "../tool"
@@ -17,8 +19,6 @@ export const FILES_MAX = 10
 
 /** Mode of a private copy: owner only. */
 const COPY_MODE = 0o600
-
-const BYTES_PER_MB = 1024 * 1024
 
 /** Opens a file to read without following a link at its path, and without blocking on a pipe put in its place. */
 const READ_FLAGS = constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
@@ -75,8 +75,6 @@ type Located = {
 }
 
 const refuse = (file: string, message: string) => new ToolError("invalid_argument", message, { details: { file } })
-
-const errorCode = (error: unknown) => (error as NodeJS.ErrnoException).code ?? "an error"
 
 /** Whether the file is not there (or something on the way is not a folder). */
 const isMissing = (code: string) => code === "ENOENT" || code === "ENOTDIR"
