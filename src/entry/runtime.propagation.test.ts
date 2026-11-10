@@ -35,6 +35,8 @@ function probe() {
     expect(ctx.stateDir).toBe("/runtime/state")
     expect(ctx.downloadDir).toBe("/runtime/downloads")
     expect(ctx.downloadMaxMb).toBe(42)
+    expect(ctx.sendDirs).toEqual(["/runtime/send1", "/runtime/send2"])
+    expect(ctx.sendMaxMb).toBe(15)
     expect(ctx.runtime?.envPrefix).toBe(options.profile.envPrefix)
     expect(ctx.runtime?.cli).toBe(options.profile.cli)
     expect(ctx.runtime?.serviceId).toBe(options.profile.serviceId)
@@ -62,7 +64,13 @@ test("MCP uses the injected profile name, default toolsets and execution runtime
   const p = probe()
   const { client } = await connect(
     [p.spec],
-    settings({ state_dir: "/runtime/state", download_dir: "/runtime/downloads", download_max_mb: 42 }),
+    settings({
+      state_dir: "/runtime/state",
+      download_dir: "/runtime/downloads",
+      download_max_mb: 42,
+      send_dirs: ["/runtime/send1", "/runtime/send2"],
+      send_max_mb: 15,
+    }),
     {},
     {
       ...p.options,

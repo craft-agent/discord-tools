@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from .context import PluginContext
@@ -65,9 +66,45 @@ def download_max_mb_flags(ctx: PluginContext) -> list[str]:
     return ["--download-max-mb", str(download_max_mb)]
 
 
+def send_dirs_flags(ctx: PluginContext) -> list[str]:
+    """Read ``send_dirs`` and return ``["--send-dirs", value]``, or ``[]`` when absent.
+
+    Raises:
+        SettingsError: the setting is present but not a path or a list of paths.
+    """
+    send_dirs = ctx.get_config("send_dirs")
+    if send_dirs is None:
+        return []
+    if isinstance(send_dirs, str):
+        if not send_dirs.strip():
+            raise SettingsError('setting "send_dirs" must be a path or a list of paths')
+        return ["--send-dirs", send_dirs]
+    if isinstance(send_dirs, list) and not isinstance(send_dirs, bool) and all(isinstance(item, str) for item in send_dirs):
+        if not send_dirs:
+            return []
+        return ["--send-dirs", os.pathsep.join(send_dirs)]
+    raise SettingsError('setting "send_dirs" must be a path or a list of paths')
+
+
+def send_max_mb_flags(ctx: PluginContext) -> list[str]:
+    """Read ``send_max_mb`` and return ``["--send-max-mb", value]``, or ``[]`` when absent.
+
+    The range (1 to 500) is the command line's to check.
+
+    Raises:
+        SettingsError: the setting is present but not a whole number.
+    """
+    send_max_mb = ctx.get_config("send_max_mb")
+    if send_max_mb is None:
+        return []
+    if not isinstance(send_max_mb, int) or isinstance(send_max_mb, bool):
+        raise SettingsError('setting "send_max_mb" must be a whole number')
+    return ["--send-max-mb", str(send_max_mb)]
+
+
 def target_flags(ctx: PluginContext) -> list[str]:
     """The flags ``target`` takes: the settings that say where files are, not which tools run."""
-    return state_dir_flags(ctx) + download_dir_flags(ctx)
+    return state_dir_flags(ctx) + download_dir_flags(ctx) + send_dirs_flags(ctx)
 
 
 def language_setting(ctx: PluginContext) -> str | None:
@@ -110,5 +147,6 @@ def settings_flags(ctx: PluginContext) -> list[str]:
 
     flags += target_flags(ctx)
     flags += download_max_mb_flags(ctx)
+    flags += send_max_mb_flags(ctx)
 
     return flags
