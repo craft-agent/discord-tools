@@ -293,6 +293,8 @@ Every entry point takes the same settings:
 - **`state_dir`**: where every account's state lives (see "Accounts and state").
 - **`download_dir`** and **`download_max_mb`**: where received files are saved
   and the size each may have (see "Files").
+- **`send_dirs`** and **`send_max_mb`**: where files may be sent from and the
+  size each may have (see "Files").
 
 ## The core contract
 
@@ -526,8 +528,8 @@ Every entry point takes the same settings:
 - **Files go in and out only through the directories a setting names**,
   judged by real path, so a link that leads elsewhere counts as elsewhere.
   The state directory and the tools' own install directory are never among
-  them, nor a directory that holds either. Which directories files are sent
-  from is settled with the tool that sends them.
+  them, nor a directory that holds either, so a home directory never
+  qualifies.
 - **Received files are saved under `download_dir`**, by default
   `~/Downloads/<name>`, where a person looks for downloads first; it is an
   absolute path once `~` is expanded. Each message gets a folder of its own,
@@ -549,6 +551,30 @@ Every entry point takes the same settings:
   Files are written without an execute bit and, on macOS, marked as
   downloaded, so the system asks before one is opened. An archive is
   unpacked only when asked, into a new folder beside it.
+- **Files are sent only from `send_dirs`**, by default the call's working
+  directory, where the file an agent made usually is; each directory is
+  absolute once `~` is expanded. A message carries at most 10 files, each at
+  most `send_max_mb` megabytes, 10 by default (Discord's limit without Nitro)
+  and 500 at most.
+- **What would leak is never sent, wherever it is**: credentials, keys and
+  local databases by name or by a folder on the way (`.ssh`, `.aws`, `.git`,
+  `.config`, …), and any file holding a private key. Programs, installers and
+  disk images are refused by name and by bytes; scripts are code a person
+  asked to share and go. An archive goes only when the inspection passes it
+  with the same rules applied to everything inside, and one the module cannot
+  read does not go. One refused file refuses the whole send, before anything
+  is requested.
+- **What is checked is what is sent.** Each file is opened without following
+  a link, checked again by its real path, and copied once into the label's
+  state; every check reads the copy and the copy is uploaded, so a file
+  changed or swapped after the check is never the one that leaves. The
+  approval prompt pins each file's hash, and a file changed after the prompt
+  makes the call `stale`.
+- **Uploads go only to the signed storage URL Discord returns**, over `https`
+  on `*.storage.googleapis.com`, without the token, paced like every request
+  and never retried, 120 seconds each and 600 for all. A reservation or an
+  upload that fails means nothing was sent: the message is posted only once
+  every file is up.
 
 ## Writes
 
