@@ -29,6 +29,9 @@ type RequestHeaderName = (typeof REQUEST_HEADER_ORDER)[number]
 /** The page the web client sends requests from. */
 export const WEB_ORIGIN = "https://discord.com"
 
+/** The `accept-encoding` Chrome sends on every request. */
+const ACCEPT_ENCODING = "gzip, deflate, br, zstd"
+
 /** The page a request claims to come from when it names none. */
 export const DEFAULT_REFERER = "/channels/@me"
 
@@ -78,7 +81,7 @@ export function mediaHeaders(input: MediaHeaderInput): [string, string][] {
     "sec-fetch-mode": "no-cors",
     "sec-fetch-dest": "image",
     referer: `${WEB_ORIGIN}/`,
-    "accept-encoding": "gzip, deflate, br, zstd",
+    "accept-encoding": ACCEPT_ENCODING,
     "accept-language": acceptLanguage(input.locale),
   }
   return MEDIA_HEADER_ORDER.map((name) => [name, values[name]])
@@ -120,7 +123,7 @@ export function uploadHeaders(input: UploadHeaderInput): [string, string][] {
     "sec-fetch-mode": "cors",
     "sec-fetch-dest": "empty",
     referer: `${WEB_ORIGIN}${input.referer}`,
-    "accept-encoding": "gzip, deflate, br, zstd",
+    "accept-encoding": ACCEPT_ENCODING,
     "accept-language": acceptLanguage(input.locale),
   }
   return UPLOAD_HEADER_ORDER.map((name) => [name, values[name]])
@@ -154,7 +157,7 @@ export function requestHeaders(input: RequestHeaderInput): [string, string][] {
     "sec-fetch-mode": "cors",
     "sec-fetch-dest": "empty",
     referer: `${WEB_ORIGIN}${input.referer}`,
-    "accept-encoding": "gzip, deflate, br, zstd",
+    "accept-encoding": ACCEPT_ENCODING,
     "accept-language": acceptLanguage(input.locale),
     priority: "u=1, i",
   }

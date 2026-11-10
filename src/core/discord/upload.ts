@@ -1,3 +1,5 @@
+import { plainHttpsUrl } from "./plain-https-url"
+
 /** Where an upload goes, and how long it may take. */
 export type UploadOptions = {
   /** The time limit of the request. */
@@ -22,9 +24,8 @@ export const NOT_STORAGE_URL = "not Discord's storage"
 
 /** The URL as the transport must send it, when it is on Discord's storage host: `https`, no userinfo, the default port. */
 export function storageUrl(url: string): URL | undefined {
-  if (!URL.canParse(url)) return undefined
-  const parsed = new URL(url)
-  if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port) return undefined
+  const parsed = plainHttpsUrl(url)
+  if (!parsed) return undefined
   return STORAGE_HOST.test(parsed.hostname) ? parsed : undefined
 }
 
