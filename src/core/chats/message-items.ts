@@ -7,7 +7,7 @@ import type { ChatSession } from "./session"
 export const REACTIONS_NOTE = "Reaction counts are as of the last time the message was read."
 
 /** The message types of a written message and of a reply; every other type is a system message. */
-const WRITTEN_TYPES: readonly number[] = [0, 19]
+export const WRITTEN_TYPES: readonly number[] = [0, 19]
 
 /** What the system message types that have a short name record. */
 const SYSTEM_EVENTS: Readonly<Record<number, string>> = {

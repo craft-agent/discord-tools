@@ -26,7 +26,7 @@ const CHAT_KINDS: Readonly<Record<number, string>> = {
 }
 const OTHER_KIND = "Channel"
 
-type ChannelRow = {
+export type ChannelRow = {
   server: string | null
   type: number
   name: string | null
@@ -86,7 +86,7 @@ export function serverName(mirror: Mirror, id: string): string {
 }
 
 /** The name of a chat as people see it (see `describeChat`). */
-function chatName(mirror: Mirror, id: string, row: ChannelRow): string {
+export function chatName(mirror: Mirror, id: string, row: ChannelRow): string {
   const user = userLookup(mirror)
   const members = recipientIds(row.recipients).flatMap((member) => displayName(user(member)) ?? [])
   if (row.type === DM_TYPE) return members[0] ?? id
