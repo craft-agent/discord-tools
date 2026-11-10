@@ -13,7 +13,7 @@ const ACCOUNT_READ = "discord_account_read"
 const CHAT_READ = "discord_chat_read"
 const SEARCH_READ = "discord_search_read"
 const SYNC_READ = "discord_sync_read"
-const WRITE_TOOLS = ["discord_sync_add", "discord_sync_remove", "discord_message_send"]
+const WRITE_TOOLS = ["discord_sync_add", "discord_sync_remove", "discord_message_send", "discord_file_send"]
 const ACTION_TOOLS = [
   "discord_message_edit",
   "discord_message_delete",
