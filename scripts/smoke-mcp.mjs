@@ -28,6 +28,7 @@ const PIN_REMOVE = "discord_pin_remove"
 const ACTION_TOOLS = [MESSAGE_EDIT, MESSAGE_DELETE, REACTION_ADD, REACTION_REMOVE, PIN_ADD, PIN_REMOVE]
 const FILE_SAVE = "discord_file_save"
 const INBOX_READ = "discord_inbox_read"
+const HISTORY_READ = "discord_history_read"
 const INBOX_WRITE_TOOLS = ["discord_saved_add", "discord_saved_remove", "discord_read_mark"]
 const REQUIRES_USER_INTERACTION = "anthropic/requiresUserInteraction"
 const NO_ACCOUNT = "No Discord account is signed in yet"
@@ -108,6 +109,14 @@ async function listTools(settings) {
 
     expectAnnotations(tools, INBOX_READ, { readOnlyHint: true }, settings)
     console.log(`${INBOX_READ} is read-only under ${JSON.stringify(settings)}.`)
+
+    if (settings.includes("all")) {
+      expectAnnotations(tools, HISTORY_READ, { readOnlyHint: true }, settings)
+      console.log(`${HISTORY_READ} is read-only under ${JSON.stringify(settings)}.`)
+    } else {
+      expectAbsent(tools, HISTORY_READ, settings)
+      console.log(`${HISTORY_READ} is absent under ${JSON.stringify(settings)}.`)
+    }
 
     if (settings.includes("--read-only")) {
       for (const name of [SYNC_ADD, SYNC_REMOVE, MESSAGE_SEND, FILE_SEND, ...INBOX_WRITE_TOOLS]) {

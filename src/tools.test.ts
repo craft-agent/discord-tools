@@ -56,6 +56,17 @@ describe("the registry", () => {
     }
   })
 
+  test("history read is a read tool in the off-by-default history toolset, kept in read-only mode", () => {
+    const id = "discord_history_read"
+    const ids = (settings: Parameters<typeof selectTools>[1]) =>
+      selectTools(ALL_TOOLS, settings, PROJECT_PROFILE.toolsets).map((spec) => spec.id)
+    expect(ALL_TOOLS.find((spec) => spec.id === id)).toMatchObject({ toolset: "history", class: "read" })
+    expect(ids({})).not.toContain(id)
+    expect(ids({ read_only: true })).not.toContain(id)
+    expect(ids({ toolsets: ["history"] })).toContain(id)
+    expect(ids({ toolsets: ["history"], read_only: true })).toContain(id)
+  })
+
   test.each(["discord_saved_add", "discord_saved_remove", "discord_read_mark"])(
     "%s is an overwrite tool in the inbox toolset, on by default and left out in read-only mode",
     (id) => {
