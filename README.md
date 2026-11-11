@@ -341,6 +341,7 @@ discord-tools-cli sync --account default
 discord-tools-cli service install --account default
 discord-tools-cli service status --account default
 discord-tools-cli service uninstall --account default
+discord-tools-cli gateway-check --account default --times 5 --interval 30
 discord-tools-cli remove --account default
 ```
 
@@ -383,6 +384,15 @@ On macOS, Login Items lists the service as `discord-tools-sync-<label>`: the
 agent starts through that launcher script, which `service install` writes to
 `~/Library/Application Support/io.github.craft-agent.discord-tools/` and
 `service uninstall` deletes. Switching the item off there stops syncing.
+
+`gateway-check` is the check on a real phone that decides whether a sync run
+may ever open Discord's gateway to read unread state. It opens and closes a
+gateway session `--times` times (1 to 20, default 5), `--interval` seconds
+apart (10 to 600, default 30), and prints one line per round; it first prints
+what to do meanwhile: close every other Discord client, lock the phone, send
+the account a DM and a mention from another account, and note whether each push
+arrives. Record the date, the phone's OS, the Discord app version and the
+result on the issue tracker. It sends and stores nothing else.
 
 `remove` asks you to type the label. For a non-interactive command, pass
 `--yes`. It uninstalls the scheduled job, refuses while the label is busy,

@@ -461,14 +461,47 @@ Every entry point takes the same settings:
   a session held open, or marked present, can hold back the phone's push
   notifications. Whether a run opens it is settled with the inbox tools,
   after a check on a real phone.
+- **A session is one request of the HTTP client**: `DiscordClient.gatewayReady`
+  is paced, counted and refused by the budget like any request, and never
+  retried. It connects to
+  `wss://gateway.discord.gg/?encoding=json&v=9&compress=zlib-stream` with the
+  web client's upgrade headers (`Origin`, `User-Agent`, `Accept-Language`,
+  `Cache-Control` and `Pragma`, and what the browser profile adds) and no
+  `Authorization`: the token goes only in Identify. On Hello it sends Identify
+  once: the token, the capability `VERSIONED_READ_STATES` (1 << 2) alone, since
+  the other bits only change how much else READY holds, the same `properties`
+  that `X-Super-Properties` encodes, a presence of `unknown` with no
+  activities, `compress: false` and an empty `client_state`. It sends nothing
+  else: no heartbeat, because READY comes long before the first is due, and
+  nothing in answer to the payloads it ignores. The `zlib-stream` is inflated
+  through one context for the connection, a payload ending at the sync-flush
+  marker (`00 00 ff ff`) and possibly spanning frames, with a cap on what a
+  payload may inflate to. Whatever ends the session (READY, the time limit,
+  cancellation, an invalid session, a close from Discord, data that cannot be
+  read) the socket is closed with 1000 before the call returns. Close 4004 is
+  Discord rejecting the token, so it is recorded and thrown exactly as a 401
+  is (`unauthenticated`, and the label's schedule stops until a new login). An
+  invalid session before READY records nothing and is an `upstream_error`,
+  since it can be transient. The URL, the headers and the Identify fields
+  follow the web client and are not yet confirmed against Discord.
+- **The phone check is a command, not a tool**: `gateway-check` (with
+  `--account`, `--times` and `--interval`) opens and closes such a session 5
+  times (1 to 20), 30 seconds apart (10 to 600), and prints one line per
+  round: when it ended, how long READY took, how many read states it held,
+  whether they were partial. It starts by printing the procedure: every other
+  Discord client closed, the phone locked, a DM and a mention sent from
+  another account while the rounds run, and whether each push arrived noted.
+  The result goes on the issue tracker with the date, the phone's OS and the
+  Discord app version. It prints no token and no message text, and is not in
+  the Hermes plugin.
 - **A rejected token stops the service** for its label until a new token is
   given, rather than polling an account it can no longer reach. The run
   disables future starts and keeps the service definition; it reports the
   rejection before a scheduler operation can terminate the run itself.
   After a new token is verified, `service install` re-enables the schedule.
-- **Signing in, running and installing the service, and removing a label are
-  a person's commands, never tools**: signing in hands the account over, and
-  installing a service changes the machine.
+- **Signing in, running and installing the service, the phone check and
+  removing a label are a person's commands, never tools**: signing in hands the
+  account over, and installing a service changes the machine.
 - **The scheduler starts one run, not a resident loop.** On macOS a user
   launchd agent uses `StartInterval` 300; on Linux a user systemd timer starts
   a oneshot service every 300 seconds. Installing a job requires an executable
