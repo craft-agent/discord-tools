@@ -271,8 +271,10 @@ server still being indexed is waited out once. Both page with `next_before`.
 mirrored message, optionally with a `remind_at` time, and `discord_saved_remove`
 removes a save. `discord_read_mark` marks one chat read, up to a message or the
 newest the mirror holds, on every device; it is the only tool that marks
-anything read, and every write here is asked about. Unread counts come later,
-after a check against the phone.
+anything read, and every write here is asked about. There are no unread
+counts: Discord keeps them only behind its gateway, and a check on a real
+phone showed that even a brief gateway session holds back the phone's push
+notifications, so nothing here opens it.
 
 `sends` is on by default; `read_only` leaves it out. `discord_message_send`
 sends one text to a DM, group DM, server channel or thread the mirror knows,

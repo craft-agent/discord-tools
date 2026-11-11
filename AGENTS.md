@@ -46,8 +46,8 @@ tagged `v<version>`; consumers pin a tag or the same npm version.
   made-up tokens and ids only, and no test reaches Discord.
 - **Every write to the mirror goes through the one ingest**, and only a sync
   run marks a channel current.
-- **The sync service sends nothing of its own**, and opens the gateway only as
-  the conventions say: never held open, never present, never subscribed.
+- **The sync service sends nothing of its own**, and nothing opens the
+  gateway: even a brief session holds back the phone's push notifications.
 - **A target is an id the label's mirror knows, never a name**, and a send
   never opens a new DM.
 - **A write that may have reached Discord throws `uncertain`**, never success

@@ -497,13 +497,14 @@ Every entry point takes the same settings:
 - **It sends nothing of its own**: no presence, no typing, no read marks, no
   messages. Nobody learns from the account that a tool is reading, and the
   user's phone keeps its notifications.
-- **The gateway is opened at most once a run**, to read `READY`: Identify with
-  no presence (`status: "unknown"`, no activities), read what is needed,
-  close with 1000 at once. It sends no presence update, subscribes to nothing
-  and is never held open. Unread and mention counts exist nowhere else, while
-  a session held open, or marked present, can hold back the phone's push
-  notifications. Whether a run opens it is settled with the inbox tools,
-  after a check on a real phone.
+- **The gateway is never opened.** Unread and mention counts exist only in
+  the gateway's `READY`, but a check on a real phone showed that even brief
+  sessions (Identify with no presence, closed with 1000 as soon as `READY`
+  came) hold back the phone's push notifications: with no session 3 of 3
+  pushes arrived, with sessions opened and closed every 10 seconds 3 of 7,
+  and every 30 seconds 6 of 10. A missed push costs the user more than an
+  unread count gives, so no tool offers unread counts, and the inbox says
+  what waits from mentions and the mirror instead.
 - **A rejected token stops the service** for its label until a new token is
   given, rather than polling an account it can no longer reach. The run
   disables future starts and keeps the service definition; it reports the

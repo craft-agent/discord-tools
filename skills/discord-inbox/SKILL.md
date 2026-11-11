@@ -100,7 +100,8 @@ mention badge on **every device**, the phone included.
 
 No other tool marks anything read. Reading, searching, listing the inbox or
 saving a message leaves the phone's unread state as it was. Unread counts are
-not available yet.
+not available, and will not be: reading them would hold back the person's
+push notifications. For "what did I miss", use `mentions` and `waiting`.
 
 ## The outcome of a write
 
