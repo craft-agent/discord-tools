@@ -72,7 +72,8 @@ Reaction counts are as of the last time the message was read.
 ## What this tool never does
 
 No read sends anything to the chat, shows the account as present, or marks
-anything read: unread state on the person's phone stays as it was. Searching
-by words (`discord_search_read`), unread counts and sending live in other
-tools. Reads are paced like
+anything read: unread state on the person's phone stays as it was.
+`discord_read_mark` (discord-inbox) marks a chat read when the person asks.
+Searching by words (`discord_search_read`), unread counts and sending live in
+other tools. Reads are paced like
 a person's, so read what the person asked for rather than whole histories.
