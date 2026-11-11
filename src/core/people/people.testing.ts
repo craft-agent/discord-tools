@@ -1,6 +1,7 @@
 import { createChatFixture } from "../chats/read.testing"
-import { ingestUsers } from "../discord/ingest"
-import { userObject } from "../discord/objects.testing"
+import { ingestServers, ingestUsers } from "../discord/ingest"
+import { columnOf } from "../discord/mirror.testing"
+import { serverObject, userObject } from "../discord/objects.testing"
 import { invoke } from "../tool"
 import { discordPeopleRead } from "./read"
 
@@ -30,6 +31,24 @@ export function seedUsers(f: PeopleFixture, ...ids: string[]): void {
     ),
   )
 }
+
+/** Stores servers as a server list would: each id with its name. */
+export function seedServers(f: PeopleFixture, ...servers: [id: string, name: string][]): void {
+  f.seed((m) =>
+    ingestServers(
+      m,
+      f.ingestContext(),
+      servers.map(([id, name]) => serverObject(id, { name })),
+    ),
+  )
+}
+
+/** The requests the fake received, each as `METHOD path`. */
+export const requestsOf = (f: PeopleFixture) => f.discord.api.map((request) => `${request.method} ${request.path}`)
+
+/** The ids of the users the mirror holds, in order. */
+export const storedUsersOf = (f: PeopleFixture) =>
+  f.inspect((m) => columnOf(m, "SELECT CAST(id AS TEXT) FROM users ORDER BY id"))
 
 /** An entry of `/users/@me/relationships`: `type` 1 a friend, 2 blocked, 3 a request received, 4 a request sent. */
 export function relationship(user: ReturnType<typeof userObject>, type = 1, extra: Record<string, unknown> = {}) {
