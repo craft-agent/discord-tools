@@ -17,6 +17,7 @@ const CHAT_READ = "discord_chat_read"
 const SEARCH_READ = "discord_search_read"
 const SYNC_READ = "discord_sync_read"
 const INBOX_READ = "discord_inbox_read"
+const HISTORY_READ = "discord_history_read"
 const WRITE_TOOLS = {
   discord_sync_add: "idempotent",
   discord_sync_remove: "overwrite",
@@ -34,6 +35,7 @@ const ACTION_TOOLS = {
   discord_pin_add: "idempotent",
   discord_pin_remove: "overwrite",
   discord_file_save: "add",
+  discord_export_create: "add",
 }
 const NO_ACCOUNT = "No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "cli-tools-smoke-"))
@@ -90,6 +92,13 @@ async function listsTheServersTools() {
     expect(
       listed.some((tool) => tool.id === INBOX_READ && tool.class === "read"),
       `Expected ${label} to include ${INBOX_READ} as a read tool`,
+    )
+    const historyOn = settings.includes("all")
+    expect(
+      historyOn
+        ? listed.some((tool) => tool.id === HISTORY_READ && tool.class === "read")
+        : !listed.some((tool) => tool.id === HISTORY_READ),
+      `Expected ${label} to ${historyOn ? `include ${HISTORY_READ} as a read tool` : `omit ${HISTORY_READ}`}`,
     )
     for (const [id, writeClass] of Object.entries(WRITE_TOOLS)) {
       const tool = listed.find((entry) => entry.id === id)

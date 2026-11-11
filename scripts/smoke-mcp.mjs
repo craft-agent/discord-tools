@@ -27,7 +27,9 @@ const PIN_ADD = "discord_pin_add"
 const PIN_REMOVE = "discord_pin_remove"
 const ACTION_TOOLS = [MESSAGE_EDIT, MESSAGE_DELETE, REACTION_ADD, REACTION_REMOVE, PIN_ADD, PIN_REMOVE]
 const FILE_SAVE = "discord_file_save"
+const EXPORT_CREATE = "discord_export_create"
 const INBOX_READ = "discord_inbox_read"
+const HISTORY_READ = "discord_history_read"
 const INBOX_WRITE_TOOLS = ["discord_saved_add", "discord_saved_remove", "discord_read_mark"]
 const REQUIRES_USER_INTERACTION = "anthropic/requiresUserInteraction"
 const NO_ACCOUNT = "No Discord account is signed in yet"
@@ -109,6 +111,14 @@ async function listTools(settings) {
     expectAnnotations(tools, INBOX_READ, { readOnlyHint: true }, settings)
     console.log(`${INBOX_READ} is read-only under ${JSON.stringify(settings)}.`)
 
+    if (settings.includes("all")) {
+      expectAnnotations(tools, HISTORY_READ, { readOnlyHint: true }, settings)
+      console.log(`${HISTORY_READ} is read-only under ${JSON.stringify(settings)}.`)
+    } else {
+      expectAbsent(tools, HISTORY_READ, settings)
+      console.log(`${HISTORY_READ} is absent under ${JSON.stringify(settings)}.`)
+    }
+
     if (settings.includes("--read-only")) {
       for (const name of [SYNC_ADD, SYNC_REMOVE, MESSAGE_SEND, FILE_SEND, ...INBOX_WRITE_TOOLS]) {
         expectAbsent(tools, name, settings)
@@ -176,9 +186,17 @@ async function listTools(settings) {
       expectAnnotations(tools, FILE_SAVE, { readOnlyHint: false, destructiveHint: false }, settings)
       await expectToolError(client, FILE_SAVE, { channel: "general", message: "1" }, "invalid_argument")
       console.log(`${FILE_SAVE} carries its write annotations and refuses a name for an id.`)
+      expectAnnotations(
+        tools,
+        EXPORT_CREATE,
+        { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+        settings,
+      )
+      await expectToolError(client, EXPORT_CREATE, { chat: "general" }, "invalid_argument")
+      console.log(`${EXPORT_CREATE} carries its write annotations and refuses a name for an id.`)
     } else {
-      for (const name of [...ACTION_TOOLS, FILE_SAVE]) expectAbsent(tools, name, settings)
-      console.log(`The actions and files tools are absent under ${JSON.stringify(settings)}.`)
+      for (const name of [...ACTION_TOOLS, FILE_SAVE, EXPORT_CREATE]) expectAbsent(tools, name, settings)
+      console.log(`The actions, files and export tools are absent under ${JSON.stringify(settings)}.`)
     }
 
     const result = await client.callTool({ name: UNKNOWN_TOOL })

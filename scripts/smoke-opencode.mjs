@@ -14,6 +14,7 @@ const CHAT_READ = "discord_chat_read"
 const SEARCH_READ = "discord_search_read"
 const SYNC_READ = "discord_sync_read"
 const INBOX_READ = "discord_inbox_read"
+const HISTORY_READ = "discord_history_read"
 const WRITE_TOOLS = [
   "discord_sync_add",
   "discord_sync_remove",
@@ -32,6 +33,7 @@ const ACTION_TOOLS = [
   "discord_pin_remove",
 ]
 const FILE_SAVE = "discord_file_save"
+const EXPORT_CREATE = "discord_export_create"
 const NO_ACCOUNT = "not_found: No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "opencode-smoke-"))
 
@@ -118,6 +120,7 @@ try {
     for (const [skill, on] of [
       ["discord-sends", !readOnly],
       ["discord-actions", allToolsets && !readOnly],
+      ["discord-history", allToolsets],
       ["discord-files", allToolsets && !readOnly],
     ]) {
       expect(
@@ -125,7 +128,7 @@ try {
         `Expected setup to ${on ? "discover" : "leave out"} ${skill} with read_only=${readOnly}.`,
       )
     }
-    for (const name of [...ACTION_TOOLS, FILE_SAVE]) {
+    for (const name of [...ACTION_TOOLS, FILE_SAVE, EXPORT_CREATE]) {
       expect(
         expected.includes(name) === (allToolsets && !readOnly),
         `Expected the MCP registry to ${allToolsets && !readOnly ? "include" : "omit"} ${name} with read_only=${readOnly}.`,
@@ -135,6 +138,10 @@ try {
     expect(expected.includes(SEARCH_READ), `Expected the MCP registry to include ${SEARCH_READ}.`)
     expect(expected.includes(SYNC_READ), `Expected the MCP registry to include ${SYNC_READ}.`)
     expect(expected.includes(INBOX_READ), `Expected the MCP registry to include ${INBOX_READ}.`)
+    expect(
+      expected.includes(HISTORY_READ) === allToolsets,
+      `Expected the MCP registry to ${allToolsets ? "include" : "omit"} ${HISTORY_READ} with toolsets all.`,
+    )
     for (const name of WRITE_TOOLS) {
       expect(
         expected.includes(name) === !readOnly,

@@ -11,19 +11,21 @@ import { numberedName } from "./names"
 const FILE_MODE = 0o644
 
 /** How many files of one name a folder may hold before another is refused. */
-const COPIES_MAX = 99
+export const COPIES_MAX = 99
 
 /** The name a file has while it is being copied into the folder. */
-const PART_PREFIX = ".part-"
+export const PART_PREFIX = ".part-"
+
+export const PART_RANDOM_BYTES = 8
 
 /** A new file only: an existing one, or a link in its place, is never opened. */
-const NEW_FILE_FLAGS = constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW
+export const NEW_FILE_FLAGS = constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW
 
 /** An existing file is read through no link, and a special file never blocks the open. */
 const EXISTING_FILE_FLAGS = constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
 
 /** The errors of a file system, or a pair of folders, that cannot make a hard link. */
-const NO_HARD_LINKS: ReadonlySet<string> = new Set(["EPERM", "ENOTSUP", "EOPNOTSUPP", "EXDEV", "EMLINK"])
+export const NO_HARD_LINKS: ReadonlySet<string> = new Set(["EPERM", "ENOTSUP", "EOPNOTSUPP", "EXDEV", "EMLINK"])
 
 /** Where a file was put: `already` when a file of the same name and the same bytes was there. */
 export type Published = { status: "saved" | "already"; path: string }
@@ -144,7 +146,7 @@ export class MessageFolder {
    */
   async publish(staged: string, name: string): Promise<Published> {
     await this.#ensure()
-    const part = join(this.path, `${PART_PREFIX}${randomBytes(8).toString("hex")}`)
+    const part = join(this.path, `${PART_PREFIX}${randomBytes(PART_RANDOM_BYTES).toString("hex")}`)
     let partDigest: string | undefined
     try {
       await copyNew(staged, part)

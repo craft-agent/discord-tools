@@ -1,6 +1,6 @@
 # discord-tools
 
-Discord tools for coding agents: chats, messages, search, inbox, files, sends and roles.
+Discord tools for coding agents: chats, messages, search, inbox, history, files, sends and roles.
 
 > [!WARNING]
 > These tools act from your own Discord account, through the web client's
@@ -168,6 +168,8 @@ all listed too.
 | inbox   | `discord_read_mark`       | [discord-inbox](skills/discord-inbox/SKILL.md)     | marks one chat read, on every device        |
 | sends   | `discord_message_send`    | [discord-sends](skills/discord-sends/SKILL.md)     | sends a text, optionally as a reply         |
 | sends   | `discord_file_send`       | [discord-sends](skills/discord-sends/SKILL.md)     | sends files, optionally with a text         |
+| history | `discord_history_read`    | [discord-history](skills/discord-history/SKILL.md) | counts messages per chat, author or day     |
+| history | `discord_export_create`   | [discord-history](skills/discord-history/SKILL.md) | writes a chat's history to a private file   |
 | files   | `discord_file_save`       | [discord-files](skills/discord-files/SKILL.md)     | saves the files of a message to disk        |
 | actions | `discord_message_edit`    | [discord-actions](skills/discord-actions/SKILL.md) | edits the account's own message             |
 | actions | `discord_message_delete`  | [discord-actions](skills/discord-actions/SKILL.md) | deletes the account's own message           |
@@ -323,6 +325,25 @@ reached Discord is `uncertain`: `details.applied` says whether one read-back of
 the chat saw the new state (`null` when it could not tell). Repeating an
 action is harmless, but check the chat and ask first.
 
+`history` is off by default because the export writes files; turn it on with
+`toolsets` (for example `--toolsets all`, or the defaults plus `history`).
+`read_only` keeps only `discord_history_read`, whose method `counts` counts
+the mirror's ordinary messages and replies per chat, author or day, over the
+past 30 days by default, without reading text. Totals cover the whole window;
+`limit` cuts only rows. Days use `time_zone`, by default the machine's.
+`coverage.partial` and `coverage.not_current` flag lower bounds, not Discord's
+totals: backfill older gaps in a followed chat or wait for the next sync.
+
+`discord_export_create` writes one chat's history held in one piece by the
+mirror, current or not, as Markdown, JSON or JSONL, with whole texts and message
+permalinks. Files go under `<download_dir>/exports/`, private (0600 files in a
+0700 folder), never overwritten; taken names get a number. `count`, `current`,
+`left_out`, `truncated` and `complete_to_start` say what the file covers.
+Continue into a new file with `continue.older.before` or `continue.newer.after`;
+`continue.backfill_first` means backfill a followed chat before going older.
+Every export is asked about. Neither tool makes a request to Discord. Exports
+may hold private DMs; never send, upload or share one unless the person asks.
+
 `files` is off by default, because it writes files to disk; turn it on with
 `toolsets` (for example `--toolsets all`, or the defaults plus `files`).
 `read_only` leaves it out. `discord_file_save` takes a chat and a message by
@@ -464,19 +485,19 @@ Where a write is asked about, and where it is not:
 Every entry point takes the same settings. A flag wins over its environment
 variable, and an option or setting wins over the variable too.
 
-| Setting           | Flag                | Variable                        | Meaning                                                                       |
-| ----------------- | ------------------- | ------------------------------- | ----------------------------------------------------------------------------- |
-| `toolsets`        | `--toolsets`        | `DISCORD_TOOLS_TOOLSETS`        | the toolsets that are on, or `all`; default those `src/project.ts` names      |
-| `read_only`       | `--read-only`       | `DISCORD_TOOLS_READ_ONLY`       | registers no tool that writes; wins over every other setting                  |
-| `tools`           | `--tools`           | `DISCORD_TOOLS_TOOLS`           | single tools to add by ID, whatever their toolset                             |
-| `exclude_tools`   | `--exclude-tools`   | `DISCORD_TOOLS_EXCLUDE_TOOLS`   | single tools to remove by ID; wins over `tools` and `toolsets`                |
-| `confirm`         | `--confirm`         | `DISCORD_TOOLS_CONFIRM`         | MCP server only: `harness` (default) or `elicitation`, as the conventions say |
-| `language`        | `--language`        | `DISCORD_TOOLS_LANGUAGE`        | native plugins only: the approval prompt's language, such as `ja`             |
-| `state_dir`       | `--state-dir`       | `DISCORD_TOOLS_STATE_DIR`       | where every label's state lives; default `$XDG_STATE_HOME/discord-tools`      |
-| `download_dir`    | `--download-dir`    | `DISCORD_TOOLS_DOWNLOAD_DIR`    | where received files are saved; default `~/Downloads/discord-tools`           |
-| `download_max_mb` | `--download-max-mb` | `DISCORD_TOOLS_DOWNLOAD_MAX_MB` | the most megabytes a received file may have, 1 to 500; default 100            |
-| `send_dirs`       | `--send-dirs`       | `DISCORD_TOOLS_SEND_DIRS`       | where files may be sent from; default the working directory                   |
-| `send_max_mb`     | `--send-max-mb`     | `DISCORD_TOOLS_SEND_MAX_MB`     | the most megabytes a sent file may have, 1 to 500; default 10                 |
+| Setting           | Flag                | Variable                        | Meaning                                                                                                             |
+| ----------------- | ------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `toolsets`        | `--toolsets`        | `DISCORD_TOOLS_TOOLSETS`        | the toolsets that are on, or `all`; default those `src/project.ts` names                                            |
+| `read_only`       | `--read-only`       | `DISCORD_TOOLS_READ_ONLY`       | registers no tool that writes; wins over every other setting                                                        |
+| `tools`           | `--tools`           | `DISCORD_TOOLS_TOOLS`           | single tools to add by ID, whatever their toolset                                                                   |
+| `exclude_tools`   | `--exclude-tools`   | `DISCORD_TOOLS_EXCLUDE_TOOLS`   | single tools to remove by ID; wins over `tools` and `toolsets`                                                      |
+| `confirm`         | `--confirm`         | `DISCORD_TOOLS_CONFIRM`         | MCP server only: `harness` (default) or `elicitation`, as the conventions say                                       |
+| `language`        | `--language`        | `DISCORD_TOOLS_LANGUAGE`        | native plugins only: the approval prompt's language, such as `ja`                                                   |
+| `state_dir`       | `--state-dir`       | `DISCORD_TOOLS_STATE_DIR`       | where every label's state lives; default `$XDG_STATE_HOME/discord-tools`                                            |
+| `download_dir`    | `--download-dir`    | `DISCORD_TOOLS_DOWNLOAD_DIR`    | where received files are saved; exports go under its private `exports/` folder; default `~/Downloads/discord-tools` |
+| `download_max_mb` | `--download-max-mb` | `DISCORD_TOOLS_DOWNLOAD_MAX_MB` | the most megabytes a received file may have, 1 to 500; default 100                                                  |
+| `send_dirs`       | `--send-dirs`       | `DISCORD_TOOLS_SEND_DIRS`       | where files may be sent from; default the working directory                                                         |
+| `send_max_mb`     | `--send-max-mb`     | `DISCORD_TOOLS_SEND_MAX_MB`     | the most megabytes a sent file may have, 1 to 500; default 10                                                       |
 
 Lists are comma-separated in a flag or a variable. Where each harness reads them:
 
