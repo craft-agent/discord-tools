@@ -1,5 +1,6 @@
 import { invalid } from "../chats/args"
 import { isSnowflake } from "../discord/snowflake"
+import { checkMethodArgs } from "./method-args"
 import { PEOPLE_METHODS, type PeopleMethod, type PeopleReadInput } from "./schemas"
 
 /** The arguments every method takes. */
@@ -31,19 +32,7 @@ const ID_ARGUMENTS = ["user", "server"] as const
  * method.
  */
 export function checkArgs(args: PeopleReadInput): void {
-  const takes = [...ALWAYS, ...ALLOWED[args.method]]
-  for (const [field, value] of Object.entries(args)) {
-    if (value !== undefined && !takes.includes(field as keyof PeopleReadInput)) {
-      const takenBy = PEOPLE_METHODS.filter((method) => ALLOWED[method].includes(field as keyof PeopleReadInput))
-      const only =
-        takenBy.length === 1
-          ? ` Only method ${takenBy[0]} takes it.`
-          : takenBy.length > 1
-            ? ` Only methods ${takenBy.slice(0, -1).join(", ")} and ${takenBy.at(-1)} take it.`
-            : ""
-      invalid(`${field} is not an argument of method ${args.method}; it takes: ${takes.join(", ")}.${only}`)
-    }
-  }
+  checkMethodArgs(args, PEOPLE_METHODS, ALWAYS, ALLOWED)
   for (const field of REQUIRED[args.method] ?? []) {
     if (args[field] === undefined) invalid(`Method ${args.method} needs \`${field}\`.`)
   }
