@@ -665,6 +665,23 @@ Every entry point takes the same settings:
   `GET /users/@me/notes`, or `GET /users/@me/notes/{user}` for one user. A
   note is private to the user; the result says so, and a user with no note is
   `note: null`, not an error.
+- **A profile is read one person at a time, when asked.** Method `profile`
+  asks `GET /users/{user}/profile` with mutual servers and friends, and with
+  `server` the member's profile there. Discord shows a profile only to a
+  friend, someone sharing a server, a bot or a pending request, and answers
+  others with a refusal that is passed on as it is. The official client reads
+  a profile when one is opened, never in bulk, so the tool and the skill keep
+  to the person asked about. Mutual servers are named from the mirror, null
+  for one it does not hold.
+- **A member is one server's view of a person.** Method `member` asks
+  `GET /guilds/{server}/members/{user}` and `GET /guilds/{server}/roles`, so
+  each role comes with its name, highest first. Method `members` searches a
+  server's members by name with `POST /guilds/{server}/members-search`, a
+  POST that changes nothing and is sent as a read, as a search's is; it needs
+  Manage Server, and
+  without it the refusal says to take ids from messages, mentions or the
+  friend list instead. Discord answers 202 while it indexes a server; that is
+  waited out once, as a search's is, then reported.
 
 ## History
 
