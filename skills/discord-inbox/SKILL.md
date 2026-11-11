@@ -1,6 +1,8 @@
 ---
 name: discord-inbox
 description: 'Use when catching up on what waits for the user on Discord: messages that mention them, chats waiting for their answer, saved messages and reminders, saving a message or removing a save, or marking a chat read ("what did I miss?", "who is waiting for my reply?", "what mentioned me this week?", "show my saved messages", "remind me about this message tomorrow", "mark that chat read"). Covers the three inbox lists, what "waiting" does and does not mean, reminders and what to do when a write is uncertain. Not for reading a chat (discord-chats), searching by words (discord-search), or sending (discord-sends).'
+metadata:
+  toolset: inbox
 ---
 
 # Mentions, waiting chats, saves and read marks
