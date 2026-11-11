@@ -29,6 +29,7 @@ import { promptTranslator, promptWords } from "../entry/words"
 import { PROJECT } from "../project"
 import { usageError } from "./command-args"
 import { EXIT_FAILED, EXIT_OK, EXIT_USAGE, type CommandIo } from "./command-io"
+import { runGatewayCheckCommand } from "./gateway-check"
 import { runLoginCommand } from "./login"
 import { runRemoveCommand } from "./remove"
 import { runServiceCommand } from "./service"
@@ -90,7 +91,7 @@ function parseCommand(argv: string[], io: Pick<CliIo, "specs" | "env" | "profile
   if (name !== "run" && name !== "target") {
     const given = name === undefined ? "No command given" : `Unknown command "${name}"`
     throw usageError(
-      `${given}; use list, run <tool-id> --cwd <dir> [${PIN_FLAG} <hex>], target <tool-id> --cwd <dir> [${LANGUAGE_FLAG} <tag>] [${HARNESS_LANGUAGE_FLAG} <tag>], login, sync, service or remove.`,
+      `${given}; use list, run <tool-id> --cwd <dir> [${PIN_FLAG} <hex>], target <tool-id> --cwd <dir> [${LANGUAGE_FLAG} <tag>] [${HARNESS_LANGUAGE_FLAG} <tag>], login, sync, service, gateway-check or remove.`,
     )
   }
 
@@ -231,6 +232,7 @@ const PERSON_COMMANDS: Partial<Record<string, (argv: string[], io: CliIo) => Pro
   login: runLoginCommand,
   sync: runSyncCommand,
   service: runServiceCommand,
+  "gateway-check": runGatewayCheckCommand,
   remove: runRemoveCommand,
 }
 
@@ -251,7 +253,7 @@ const PERSON_COMMANDS: Partial<Record<string, (argv: string[], io: CliIo) => Pro
  * display language) as the prompt language; none, or one without a table,
  * keeps English. Standard output carries only the JSON document; a
  * mistake in the command line is one line on standard error and `EXIT_USAGE`.
- * `login`, `sync`, `service` and `remove` are for a person managing an account's local
+ * `login`, `sync`, `service`, `gateway-check` and `remove` are for a person managing an account's local
  * state (see `PERSON_COMMANDS`). Resolves to the exit code.
  */
 export async function runCli(argv: string[], io: CliIo): Promise<number> {
