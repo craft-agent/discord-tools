@@ -1,6 +1,8 @@
 ---
 name: discord-files
 description: 'Use when the person asks to save, download or look at a file someone sent on Discord: an attachment, the image of a link preview or a sticker, and archives such as a .zip ("save the PDF Alice sent", "download the images in that message", "unpack the zip Bob posted"). Covers finding the ids, where files go, what is checked, what each outcome means and when to unpack an archive. Not for sending files (discord_file_send, discord-sends), or for reading or searching messages (discord-chats, discord-search).'
+metadata:
+  toolset: files
 ---
 
 # Saving files from a message

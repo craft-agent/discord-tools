@@ -66,8 +66,9 @@ function v2Tool(
 /**
  * The `setup` of the OpenCode V2 plugin: registers the tools the plugin
  * options select, each asking the harness's permission before a non-read call,
- * and the package's skills. A settings mistake throws, so the harness reports
- * the plugin as failed.
+ * and the package's skills, those linked to a toolset only when the options
+ * leave that toolset a selected tool. A settings mistake throws, so the
+ * harness reports the plugin as failed.
  */
 export function createV2Setup(specs: ToolSpec[], deps: PluginDeps = {}): OpenCodePlugin["setup"] {
   const runtime = createToolRuntime(deps)
@@ -76,7 +77,10 @@ export function createV2Setup(specs: ToolSpec[], deps: PluginDeps = {}): OpenCod
     const tools = selection.tools.map((spec) =>
       v2Tool(ctx, spec, deps.ownDir, selection.storage, runtime, selection.translator),
     )
-    const skills = deps.skillsDir === undefined ? [] : await loadSkills(deps.skillsDir)
+    const skills =
+      deps.skillsDir === undefined
+        ? []
+        : await loadSkills(deps.skillsDir, new Set(selection.tools.map((spec) => spec.toolset)))
 
     if (tools.length > 0) {
       await ctx.tool.transform((editor) => {

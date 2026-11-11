@@ -1,6 +1,8 @@
 ---
 name: discord-search
 description: 'Use when looking for past Discord messages by words or by what they hold: who said something, a link or file someone shared, messages that mention a person, pinned or reacted messages, in one chat, one server or every DM ("find where Bob mentioned the deadline", "the PDF Alice sent last month", "links posted in #dev", "did anyone mention me in that server?"). Covers choosing the local mirror or Discord''s own search, the filters and paging. Not for reading a chat in order or the messages around one message (discord-chats), unread counts, or sending.'
+metadata:
+  toolset: search
 ---
 
 # Searching messages

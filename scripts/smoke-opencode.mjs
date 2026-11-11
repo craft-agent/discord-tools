@@ -103,10 +103,18 @@ try {
     expect(skills.includes("discord-account"), "Expected setup to discover the account skill.")
     expect(skills.includes("discord-chats"), "Expected setup to discover the chats skill.")
     expect(skills.includes("discord-sync"), "Expected setup to discover the sync skill.")
-    expect(skills.includes("discord-sends"), "Expected setup to discover the sends skill.")
     expect(skills.includes("discord-search"), "Expected setup to discover the search skill.")
-    expect(skills.includes("discord-actions"), "Expected setup to discover the actions skill.")
-    expect(skills.includes("discord-files"), "Expected setup to discover the files skill.")
+    // A skill comes with its toolset's tools: sends has only writes, actions and files are off by default.
+    for (const [skill, on] of [
+      ["discord-sends", !readOnly],
+      ["discord-actions", allToolsets && !readOnly],
+      ["discord-files", allToolsets && !readOnly],
+    ]) {
+      expect(
+        skills.includes(skill) === on,
+        `Expected setup to ${on ? "discover" : "leave out"} ${skill} with read_only=${readOnly}.`,
+      )
+    }
     for (const name of [...ACTION_TOOLS, FILE_SAVE]) {
       expect(
         expected.includes(name) === (allToolsets && !readOnly),
