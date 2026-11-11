@@ -1,8 +1,14 @@
 import type { ReadableStreamDefaultReader } from "node:stream/web"
-import { fetch } from "wreq-js"
+import { WebSocket, fetch } from "wreq-js"
 import { BROWSER_PROFILE, type ClientOs } from "./identity"
 import { maskTokens } from "./mask"
-import { type DownloadTransport, type Transport, TransportFailure } from "./transport"
+import {
+  type DownloadTransport,
+  type SocketEvent,
+  type SocketTransport,
+  type Transport,
+  TransportFailure,
+} from "./transport"
 
 /**
  * wreq reports a failure as one `RequestError` whose text is the native
@@ -82,6 +88,71 @@ export function wreqTransport(os: ClientOs): Transport {
       return { status: response.status, headers: lowerCaseHeaders(response.headers), body: await response.text() }
     } catch (error) {
       throw failure(error)
+    }
+  }
+}
+
+/**
+ * A transport that opens a WebSocket with Chrome's TLS fingerprint through
+ * wreq. The socket is made with the constructor, not `websocket()`, so its
+ * listeners are in place before the connection completes: `websocket()` hands
+ * the socket back only afterwards, and a message that arrived by then, such as
+ * Discord's first, would reach nobody. Events are queued until `next` takes
+ * them. wreq keeps no time limit for connecting, and a close while connecting
+ * ends only once the connection settles, so the caller bounds its waiting.
+ */
+export function wreqSocket(os: ClientOs): SocketTransport {
+  return async (request) => {
+    if (request.signal?.aborted) throw new TransportFailure("The request was cancelled before it was sent.", false)
+    const queued: SocketEvent[] = []
+    let ended: SocketEvent | undefined
+    let waiting: ((event: SocketEvent) => void) | undefined
+    let lastError: string | undefined
+    let closed: () => void = () => {}
+    const closedPromise = new Promise<void>((resolve) => (closed = resolve))
+
+    const push = (event: SocketEvent): void => {
+      if (ended) return
+      if (event.type === "close") ended = event
+      const taker = waiting
+      waiting = undefined
+      if (taker) taker(event)
+      else queued.push(event)
+    }
+
+    let socket: WebSocket
+    try {
+      socket = new WebSocket(request.url, {
+        browser: BROWSER_PROFILE,
+        os,
+        headers: request.headers,
+        maxMessageSize: request.maxMessageSize,
+        maxFrameSize: request.maxMessageSize,
+      })
+    } catch (error) {
+      throw failure(error)
+    }
+    socket.addEventListener("message", ({ data }) => {
+      if (typeof data === "string" || data instanceof Uint8Array) push({ type: "message", data })
+    })
+    socket.addEventListener("error", ({ message }) => {
+      lastError = message === undefined ? undefined : maskTokens(message).slice(0, MAX_DETAIL_LENGTH)
+    })
+    socket.addEventListener("close", ({ code, reason }) => {
+      push({ type: "close", code, reason, ...(lastError === undefined ? {} : { error: lastError }) })
+      closed()
+    })
+
+    return {
+      next: () => {
+        const event = queued.shift() ?? ended
+        return event ? Promise.resolve(event) : new Promise((resolve) => (waiting = resolve))
+      },
+      send: (text) => socket.send(text),
+      close: (code) => {
+        socket.close(code)
+        return closedPromise
+      },
     }
   }
 }

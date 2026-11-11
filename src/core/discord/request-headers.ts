@@ -129,6 +129,28 @@ export function uploadHeaders(input: UploadHeaderInput): [string, string][] {
   return UPLOAD_HEADER_ORDER.map((name) => [name, values[name]])
 }
 
+/** The headers of the gateway's upgrade request, in the order they are sent. */
+export const GATEWAY_HEADER_ORDER = ["pragma", "cache-control", "user-agent", "origin", "accept-language"] as const
+
+export type GatewayHeaderInput = Pick<RequestHeaderInput, "os" | "locale">
+
+/**
+ * The headers of the WebSocket upgrade to the gateway, as the web client's
+ * page sends them. The token is not among them: it goes only in Identify. The
+ * TLS and the headers the browser profile adds come from the transport. The
+ * set follows the web client and is not yet confirmed against Discord.
+ */
+export function gatewayHeaders(input: GatewayHeaderInput): [string, string][] {
+  const values: Record<(typeof GATEWAY_HEADER_ORDER)[number], string> = {
+    pragma: "no-cache",
+    "cache-control": "no-cache",
+    "user-agent": userAgent(input.os),
+    origin: WEB_ORIGIN,
+    "accept-language": acceptLanguage(input.locale),
+  }
+  return GATEWAY_HEADER_ORDER.map((name) => [name, values[name]])
+}
+
 /** Percent-encodes a reason the way the web client does: spaces and slashes stay. */
 function encodeReason(reason: string): string {
   return encodeURIComponent(reason)

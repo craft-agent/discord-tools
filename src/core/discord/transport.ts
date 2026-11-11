@@ -35,6 +35,28 @@ export type DownloadResponse = {
 /** Like `Transport`, but resolves at the headers and leaves the body to be read. Same `TransportFailure` semantics. */
 export type DownloadTransport = (request: TransportRequest) => Promise<DownloadResponse>
 
+/** What happened on a WebSocket. */
+export type SocketEvent =
+  | { type: "message"; data: Uint8Array | string }
+  /** The connection ended: the peer closed it, we did, or it failed (code 1006, with `error` the failure's text when known). */
+  | { type: "close"; code: number; reason: string; error?: string }
+
+/** A WebSocket to open: the upgrade request's URL and headers (in order), and the largest message accepted. */
+export type SocketRequest = Pick<TransportRequest, "url" | "headers" | "signal"> & { maxMessageSize: number }
+
+/** An open WebSocket, read by pulling events one after another so that none is missed. */
+export type TransportSocket = {
+  /** The next event, in order; once the connection has ended, `close` again. Ask for one at a time. */
+  next(): Promise<SocketEvent>
+  /** Sends a text frame. */
+  send(text: string): void
+  /** Starts closing with `code` and resolves once the connection has ended; safe to call again. */
+  close(code: number): Promise<void>
+}
+
+/** Opens a WebSocket without waiting for the connection: events, a failure to connect included, arrive through `next`. Rejects with a `TransportFailure` for a request it cannot make. */
+export type SocketTransport = (request: SocketRequest) => Promise<TransportSocket>
+
 /** A request that failed below HTTP. */
 export class TransportFailure extends Error {
   /** False only when the request cannot have left the machine (no connection was made, or it was cancelled before sending). */
