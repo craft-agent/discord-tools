@@ -682,6 +682,17 @@ Every entry point takes the same settings:
   without it the refusal says to take ids from messages, mentions or the
   friend list instead. Discord answers 202 while it indexes a server; that is
   waited out once, as a search's is, then reported.
+- **A server is read whole, never through the mirror's copy.**
+  `discord_server_read` takes a `server` the mirror knows. Method `info` asks
+  `GET /guilds/{server}?with_counts=true` for what the server says of itself
+  and its approximate member and online counts; Discord's counts are
+  estimates, and the result says so. Method `roles` asks
+  `GET /guilds/{server}/roles` and `/roles/member-counts` and lists every role
+  highest first, with how many members hold it (null when Discord gives no
+  count). Method `emojis` asks `GET /guilds/{server}/emojis` and `/stickers`,
+  filters them by name locally and caps each list, saying when it did; an
+  emoji comes with the text that uses it in a message. Nothing they return is
+  stored: the mirror's server row stays what the sync last wrote.
 
 ## History
 
