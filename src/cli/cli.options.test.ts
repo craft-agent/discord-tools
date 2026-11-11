@@ -1,9 +1,52 @@
 import { describe, expect, test } from "bun:test"
+import type { ToolSpec } from "../core"
 import { NOTE_ID, NOTE_OPTION, noteSpec } from "../entry/options.testing"
 import { EXIT_OK, EXIT_USAGE } from "./cli"
 import { cli, json } from "./testing"
 
+const stateSpec: ToolSpec = {
+  ...noteSpec,
+  describe: (_args, ctx) => ({ facts: [{ label: "State", value: `${ctx.stateDir}|${ctx.options?.[NOTE_OPTION]}` }] }),
+}
+
 describe("command-line tool options", () => {
+  test("target takes the storage flags beside the options", async () => {
+    const target = await cli(
+      ["target", NOTE_ID, "--cwd", "/work/project", "--state-dir", "/flag/state", "--note-text", "from flag"],
+      "",
+      { specs: [stateSpec] },
+    )
+    expect(target.code).toBe(EXIT_OK)
+    expect(json(target).description.facts).toContainEqual({ label: "State", value: "/flag/state|from flag" })
+  })
+
+  test("run hands the storage settings and the options to the tool together", async () => {
+    const seen: { stateDir?: string; options?: unknown }[] = []
+    const spec: ToolSpec = {
+      ...noteSpec,
+      async execute(_args, ctx) {
+        seen.push({ stateDir: ctx.stateDir, options: ctx.options })
+        return { options: {} }
+      },
+    }
+    const run = await cli(
+      ["run", NOTE_ID, "--cwd", "/work/project", "--state-dir", "/flag/state", "--note-text", "from flag"],
+      "",
+      { specs: [spec] },
+    )
+    expect(run.code).toBe(EXIT_OK)
+    expect(seen).toEqual([{ stateDir: "/flag/state", options: { [NOTE_OPTION]: "from flag" } }])
+  })
+
+  test("target and the person commands refuse the other settings' flags", async () => {
+    for (const args of [
+      ["target", NOTE_ID, "--cwd", "/work/project", "--read-only"],
+      ["sync", "--note-text", "note"],
+    ]) {
+      expect((await cli(args, "", { specs: [noteSpec] })).code).toBe(EXIT_USAGE)
+    }
+  })
+
   test("run passes flags to execution and target passes them to the description", async () => {
     const run = await cli(["run", NOTE_ID, "--cwd", "/work/project", "--note-text", "from flag"], "", {
       specs: [noteSpec],
