@@ -617,6 +617,23 @@ Every entry point takes the same settings:
   push notifications stay as they were; the one tool that marks a chat read is
   its own write tool (see "Writes").
 
+## History
+
+- **Counts are the mirror's, and say where it falls short.**
+  `discord_history_read` method `counts` makes no request: it counts the
+  ordinary messages and replies the mirror holds, never system events, per
+  chat, per author or per day, over a window (the past 30 days by default).
+  A chat whose mirrored history does not reach back to the window's start,
+  or that the mirror holds only scraps of (search results, mentions), is
+  partial, and one no sync run marked in the last 15 minutes is not current;
+  the result counts both, so a reader knows the numbers are lower bounds
+  rather than finding out later. A backfill is how a partial chat is made
+  whole. Counting never summarizes text.
+- **A day is a day where the person is.** Days are cut at midnight in
+  `time_zone`, an IANA name, by default the machine's, and the result names
+  the zone it used. Messages are grouped in quarter hours before they are
+  given a day, since every zone's offset is a whole number of them.
+
 ## Files
 
 - **Files go in and out only through the directories a setting names**,
