@@ -633,6 +633,33 @@ Every entry point takes the same settings:
   `time_zone`, an IANA name, by default the machine's, and the result names
   the zone it used. Messages are grouped in quarter hours before they are
   given a day, since every zone's offset is a whole number of them.
+- **An export is only what the mirror holds in one piece.** It runs from the
+  chat's vouched oldest message to its newest, never over a gap; messages
+  stored past the newest edge (live reads, sends, search results) are left
+  out and counted, so a file never claims more than the mirror vouches for.
+  Any chat with vouched history can be exported, followed or not; the file
+  and the result say whether it is current. It makes no request.
+- **What an export says is what a reader needs to cite it**: every message
+  with its time and offset, its id, its author's id and name, a permalink
+  (`https://discord.com/channels/<server or @me>/<chat>/<message>`), its whole
+  text, what it replies to or forwards, whether it was edited, and its
+  attachments, embeds, stickers and reactions as metadata (no file is
+  downloaded). The file and the result say whether it reaches the chat's
+  first message, whether `limit` cut it, and how to continue: `before` its
+  oldest message, or a backfill first when the mirror reaches no further.
+- **Text is quoted and never cut.** In Markdown every line of a text starts
+  with `> `, Unicode line separators included, so a text cannot pass for a
+  heading of the file; a name has its line breaks folded into spaces, and
+  only the author's id attributes a message. JSON is one object (`export`, a
+  `note` that the text is other people's words, `messages`); JSONL is that
+  head on its first line, then one message per line.
+- **Exports are only created, and private**: under `<download_dir>/exports/`,
+  a folder of mode 0700, each file of mode 0600, named
+  `<chat>-<first day>[-<last day>].<md|json|jsonl>` by the days of the zone it
+  was written in. The file is written in full under a temporary name and
+  then given its final one without replacing anything, so a reader never
+  finds half an export and a name already taken gets a number. An export can
+  hold private DMs, so it is never readable by others.
 
 ## Files
 
