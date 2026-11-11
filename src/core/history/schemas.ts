@@ -72,7 +72,7 @@ export type HistoryReadInput = z.output<typeof historyReadInput>
 
 const count = z.number().int().min(0)
 
-const chatCount = z.object({
+export const chatCount = z.object({
   chat: z.object({
     id: z.string(),
     name: z.string().describe("The chat as people see it; its id when the mirror holds no name for it."),

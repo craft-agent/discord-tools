@@ -67,6 +67,16 @@ describe("the registry", () => {
     expect(ids({ toolsets: ["history"], read_only: true })).toContain(id)
   })
 
+  test("export create is an add tool in the off-by-default history toolset, left out in read-only mode", () => {
+    const id = "discord_export_create"
+    const ids = (settings: Parameters<typeof selectTools>[1]) =>
+      selectTools(ALL_TOOLS, settings, PROJECT_PROFILE.toolsets).map((spec) => spec.id)
+    expect(ALL_TOOLS.find((spec) => spec.id === id)).toMatchObject({ toolset: "history", class: "add" })
+    expect(ids({})).not.toContain(id)
+    expect(ids({ toolsets: ["history"] })).toContain(id)
+    expect(ids({ toolsets: ["history"], read_only: true })).not.toContain(id)
+  })
+
   test.each(["discord_saved_add", "discord_saved_remove", "discord_read_mark"])(
     "%s is an overwrite tool in the inbox toolset, on by default and left out in read-only mode",
     (id) => {

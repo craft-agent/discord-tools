@@ -21,6 +21,11 @@ export const EXPORT_FILE_MODE = 0o600
 /** A folder opened as itself: a link in its place, or anything that is not a folder, is never opened. */
 const FOLDER_FLAGS = constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW
 
+/** The folder exports go to, `<download_dir>/exports`, as a path; nothing is made. `internal_error` when the entry point gave no download directory. */
+export function exportsPath(ctx: ToolContext): string {
+  return join(downloadSettings(ctx).dir, EXPORTS_FOLDER)
+}
+
 /**
  * The folder exports go to, `<download_dir>/exports`, ready to write into.
  * The download directory is made and checked as for received files (it is
@@ -35,7 +40,7 @@ const FOLDER_FLAGS = constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NO
 export async function exportsDir(ctx: ToolContext): Promise<string> {
   const { dir } = downloadSettings(ctx)
   await ensureDownloadDir(dir, ctx)
-  const path = join(dir, EXPORTS_FOLDER)
+  const path = exportsPath(ctx)
   try {
     await mkdir(path, { mode: EXPORT_FOLDER_MODE })
   } catch (error) {

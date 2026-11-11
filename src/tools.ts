@@ -6,6 +6,7 @@ import { discordPinAdd, discordPinRemove } from "./core/actions/pin-tool"
 import { discordReactionAdd, discordReactionRemove } from "./core/actions/reaction-tool"
 import { discordChatRead } from "./core/chats/read"
 import { discordFileSave } from "./core/files/save-tool"
+import { discordExportCreate } from "./core/history/export-tool"
 import { discordHistoryRead } from "./core/history/read"
 import { discordInboxRead } from "./core/inbox/read"
 import { discordReadMark } from "./core/read-mark/read-mark-tool"
@@ -27,6 +28,7 @@ export const ALL_TOOLS: ToolSpec[] = [
   discordSearchRead,
   discordInboxRead,
   discordHistoryRead,
+  discordExportCreate,
   discordSavedAdd,
   discordSavedRemove,
   discordReadMark,

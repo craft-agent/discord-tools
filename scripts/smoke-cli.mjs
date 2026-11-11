@@ -35,6 +35,7 @@ const ACTION_TOOLS = {
   discord_pin_add: "idempotent",
   discord_pin_remove: "overwrite",
   discord_file_save: "add",
+  discord_export_create: "add",
 }
 const NO_ACCOUNT = "No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "cli-tools-smoke-"))
