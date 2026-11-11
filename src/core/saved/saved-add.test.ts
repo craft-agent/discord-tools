@@ -146,7 +146,8 @@ describe("the tool's targets", () => {
   })
 
   test("is an overwrite in the inbox toolset, with an intent", () => {
-    expect(discordSavedAdd).toMatchObject({ toolset: "inbox", class: "overwrite", intent: expect.any(String) })
+    expect(discordSavedAdd).toMatchObject({ toolset: "inbox", class: "overwrite" })
+    expect(typeof discordSavedAdd.intent).toBe("string")
     expect(discordSavedAdd.description).toContain("replaces its reminder")
   })
 })
