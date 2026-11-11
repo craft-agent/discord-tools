@@ -13,7 +13,16 @@ const ACCOUNT_READ = "discord_account_read"
 const CHAT_READ = "discord_chat_read"
 const SEARCH_READ = "discord_search_read"
 const SYNC_READ = "discord_sync_read"
-const WRITE_TOOLS = ["discord_sync_add", "discord_sync_remove", "discord_message_send", "discord_file_send"]
+const INBOX_READ = "discord_inbox_read"
+const WRITE_TOOLS = [
+  "discord_sync_add",
+  "discord_sync_remove",
+  "discord_message_send",
+  "discord_file_send",
+  "discord_saved_add",
+  "discord_saved_remove",
+  "discord_read_mark",
+]
 const ACTION_TOOLS = [
   "discord_message_edit",
   "discord_message_delete",
@@ -105,6 +114,7 @@ try {
     expect(skills.includes("discord-sync"), "Expected setup to discover the sync skill.")
     expect(skills.includes("discord-sends"), "Expected setup to discover the sends skill.")
     expect(skills.includes("discord-search"), "Expected setup to discover the search skill.")
+    expect(skills.includes("discord-inbox"), "Expected setup to discover the inbox skill.")
     expect(skills.includes("discord-actions"), "Expected setup to discover the actions skill.")
     expect(skills.includes("discord-files"), "Expected setup to discover the files skill.")
     for (const name of [...ACTION_TOOLS, FILE_SAVE]) {
@@ -116,6 +126,7 @@ try {
     expect(expected.includes(CHAT_READ), `Expected the MCP registry to include ${CHAT_READ}.`)
     expect(expected.includes(SEARCH_READ), `Expected the MCP registry to include ${SEARCH_READ}.`)
     expect(expected.includes(SYNC_READ), `Expected the MCP registry to include ${SYNC_READ}.`)
+    expect(expected.includes(INBOX_READ), `Expected the MCP registry to include ${INBOX_READ}.`)
     for (const name of WRITE_TOOLS) {
       expect(
         expected.includes(name) === !readOnly,

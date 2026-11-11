@@ -16,11 +16,15 @@ const ACCOUNT_READ = "discord_account_read"
 const CHAT_READ = "discord_chat_read"
 const SEARCH_READ = "discord_search_read"
 const SYNC_READ = "discord_sync_read"
+const INBOX_READ = "discord_inbox_read"
 const WRITE_TOOLS = {
   discord_sync_add: "idempotent",
   discord_sync_remove: "overwrite",
   discord_message_send: "add",
   discord_file_send: "add",
+  discord_saved_add: "overwrite",
+  discord_saved_remove: "overwrite",
+  discord_read_mark: "overwrite",
 }
 const ACTION_TOOLS = {
   discord_message_edit: "overwrite",
@@ -82,6 +86,10 @@ async function listsTheServersTools() {
     expect(
       listed.some((tool) => tool.id === SYNC_READ && tool.class === "read"),
       `Expected ${label} to include ${SYNC_READ} as a read tool`,
+    )
+    expect(
+      listed.some((tool) => tool.id === INBOX_READ && tool.class === "read"),
+      `Expected ${label} to include ${INBOX_READ} as a read tool`,
     )
     for (const [id, writeClass] of Object.entries(WRITE_TOOLS)) {
       const tool = listed.find((entry) => entry.id === id)

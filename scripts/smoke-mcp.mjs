@@ -27,6 +27,8 @@ const PIN_ADD = "discord_pin_add"
 const PIN_REMOVE = "discord_pin_remove"
 const ACTION_TOOLS = [MESSAGE_EDIT, MESSAGE_DELETE, REACTION_ADD, REACTION_REMOVE, PIN_ADD, PIN_REMOVE]
 const FILE_SAVE = "discord_file_save"
+const INBOX_READ = "discord_inbox_read"
+const INBOX_WRITE_TOOLS = ["discord_saved_add", "discord_saved_remove", "discord_read_mark"]
 const REQUIRES_USER_INTERACTION = "anthropic/requiresUserInteraction"
 const NO_ACCOUNT = "No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "mcp-smoke-"))
@@ -104,12 +106,21 @@ async function listTools(settings) {
     )
     console.log(`${SEARCH_READ} is read-only and refuses a name for an id under ${JSON.stringify(settings)}.`)
 
+    expectAnnotations(tools, INBOX_READ, { readOnlyHint: true }, settings)
+    console.log(`${INBOX_READ} is read-only under ${JSON.stringify(settings)}.`)
+
     if (settings.includes("--read-only")) {
-      for (const name of [SYNC_ADD, SYNC_REMOVE, MESSAGE_SEND, FILE_SEND]) expectAbsent(tools, name, settings)
+      for (const name of [SYNC_ADD, SYNC_REMOVE, MESSAGE_SEND, FILE_SEND, ...INBOX_WRITE_TOOLS]) {
+        expectAbsent(tools, name, settings)
+      }
       console.log(
-        `${SYNC_ADD}, ${SYNC_REMOVE}, ${MESSAGE_SEND} and ${FILE_SEND} are absent under ${JSON.stringify(settings)}.`,
+        `${SYNC_ADD}, ${SYNC_REMOVE}, ${MESSAGE_SEND}, ${FILE_SEND} and the inbox writes are absent under ${JSON.stringify(settings)}.`,
       )
     } else {
+      for (const name of INBOX_WRITE_TOOLS) {
+        expectAnnotations(tools, name, { readOnlyHint: false, destructiveHint: true, idempotentHint: true }, settings)
+      }
+      console.log(`The inbox writes carry their write annotations under ${JSON.stringify(settings)}.`)
       expectAnnotations(
         tools,
         SYNC_ADD,
