@@ -4,6 +4,7 @@ import { join } from "node:path"
 import { z } from "zod"
 import { ToolError, defineTool, isWithin, type ToolSpec, type Translations, type WriteClass } from "../core"
 import type { EntryProfile } from "../entry/profile"
+import { NOTE_OPTION } from "../entry/options.testing"
 
 /** Fixtures the OpenCode plugin tests share. */
 
@@ -13,6 +14,7 @@ export const PROFILE: EntryProfile = {
   cli: "demo-tools-cli",
   serviceId: "io.example.demo-tools",
   envPrefix: "DEMO",
+  options: { [NOTE_OPTION]: "text" },
   toolsets: { names: ["alpha", "beta"], defaults: ["alpha"] },
 }
 

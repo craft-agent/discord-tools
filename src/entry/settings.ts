@@ -318,6 +318,9 @@ export function parseToolSettings(
   return settings
 }
 
+/** The settings whose flags a command that selects no tools takes. */
+const STORAGE_FLAG_NAMES: readonly string[] = ["state_dir", "download_dir", "send_dirs"]
+
 /**
  * Reads only the storage settings from a command line that takes no other
  * setting, for commands that select no tools: `--state-dir`, `--download-dir`
@@ -331,11 +334,42 @@ export function parseStorageSettings(
   profile: EntryProfile = PROJECT_PROFILE,
 ): StorageSettings {
   const flags = readFlags(argv, profile)
-  const other = Object.keys(flags).find(
-    (name) => name !== "state_dir" && name !== "download_dir" && name !== "send_dirs",
-  )
+  rejectOtherFlags(flags, (name) => STORAGE_FLAG_NAMES.includes(name), profile)
+  return storageFrom(flags, env, profile)
+}
+
+/**
+ * Reads the storage settings as `parseStorageSettings` does, and the values
+ * of the package's own settings too, from a command line that takes no other
+ * setting, for the command that describes a call without running it. Any
+ * other settings flag is `invalid_argument`.
+ */
+export function parseTargetSettings(
+  argv: string[],
+  env: Record<string, string | undefined>,
+  profile: EntryProfile = PROJECT_PROFILE,
+): StorageSettings & { options: ToolOptions } {
+  const flags = readFlags(argv, profile)
+  const known = profileOptions(profile)
+  rejectOtherFlags(flags, (name) => STORAGE_FLAG_NAMES.includes(name) || name in known, profile)
+  return { ...storageFrom(flags, env, profile), options: optionsFrom(flags, env, profile) }
+}
+
+function rejectOtherFlags(
+  flags: Record<string, string>,
+  allowed: (name: string) => boolean,
+  profile: EntryProfile,
+): void {
+  const other = Object.keys(flags).find((name) => !allowed(name))
   if (other !== undefined)
     throw new ToolError("invalid_argument", `Option ${settingOptions(profile)[other]!.flag} is not available here.`)
+}
+
+function storageFrom(
+  flags: Record<string, string>,
+  env: Record<string, string | undefined>,
+  profile: EntryProfile,
+): StorageSettings {
   const value = (name: "state_dir" | "download_dir" | "send_dirs"): SettingText | undefined =>
     flags[name] !== undefined ? { text: flags[name], source: OPTIONS[name].flag } : envText(name, env, profile)
   const sendDirs = resolveSendDirs(value("send_dirs"), env)
