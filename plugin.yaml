@@ -23,6 +23,7 @@ provides_tools:
   - discord_saved_add
   - discord_saved_remove
   - discord_search_read
+  - discord_server_read
   - discord_sync_add
   - discord_sync_read
   - discord_sync_remove

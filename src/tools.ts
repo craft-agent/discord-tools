@@ -15,6 +15,7 @@ import { discordSavedAdd, discordSavedRemove } from "./core/saved/saved-tool"
 import { discordSearchRead } from "./core/search/read"
 import { discordFileSend } from "./core/sends/file-send-tool"
 import { discordMessageSend } from "./core/sends/send-tool"
+import { discordServerRead } from "./core/servers/read"
 import { discordSyncAdd } from "./core/sync/add"
 import { discordSyncRead } from "./core/sync/read"
 import { discordSyncRemove } from "./core/sync/remove"
@@ -29,6 +30,7 @@ export const ALL_TOOLS: ToolSpec[] = [
   discordSearchRead,
   discordInboxRead,
   discordPeopleRead,
+  discordServerRead,
   discordHistoryRead,
   discordExportCreate,
   discordSavedAdd,

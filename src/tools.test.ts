@@ -56,13 +56,15 @@ describe("the registry", () => {
     }
   })
 
-  test("people read is a read tool selected by default and in read-only mode", () => {
-    const id = "discord_people_read"
-    expect(ALL_TOOLS.find((spec) => spec.id === id)).toMatchObject({ toolset: "people", class: "read" })
-    for (const settings of [{}, { read_only: true }]) {
-      expect(selectTools(ALL_TOOLS, settings, PROJECT_PROFILE.toolsets).map((spec) => spec.id)).toContain(id)
-    }
-  })
+  test.each(["discord_people_read", "discord_server_read"])(
+    "%s is a read tool in the people toolset, selected by default and in read-only mode",
+    (id) => {
+      expect(ALL_TOOLS.find((spec) => spec.id === id)).toMatchObject({ toolset: "people", class: "read" })
+      for (const settings of [{}, { read_only: true }]) {
+        expect(selectTools(ALL_TOOLS, settings, PROJECT_PROFILE.toolsets).map((spec) => spec.id)).toContain(id)
+      }
+    },
+  )
 
   test("history read is a read tool in the off-by-default history toolset, kept in read-only mode", () => {
     const id = "discord_history_read"
