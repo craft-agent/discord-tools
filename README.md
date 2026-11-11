@@ -493,6 +493,7 @@ variable, and an option or setting wins over the variable too.
 | `exclude_tools`   | `--exclude-tools`   | `DISCORD_TOOLS_EXCLUDE_TOOLS`   | single tools to remove by ID; wins over `tools` and `toolsets`                                                      |
 | `confirm`         | `--confirm`         | `DISCORD_TOOLS_CONFIRM`         | MCP server only: `harness` (default) or `elicitation`, as the conventions say                                       |
 | `language`        | `--language`        | `DISCORD_TOOLS_LANGUAGE`        | native plugins only: the approval prompt's language, such as `ja`                                                   |
+| `emoji`           | —                   | —                               | Hermes only: the emoji shown beside each toolset, by toolset name (`""` for none)                                   |
 | `state_dir`       | `--state-dir`       | `DISCORD_TOOLS_STATE_DIR`       | where every label's state lives; default `$XDG_STATE_HOME/discord-tools`                                            |
 | `download_dir`    | `--download-dir`    | `DISCORD_TOOLS_DOWNLOAD_DIR`    | where received files are saved; exports go under its private `exports/` folder; default `~/Downloads/discord-tools` |
 | `download_max_mb` | `--download-max-mb` | `DISCORD_TOOLS_DOWNLOAD_MAX_MB` | the most megabytes a received file may have, 1 to 500; default 100                                                  |
