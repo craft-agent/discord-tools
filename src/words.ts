@@ -3,6 +3,7 @@ import { ACTION_TRANSLATIONS } from "./core/actions/words"
 import { CHAT_TRANSLATIONS } from "./core/chats/describe"
 import { FACT_TRANSLATIONS } from "./core/facts"
 import { FILE_TRANSLATIONS } from "./core/files/words"
+import { SAVED_TRANSLATIONS } from "./core/saved/words"
 import { FILE_SEND_TRANSLATIONS } from "./core/sends/file-words"
 import { SEND_TRANSLATIONS } from "./core/sends/words"
 import { SYNC_TRANSLATIONS } from "./core/sync/words"
@@ -15,5 +16,6 @@ export const ALL_TRANSLATIONS: Translations = mergeTranslations(
   FILE_SEND_TRANSLATIONS,
   FILE_TRANSLATIONS,
   ACTION_TRANSLATIONS,
+  SAVED_TRANSLATIONS,
   SYNC_TRANSLATIONS,
 )
