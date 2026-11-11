@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "description": "Discord tools for coding agents: chats, messages, search, inbox, files, sends and roles.",
   "author": "craftsamo",
-  "license": "MIT",
+  "license": "LicenseRef-AGPL-3.0-Commons-Clause",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/craft-agent/discord-tools.git"
