@@ -56,6 +56,17 @@ describe("the registry", () => {
     }
   })
 
+  test.each(["discord_saved_add", "discord_saved_remove"])(
+    "%s is an overwrite tool in the inbox toolset, on by default and left out in read-only mode",
+    (id) => {
+      const ids = (settings: Parameters<typeof selectTools>[1]) =>
+        selectTools(ALL_TOOLS, settings, PROJECT_PROFILE.toolsets).map((spec) => spec.id)
+      expect(ALL_TOOLS.find((spec) => spec.id === id)).toMatchObject({ toolset: "inbox", class: "overwrite" })
+      expect(ids({})).toContain(id)
+      expect(ids({ read_only: true })).not.toContain(id)
+    },
+  )
+
   test("message send is an add tool in the sends toolset, on by default and left out in read-only mode", () => {
     const id = "discord_message_send"
     expect(ALL_TOOLS.find((spec) => spec.id === id)).toMatchObject({ toolset: "sends", class: "add" })
