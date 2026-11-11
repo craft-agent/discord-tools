@@ -1,6 +1,8 @@
 ---
 name: discord-sync
 description: 'Use when choosing which Discord servers and channels the sync service follows: what it follows now, which channels are worth adding or which entries have gone quiet, and adding or removing a server or channels ("what does the sync follow?", "follow #general on that server", "stop syncing this server", "which channels should I sync?"). Not for reading messages, account or token health, or anything sent to Discord.'
+metadata:
+  toolset: sync
 ---
 
 # The sync list

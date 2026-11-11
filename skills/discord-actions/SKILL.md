@@ -1,6 +1,8 @@
 ---
 name: discord-actions
 description: 'Use when changing something that is already on Discord, as the user: editing or deleting the user''s own message, adding or taking back the user''s reaction, pinning or unpinning a message ("fix the typo in my last message", "delete that message I just sent", "react with 👍 to Alice''s message", "pin this in #announcements"). Covers finding the ids, the emoji forms and what to do when an action is uncertain. Not for sending a new message or a reply (discord-sends), reading or searching (discord-chats, discord-search), or changing other people''s messages beyond reactions and pins.'
+metadata:
+  toolset: actions
 ---
 
 # Editing, deleting, reacting and pinning

@@ -1,6 +1,8 @@
 ---
 name: discord-account
 description: 'Use when asking "which Discord account is signed in?", checking a rejected token or sync health, or finding what account setup needs attention. Reads local account status and explains the next recovery step. Not for reading chat history, sending messages, or managing which servers or channels sync.'
+metadata:
+  toolset: account
 ---
 
 # Account status
