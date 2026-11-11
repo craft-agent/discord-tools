@@ -8,8 +8,8 @@ const fromOptions = (options: Record<string, unknown> | undefined, env: Record<s
 
 describe("settingsFromOptions", () => {
   test("gives no setting for no options", () => {
-    expect(fromOptions(undefined)).toEqual({ state_dir: expect.any(String), ...DEFAULT_DOWNLOADS })
-    expect(fromOptions({})).toEqual({ state_dir: expect.any(String), ...DEFAULT_DOWNLOADS })
+    expect(fromOptions(undefined)).toEqual({ options: {}, state_dir: expect.any(String), ...DEFAULT_DOWNLOADS })
+    expect(fromOptions({})).toEqual({ options: {}, state_dir: expect.any(String), ...DEFAULT_DOWNLOADS })
   })
 
   test("reads each option", () => {
@@ -30,6 +30,7 @@ describe("settingsFromOptions", () => {
       read_only: true,
       tools: ["demo_thing_read"],
       exclude_tools: ["a"],
+      options: {},
       state_dir: "/custom/state",
       download_dir: "/custom/downloads",
       download_max_mb: 250,
@@ -60,6 +61,7 @@ describe("settingsFromOptions", () => {
       toolsets: ["gamma"],
       read_only: true,
       tools: ["a", "b"],
+      options: {},
       state_dir: "/env/state",
       download_dir: "/env/downloads",
       download_max_mb: 30,
@@ -83,6 +85,7 @@ describe("settingsFromOptions", () => {
       toolsets: ["beta"],
       read_only: false,
       tools: ["a", "b"],
+      options: {},
       state_dir: "/opt/state",
       download_dir: "/opt/get",
       download_max_mb: 5,

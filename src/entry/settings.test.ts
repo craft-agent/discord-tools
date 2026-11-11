@@ -28,11 +28,14 @@ describe("settingVariables", () => {
       "DEMO_DOWNLOAD_MAX_MB",
       "DEMO_SEND_DIRS",
       "DEMO_SEND_MAX_MB",
+      "DEMO_NOTE_TEXT",
     ])
   })
 
   test("uses the package's own prefix by default", () => {
-    expect(settingVariables()).toEqual(settingVariables({ ...profile, envPrefix: PROJECT.envPrefix }))
+    expect(settingVariables()).toEqual(
+      settingVariables({ ...profile, envPrefix: PROJECT.envPrefix, options: PROJECT.options }),
+    )
   })
 })
 
@@ -48,7 +51,12 @@ describe("forwardedVariables", () => {
 
 describe("parseSettings", () => {
   test("defaults to the harness confirming and no other setting", () => {
-    expect(parse([])).toEqual({ confirm: "harness", state_dir: expect.any(String), ...DEFAULT_DOWNLOADS })
+    expect(parse([])).toEqual({
+      confirm: "harness",
+      options: {},
+      state_dir: expect.any(String),
+      ...DEFAULT_DOWNLOADS,
+    })
   })
 
   test("reads each flag", () => {
@@ -80,6 +88,7 @@ describe("parseSettings", () => {
       tools: ["demo_thing_read"],
       exclude_tools: ["demo_thing_merge"],
       confirm: "elicitation",
+      options: {},
       state_dir: "/custom/state",
       download_dir: "/custom/downloads",
       download_max_mb: 250,
@@ -108,6 +117,7 @@ describe("parseSettings", () => {
       exclude_tools: ["c"],
       read_only: true,
       confirm: "elicitation",
+      options: {},
       state_dir: "/custom/state",
       download_dir: "/custom/downloads",
       download_max_mb: 7,
@@ -136,6 +146,7 @@ describe("parseSettings", () => {
       tools: ["x"],
       exclude_tools: ["y", "z"],
       confirm: "elicitation",
+      options: {},
       state_dir: "/env/state",
       download_dir: "/env/downloads",
       download_max_mb: 30,
@@ -216,6 +227,7 @@ describe("parseSettings", () => {
       exclude_tools: ["b"],
       confirm: "harness",
       read_only: true,
+      options: {},
       state_dir: "/flag/state",
       download_dir: "/flag/downloads",
       download_max_mb: 5,
@@ -227,6 +239,7 @@ describe("parseSettings", () => {
   test("an empty environment variable counts as unset", () => {
     expect(parse([], { DEMO_TOOLSETS: "", DEMO_CONFIRM: " ", DEMO_DOWNLOAD_MAX_MB: "" })).toEqual({
       confirm: "harness",
+      options: {},
       state_dir: expect.any(String),
       ...DEFAULT_DOWNLOADS,
     })
@@ -319,7 +332,7 @@ describe("parseSettings", () => {
 
 describe("parseToolSettings", () => {
   test("reads the tool settings and gives no confirm setting", () => {
-    expect(parseTool([])).toEqual({ state_dir: expect.any(String), ...DEFAULT_DOWNLOADS })
+    expect(parseTool([])).toEqual({ options: {}, state_dir: expect.any(String), ...DEFAULT_DOWNLOADS })
     expect(
       parseTool(
         [
@@ -338,6 +351,7 @@ describe("parseToolSettings", () => {
       read_only: true,
       tools: ["a"],
       exclude_tools: ["b"],
+      options: {},
       state_dir: "/tool/state",
       download_dir: "/tool/get",
       download_max_mb: 9,
@@ -352,7 +366,11 @@ describe("parseToolSettings", () => {
   })
 
   test("ignores DEMO_CONFIRM, even a bad one", () => {
-    expect(parseTool([], { DEMO_CONFIRM: "ask" })).toEqual({ state_dir: expect.any(String), ...DEFAULT_DOWNLOADS })
+    expect(parseTool([], { DEMO_CONFIRM: "ask" })).toEqual({
+      options: {},
+      state_dir: expect.any(String),
+      ...DEFAULT_DOWNLOADS,
+    })
   })
 })
 
