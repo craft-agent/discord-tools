@@ -120,6 +120,7 @@ try {
     for (const [skill, on] of [
       ["discord-sends", !readOnly],
       ["discord-actions", allToolsets && !readOnly],
+      ["discord-history", allToolsets],
       ["discord-files", allToolsets && !readOnly],
     ]) {
       expect(
