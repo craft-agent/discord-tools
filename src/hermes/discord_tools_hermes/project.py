@@ -11,8 +11,16 @@ CLI_NAME = "discord-tools-cli"
 #: The prefix skills start with: skills named ``<SKILL_PREFIX><topic>`` are registered without it.
 SKILL_PREFIX = "discord-"
 
-#: The emoji each toolset is shown with; empty by default until a project adds its own.
-TOOLSET_EMOJI: dict[str, str] = {}
+#: The emoji each toolset is shown with.
+TOOLSET_EMOJI: dict[str, str] = {
+    "account": "🪪",
+    "sync": "🔄",
+    "chats": "💬",
+    "search": "🔍",
+    "sends": "📤",
+    "files": "📎",
+    "actions": "🔧",
+}
 
 __all__ = [
     "CLI_NAME",
