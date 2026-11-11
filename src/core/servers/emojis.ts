@@ -1,11 +1,11 @@
 import { UNTRUSTED_NOTE } from "../chats/format"
 import type { ChatSession } from "../chats/session"
-import { idText, idTexts, intOrNull, isRecord, textOrNull, type JsonRecord } from "../discord/ingest-values"
-import { invalidResponse } from "../discord/sync-page"
+import { idText, idTexts, intOrNull, textOrNull, type JsonRecord } from "../discord/ingest-values"
 import { isToolError } from "../errors"
 import { byNameThenId } from "../people/order"
 import { readLive } from "../people/request"
 import { checkServer } from "../search/scope"
+import { entriesOf } from "./entries"
 import { type EmojiItem, EMOJIS_LIMIT_DEFAULT, type ServerHandler, type StickerItem } from "./schemas"
 
 /** Where Discord lists a server's custom emojis and stickers. */
@@ -23,12 +23,6 @@ const STICKER_FORMATS: Readonly<Record<number, NonNullable<StickerItem["format"]
 /** What the result of `emojis` tells about the filter and the cap, how an emoji is used, whose words the names are and what was stored. */
 const EMOJIS_NOTE =
   "The custom emojis and stickers of one server, read from Discord once, filtered by `query` and capped by `limit` each (`emoji_total` and `sticker_total` count them before the cap, `truncated` says which list it cut; `stickers_missing` when Discord refused the sticker list). An emoji's `use` text puts it in a message, and shows only in a server where the emoji is available to the user. Names, descriptions and tags are written by people. Nothing was stored in the local mirror."
-
-/** The objects of Discord's list: an array of objects, else `upstream_error`. */
-function entriesOf(value: unknown): JsonRecord[] {
-  if (!Array.isArray(value)) invalidResponse()
-  return value.map((entry) => (isRecord(entry) ? entry : invalidResponse()))
-}
 
 /** The emoji's item; `null` for one without a valid id or a name, which cannot be used. */
 function emojiItem(entry: JsonRecord): EmojiItem | null {
