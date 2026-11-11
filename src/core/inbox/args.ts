@@ -10,8 +10,11 @@ export const MENTIONS_LIMIT_DEFAULT = 25
 /** How many chats `waiting` returns when `limit` is left out. */
 export const WAITING_LIMIT_DEFAULT = 30
 
+/** How many saved messages `saved` returns when `limit` is left out. */
+export const SAVED_LIMIT_DEFAULT = 50
+
 /** The most each method returns in one call. */
-const LIMIT_MAX: Record<InboxMethod, number> = { mentions: 100, waiting: 100 }
+const LIMIT_MAX: Record<InboxMethod, number> = { mentions: 100, waiting: 100, saved: 200 }
 
 /** The arguments every method takes. */
 const ALWAYS: readonly (keyof InboxReadInput)[] = ["account", "method"]
@@ -20,6 +23,7 @@ const ALWAYS: readonly (keyof InboxReadInput)[] = ["account", "method"]
 const ALLOWED: Record<InboxMethod, readonly (keyof InboxReadInput)[]> = {
   mentions: ["server", "before", "limit"],
   waiting: ["server", "since", "limit"],
+  saved: ["limit"],
 }
 
 /** The arguments that name an object by its id. */

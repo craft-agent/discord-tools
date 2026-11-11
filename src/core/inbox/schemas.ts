@@ -3,7 +3,7 @@ import { messageItem } from "../chats/message-schemas"
 import type { ChatSession } from "../chats/session"
 
 /** The methods of `discord_inbox_read`; a method is added here, in `args.ts` and in the dispatch table of `read.ts`. */
-export const INBOX_METHODS = ["mentions", "waiting"] as const
+export const INBOX_METHODS = ["mentions", "waiting", "saved"] as const
 
 /** One method of `discord_inbox_read`. */
 export type InboxMethod = (typeof INBOX_METHODS)[number]
@@ -36,7 +36,7 @@ export const inboxReadInput = z.object({
   method: z
     .enum(INBOX_METHODS)
     .describe(
-      "What to read: `mentions` is Discord's own list of messages that mention the user, the user's roles, @everyone or @here in the past 7 days, newest first, stored in the local mirror; `waiting` lists the chats whose latest messages the user has not answered, from the local mirror alone.",
+      "What to read: `mentions` is Discord's own list of messages that mention the user, the user's roles, @everyone or @here in the past 7 days, newest first, stored in the local mirror; `waiting` lists the chats whose latest messages the user has not answered, from the local mirror alone; `saved` is the user's own list of saved messages and reminders, from Discord, stored in the local mirror.",
     ),
   server: z
     .string()
@@ -62,7 +62,7 @@ export const inboxReadInput = z.object({
     .min(1)
     .optional()
     .describe(
-      "The most to return: messages for `mentions` (default 25, at most 100), chats for `waiting` (default 30, at most 100).",
+      "The most to return: messages for `mentions` (default 25, at most 100), chats for `waiting` (default 30, at most 100), saves for `saved` (default 50, at most 200).",
     ),
 })
 
@@ -105,6 +105,27 @@ const waitingChat = z.object({
   current: z.boolean().describe("Whether a sync run marked the chat current in the last 15 minutes."),
 })
 
+const savedItem = z.object({
+  channel: z.string().describe("The id of the chat the saved message is in."),
+  chat: z
+    .string()
+    .describe(
+      "The chat as people see it: `#name` for a server channel, a thread's name, the other person's name in a DM, a group DM's name or its members; the chat's id when the mirror does not know it.",
+    ),
+  server: z.string().nullable().describe("The id of its server; null in a DM or group chat, or when not known."),
+  server_name: z.string().nullable().describe("The server's name; null when the mirror does not know it."),
+  message_id: z.string().describe("The id of the saved message."),
+  saved_at: z.string().describe("When the message was saved, as an ISO 8601 UTC time."),
+  remind_at: z
+    .string()
+    .nullable()
+    .describe("When the reminder is due, as an ISO 8601 UTC time; null for a save without one."),
+  due: z.boolean().describe("Whether the reminder's time has passed; false for a save without a reminder."),
+  message: messageItem
+    .nullable()
+    .describe("The saved message; null when Discord sent none (deleted, or the account cannot see it any more)."),
+})
+
 export const inboxReadOutput = z.object({
   method: z.enum(INBOX_METHODS),
   source: z.enum(["discord", "mirror"]).describe("Where the list came from: Discord, or the local mirror."),
@@ -114,16 +135,30 @@ export const inboxReadOutput = z.object({
     .string()
     .optional()
     .describe("Method `mentions`: pass as `before` for the next older page; present when the page was full."),
-  reactions_note: z.string().optional().describe("Method `mentions`: present when a message has reactions."),
+  reactions_note: z
+    .string()
+    .optional()
+    .describe("Methods `mentions` and `saved`: present when a message has reactions."),
+  saved: z
+    .array(savedItem)
+    .optional()
+    .describe(
+      "Method `saved`: the user's saves, reminders first by their time (the earliest first), then saves without a reminder, the newest first.",
+    ),
   chats: z
     .array(waitingChat)
     .optional()
     .describe("Method `waiting`: the chats that wait for the user's answer, the one with the newest message first."),
-  total: z.number().int().min(0).optional().describe("Method `waiting`: how many chats wait in all."),
+  total: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe("Methods `waiting` and `saved`: how many chats wait, or how many messages are saved, in all."),
   more: z
     .boolean()
     .optional()
-    .describe("Method `waiting`: true when `limit` cut the list, so more chats wait than were returned."),
+    .describe("Methods `waiting` and `saved`: true when `limit` cut the list, so more were found than returned."),
   window_start: z
     .string()
     .optional()
@@ -145,6 +180,9 @@ export type MentionItem = z.infer<typeof mentionItem>
 
 /** One chat of a `waiting` result. */
 export type WaitingChat = z.infer<typeof waitingChat>
+
+/** One save of a `saved` result. */
+export type SavedItem = z.infer<typeof savedItem>
 
 /** What a method returns; the tool adds `method`. */
 export type InboxPayload = Omit<InboxReadResult, "method">

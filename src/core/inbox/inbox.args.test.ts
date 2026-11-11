@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { failure } from "../chats/read.testing"
 import { ToolError } from "../errors"
 import { SERVER } from "../discord/objects.testing"
-import { checkArgs, MENTIONS_LIMIT_DEFAULT, sinceId, WAITING_LIMIT_DEFAULT } from "./args"
+import { checkArgs, MENTIONS_LIMIT_DEFAULT, SAVED_LIMIT_DEFAULT, sinceId, WAITING_LIMIT_DEFAULT } from "./args"
 import { createInboxFixture, type InboxFixture } from "./inbox.testing"
 import { INBOX_METHODS, inboxReadInput } from "./schemas"
 
@@ -59,19 +59,31 @@ describe("the arguments", () => {
     expect(BigInt(sinceId("2026-01-01T00:00:00.001Z")) > BigInt(sinceId("2026-01-01T00:00:00Z"))).toBe(true)
   })
 
-  test("limit has defaults and is at most 100 for both", () => {
+  test("limit has defaults and is at most 100 for mentions and waiting", () => {
     expect(MENTIONS_LIMIT_DEFAULT).toBe(25)
     expect(WAITING_LIMIT_DEFAULT).toBe(30)
-    for (const method of INBOX_METHODS) {
+    for (const method of ["mentions", "waiting"]) {
       expect(refusal({ method, limit: 101 })).toContain(`limit is at most 100 for method ${method}`)
       accepted({ method, limit: 100 })
       accepted({ method, limit: 1 })
     }
   })
 
+  test("saved takes only a limit, of at most 200 and 50 by default", () => {
+    expect(SAVED_LIMIT_DEFAULT).toBe(50)
+    expect(refusal({ method: "saved", limit: 201 })).toContain("limit is at most 200 for method saved")
+    accepted({ method: "saved", limit: 200 })
+    accepted({ method: "saved", account: "default" })
+    expect(refusal({ method: "saved", server: SERVER })).toContain("it takes: account, method, limit")
+    expect(refusal({ method: "saved", before: "1400000000000000050" })).toContain("Only method mentions takes it")
+  })
+
+  test("the methods are the ones the tool dispatches", () => {
+    expect([...INBOX_METHODS]).toEqual(["mentions", "waiting", "saved"])
+  })
+
   test("the schema bounds the method and the limit and refuses unknown arguments", () => {
     for (const args of [
-      { method: "saved" },
       { method: "unread" },
       {},
       { method: "waiting", limit: 0 },
