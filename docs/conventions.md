@@ -693,6 +693,19 @@ Every entry point takes the same settings:
   filters them by name locally and caps each list, saying when it did; an
   emoji comes with the text that uses it in a message. Nothing they return is
   stored: the mirror's server row stays what the sync last wrote.
+- **Events are Discord's upcoming list.** Method `events` asks
+  `GET /guilds/{server}/scheduled-events?with_user_count=true`, which holds
+  scheduled and active events only, never finished ones, and lists them by
+  start time with how many are interested. With `event` it asks
+  `GET /guilds/{server}/scheduled-events/{event}/users` for who is
+  interested, 100 at most, with `after` for the next page; those users go
+  through the ingest as a friend list's do.
+- **An invite code is a key, told to the user alone.** Method `invites` asks
+  `GET /guilds/{server}/invites`, which needs Manage Server; without it the
+  refusal says so. The inviters go through the ingest as interested users
+  do. Anyone holding a code can join the server, so the result
+  and the skill say a code goes to the user only, never into a message, a
+  file or another tool unless the user asks for that.
 
 ## History
 
