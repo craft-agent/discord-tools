@@ -5,13 +5,13 @@ import { remindTime } from "./remind"
 import type { SavedAddInput, SavedRemoveInput } from "./schemas"
 
 /** The `Message` fact: how the saved message starts; left out when it has no text. */
-function messageFact({ message }: DescribedAction): CallFact[] {
+export function messageFact({ message }: DescribedAction): CallFact[] {
   const quoted = quote(message.content)
   return quoted === "" ? [] : [{ label: "Message", value: quoted }]
 }
 
 /** The headline of a change to the saved list: the author and the chat, or the chat alone when the mirror has no name for the author. */
-function headlineOf(withAuthor: string, without: string, { chat, message }: DescribedAction): CallHeadline {
+export function headlineOf(withAuthor: string, without: string, { chat, message }: DescribedAction): CallHeadline {
   return message.author === null
     ? { text: without, values: { chat: chat.name } }
     : { text: withAuthor, values: { author: message.author, chat: chat.name } }

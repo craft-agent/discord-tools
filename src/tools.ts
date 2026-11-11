@@ -7,6 +7,7 @@ import { discordReactionAdd, discordReactionRemove } from "./core/actions/reacti
 import { discordChatRead } from "./core/chats/read"
 import { discordFileSave } from "./core/files/save-tool"
 import { discordInboxRead } from "./core/inbox/read"
+import { discordReadMark } from "./core/read-mark/read-mark-tool"
 import { discordSavedAdd, discordSavedRemove } from "./core/saved/saved-tool"
 import { discordSearchRead } from "./core/search/read"
 import { discordFileSend } from "./core/sends/file-send-tool"
@@ -26,6 +27,7 @@ export const ALL_TOOLS: ToolSpec[] = [
   discordInboxRead,
   discordSavedAdd,
   discordSavedRemove,
+  discordReadMark,
   discordMessageSend,
   discordFileSend,
   discordFileSave,
