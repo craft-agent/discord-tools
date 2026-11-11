@@ -56,7 +56,7 @@ describe("the registry", () => {
     }
   })
 
-  test.each(["discord_saved_add", "discord_saved_remove"])(
+  test.each(["discord_saved_add", "discord_saved_remove", "discord_read_mark"])(
     "%s is an overwrite tool in the inbox toolset, on by default and left out in read-only mode",
     (id) => {
       const ids = (settings: Parameters<typeof selectTools>[1]) =>
