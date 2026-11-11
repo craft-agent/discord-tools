@@ -1,17 +1,17 @@
 import { userLookup } from "../chats/dms"
 import { UNTRUSTED_NOTE, displayName } from "../chats/format"
 import { ingestUsers } from "../discord/ingest"
-import { idText, intOrNull, isRecord, textOrNull } from "../discord/ingest-values"
+import { intOrNull, isRecord, textOrNull } from "../discord/ingest-values"
 import { invalidResponse } from "../discord/sync-page"
 import { checkServer } from "../search/scope"
 import { checkUser, serverNameLookup } from "./known"
 import { memberFields } from "./member-fields"
 import { explainRefusal, readLive } from "./request"
+import { byPositionThenId, listedRoles, rolesPath } from "./role-list"
 import type { MemberItem, PeopleHandler } from "./schemas"
 
-/** Where Discord keeps a person's membership of a server, and the server's roles. */
+/** Where Discord keeps a person's membership of a server. */
 export const memberPath = (server: string, user: string) => `/guilds/${server}/members/${user}`
-export const rolesPath = (server: string) => `/guilds/${server}/roles`
 
 /** What the result of `member` tells about whose words the names are and what was stored. */
 const MEMBER_NOTE =
@@ -22,28 +22,11 @@ type Role = { name: string | null; position: number }
 
 /** The roles of Discord's role list by id: an array of objects, else `upstream_error`. An entry without a valid id is left out. */
 function rolesById(value: unknown): Map<string, Role> {
-  if (!Array.isArray(value)) invalidResponse()
   const roles = new Map<string, Role>()
-  for (const entry of value) {
-    if (!isRecord(entry)) invalidResponse()
-    const id = idText(entry.id)
-    if (id !== null) roles.set(id, { name: textOrNull(entry.name), position: intOrNull(entry.position) ?? 0 })
+  for (const { id, role } of listedRoles(value)) {
+    roles.set(id, { name: textOrNull(role.name), position: intOrNull(role.position) ?? 0 })
   }
   return roles
-}
-
-/** A role of the member and where it stands; `null` for one the server does not list. */
-type RankedRole = MemberItem["roles"][number] & { position: number | null }
-
-/** Orders roles by position, highest first, those the server does not list last, then by id as a number. */
-function byPositionThenId(a: RankedRole, b: RankedRole): number {
-  if (a.position !== b.position) {
-    if (a.position === null) return 1
-    if (b.position === null) return -1
-    return b.position - a.position
-  }
-  const [x, y] = [BigInt(a.id), BigInt(b.id)]
-  return x === y ? 0 : x < y ? -1 : 1
 }
 
 /** The member's roles named from the server's, highest first; the @everyone role (the server's own id) is left out. */

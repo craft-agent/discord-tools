@@ -3,7 +3,7 @@ import { UNTRUSTED_NOTE } from "../chats/format"
 import { failure } from "../chats/read.testing"
 import { ALICE, BOB, SERVER, userObject } from "../discord/objects.testing"
 import type { ErrorCode } from "../errors"
-import { memberPath, rolesPath } from "./member"
+import { memberPath } from "./member"
 import {
   createPeopleFixture,
   type PeopleFixture,
@@ -12,6 +12,7 @@ import {
   seedUsers,
   storedUsersOf,
 } from "./people.testing"
+import { rolesPath } from "./role-list"
 
 const OTHER_SERVER = "1400000000000000101"
 const [ADMIN, MOD, GONE] = ["1400000000000000501", "1400000000000000502", "1400000000000000599"]
