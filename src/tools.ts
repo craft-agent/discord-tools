@@ -6,6 +6,9 @@ import { discordPinAdd, discordPinRemove } from "./core/actions/pin-tool"
 import { discordReactionAdd, discordReactionRemove } from "./core/actions/reaction-tool"
 import { discordChatRead } from "./core/chats/read"
 import { discordFileSave } from "./core/files/save-tool"
+import { discordInboxRead } from "./core/inbox/read"
+import { discordReadMark } from "./core/read-mark/read-mark-tool"
+import { discordSavedAdd, discordSavedRemove } from "./core/saved/saved-tool"
 import { discordSearchRead } from "./core/search/read"
 import { discordFileSend } from "./core/sends/file-send-tool"
 import { discordMessageSend } from "./core/sends/send-tool"
@@ -21,6 +24,10 @@ export const ALL_TOOLS: ToolSpec[] = [
   discordSyncRemove,
   discordChatRead,
   discordSearchRead,
+  discordInboxRead,
+  discordSavedAdd,
+  discordSavedRemove,
+  discordReadMark,
   discordMessageSend,
   discordFileSend,
   discordFileSave,

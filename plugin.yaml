@@ -8,6 +8,7 @@ provides_tools:
   - discord_chat_read
   - discord_file_save
   - discord_file_send
+  - discord_inbox_read
   - discord_message_delete
   - discord_message_edit
   - discord_message_send
@@ -15,6 +16,9 @@ provides_tools:
   - discord_pin_remove
   - discord_reaction_add
   - discord_reaction_remove
+  - discord_read_mark
+  - discord_saved_add
+  - discord_saved_remove
   - discord_search_read
   - discord_sync_add
   - discord_sync_read

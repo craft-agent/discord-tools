@@ -497,13 +497,14 @@ Every entry point takes the same settings:
 - **It sends nothing of its own**: no presence, no typing, no read marks, no
   messages. Nobody learns from the account that a tool is reading, and the
   user's phone keeps its notifications.
-- **The gateway is opened at most once a run**, to read `READY`: Identify with
-  no presence (`status: "unknown"`, no activities), read what is needed,
-  close with 1000 at once. It sends no presence update, subscribes to nothing
-  and is never held open. Unread and mention counts exist nowhere else, while
-  a session held open, or marked present, can hold back the phone's push
-  notifications. Whether a run opens it is settled with the inbox tools,
-  after a check on a real phone.
+- **The gateway is never opened.** Unread and mention counts exist only in
+  the gateway's `READY`, but a check on a real phone showed that even brief
+  sessions (Identify with no presence, closed with 1000 as soon as `READY`
+  came) hold back the phone's push notifications: with no session 3 of 3
+  pushes arrived, with sessions opened and closed every 10 seconds 3 of 7,
+  and every 30 seconds 6 of 10. A missed push costs the user more than an
+  unread count gives, so no tool offers unread counts, and the inbox says
+  what waits from mentions and the mirror instead.
 - **A rejected token stops the service** for its label until a new token is
   given, rather than polling an account it can no longer reach. The run
   disables future starts and keeps the service definition; it reports the
@@ -581,6 +582,40 @@ Every entry point takes the same settings:
 - **Other people's words are data.** Message text, names, embeds and file
   names are written by other people; every read tool's description and the
   skills say so, and nothing a message says is followed as an instruction.
+
+## Inbox
+
+- **Mentions are Discord's list, not the mirror's.** `discord_inbox_read`
+  method `mentions` asks `GET /users/@me/mentions` for the past 7 days, newest
+  first, with roles, `@everyone` and `@here` asked for. Discord decides what
+  counts as a mention, so servers the sync does not follow are included, and
+  the server argument needs no sync list entry. The messages are stored
+  through the ingest as search results are: they add to the mirror, delete
+  nothing, keep stored reactions and mark no channel current. The list is not
+  contiguous history, so a page is full, and `next_before` given, exactly when
+  Discord answered as many messages as asked for.
+- **`waiting` is the mirror's "not answered", never "unread".** The mirror
+  holds no read state, and a message read on the phone is still waiting here.
+  It makes no request. A message waits when it is from someone else, an
+  ordinary message or a reply, newer than the window (14 days by default) and
+  than the user's last message in its chat. In a DM or group DM that alone
+  qualifies; in a server channel or thread it must also reply to one of the
+  user's messages or mention the user's id: `@everyone`, `@here` and role
+  mentions do not, since they ask everyone. Waiting chats are listed by their
+  latest message, each with whether its chat is current and when the last
+  complete sync run finished, since a chat that lags may hold messages, or the
+  user's own answer, the mirror does not have yet.
+- **`saved` is the user's own list, from Discord.** `discord_inbox_read`
+  method `saved` asks `GET /users/@me/saved-messages`, which has no paging, and
+  lists reminders first by their time, then saves without one, newest first,
+  each with its message (null when Discord sent none) and whether a reminder's
+  time has passed (`due`). The messages are stored through the ingest as
+  mention results are. A reminder is Discord's own mark on the save, never a
+  notification this package sends. Saving and removing change only that list
+  (see "Writes"), never the message or the chat.
+- **None of these marks anything read**, so the phone's unread state and its
+  push notifications stay as they were; the one tool that marks a chat read is
+  its own write tool (see "Writes").
 
 ## Files
 
@@ -668,6 +703,25 @@ Every entry point takes the same settings:
   Discord no longer has is done, marked `already`, since the state asked for
   holds. A done action is followed in the mirror through the ingest, without
   another request.
+- **A change to the saved list names a message the mirror knows**, as an
+  action does, and changes only the user's own list: saving again replaces the
+  reminder, so a save is an overwrite, and removing a save Discord does not
+  have is done, marked `already`. The reminder time is an ISO 8601 timestamp
+  with a zone later than now, sent in UTC; a time that is not is refused
+  without a request. Discord's cap on saves without a reminder comes back as
+  its refusal. The list is not in the mirror, so nothing follows a change
+  there, and a read-back after an uncertain outcome reads the list itself.
+- **A read mark is one chat, up to one message.** `discord_read_mark` names
+  the chat and, optionally, a message of it the mirror holds; left out, the
+  newest message the mirror holds for the chat. It sends `POST
+/channels/{c}/messages/{m}/ack` with `{ token: null }` and never `manual`,
+  so a mark older than the chat's current one never moves the read state
+  back. It replaces the chat's read state on every device, so it is an
+  overwrite. Discord offers no read of read state, so an outcome that may
+  have reached Discord is `uncertain` with `read_back: "skipped"`; a second
+  mark changes nothing further. When the message is left out, the prompt pins
+  the newest one it showed, so a message that arrives after the prompt makes
+  the call `stale` instead of marking past what the person saw.
 - **Nothing marks a chat read but the tool for it.** A read mark clears the
   unread state on every device the user has, so it is a call the harness asks
   about, never a side effect of looking.
@@ -714,31 +768,33 @@ Every entry point takes the same settings:
   list itself is local, so its prompt has no text.
 - **The facts the tools add**, in the order they are shown:
 
-  | Label           | Value                                                             | Shown                                |
-  | --------------- | ----------------------------------------------------------------- | ------------------------------------ |
-  | `Chat`          | the kind of chat: `Direct message`, `Group DM`, `Text channel`, … | always                               |
-  | `Server`        | the server's name                                                 | a chat in a server                   |
-  | `Channel`       | the channel a thread belongs to, as `#name`                       | a thread                             |
-  | `Author`        | who wrote the message, `You` for the user's own                   | a reaction, a pin, a save            |
-  | `Message`       | the message, quoted short                                         | a reaction, a pin, a save            |
-  | `Unpack`        | the entries named, joined with `, `, or `Every archive`           | `unpack` of a save                   |
-  | `Current text`  | the text an edit replaces, quoted short                           | an edit                              |
-  | `Reply to`      | the message replied to, quoted short                              | a reply                              |
-  | `Mass mentions` | `Notify`                                                          | `mass_mentions` of a send or an edit |
-  | `Notifications` | `Silent`                                                          | `silent`                             |
-  | `Files`         | each file's name and size, as `a.pdf (1.2 MB)`, joined with `, `  | a file send                          |
-  | `Follows`       | `Whole server` or `Named channels`                                | an addition to the sync list         |
-  | `Channels`      | the channels named, as `#name`, joined with `, `                  | a sync list change with `channels`   |
-  | `Excluded`      | the channels excluded, as `#name`, joined with `, `               | an addition with `exclude`           |
-  | `Length`        | `{count} characters`, in code points                              | a send, an edit's new text           |
+  | Label           | Value                                                             | Shown                                                       |
+  | --------------- | ----------------------------------------------------------------- | ----------------------------------------------------------- |
+  | `Chat`          | the kind of chat: `Direct message`, `Group DM`, `Text channel`, … | always                                                      |
+  | `Server`        | the server's name                                                 | a chat in a server                                          |
+  | `Channel`       | the channel a thread belongs to, as `#name`                       | a thread                                                    |
+  | `Reminder`      | the reminder's time in UTC, as an ISO 8601 time, or `none`        | an addition to the saved list                               |
+  | `Author`        | who wrote the message, `You` for the user's own                   | a reaction, a pin, a save                                   |
+  | `Message`       | the message, quoted short                                         | a reaction, a pin, a save, a saved-list change, a read mark |
+  | `Read state`    | `cleared on every device up to this message`                      | a read mark                                                 |
+  | `Unpack`        | the entries named, joined with `, `, or `Every archive`           | `unpack` of a save                                          |
+  | `Current text`  | the text an edit replaces, quoted short                           | an edit                                                     |
+  | `Reply to`      | the message replied to, quoted short                              | a reply                                                     |
+  | `Mass mentions` | `Notify`                                                          | `mass_mentions` of a send or an edit                        |
+  | `Notifications` | `Silent`                                                          | `silent`                                                    |
+  | `Files`         | each file's name and size, as `a.pdf (1.2 MB)`, joined with `, `  | a file send                                                 |
+  | `Follows`       | `Whole server` or `Named channels`                                | an addition to the sync list                                |
+  | `Channels`      | the channels named, as `#name`, joined with `, `                  | a sync list change with `channels`                          |
+  | `Excluded`      | the channels excluded, as `#name`, joined with `, `               | an addition with `exclude`                                  |
+  | `Length`        | `{count} characters`, in code points                              | a send, an edit's new text                                  |
 
 ## Toolsets
 
 - **One per domain**: `account`, `sync` (the sync list), `chats`, `search`,
-  `inbox`, `people` (people and server info), `sends`, `history` (counts and
-  the export), `files` (saving received files), `actions` (the user's own
-  messages, reactions and pins), `threads` (creating threads and forum posts)
-  and `roles`.
+  `inbox` (mentions, what waits for an answer, the saved list and read marks), `people` (people and server
+  info), `sends`, `history` (counts and the export), `files` (saving received
+  files), `actions` (the user's own messages, reactions and pins), `threads`
+  (creating threads and forum posts) and `roles`.
 - **`account`, `sync`, `chats`, `search`, `inbox`, `people` and `sends` are on
   by default.** They cover reading a chat and answering it. `history` and
   `files` write files to disk; `actions` changes messages other people have

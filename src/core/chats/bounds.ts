@@ -36,6 +36,11 @@ function timeOf(value: string): number | undefined {
   return Number.isNaN(time) ? undefined : time
 }
 
+/** The instant a timestamp with a zone names, in milliseconds; `undefined` for a date alone and for anything else. */
+export function timestampTime(value: string): number | undefined {
+  return TIMESTAMP_PATTERN.test(value) ? timeOf(value) : undefined
+}
+
 /** The snowflake `before` or `after` names: the id itself, or the id of the instant a date or a timestamp names. */
 function boundOf(name: "before" | "after", value: string): string {
   const shown = JSON.stringify(value.slice(0, MAX_SHOWN_LENGTH))
