@@ -123,7 +123,8 @@ describe("the tool's targets", () => {
   })
 
   test("is an overwrite in the inbox toolset, with an intent", () => {
-    expect(discordReadMark).toMatchObject({ toolset: "inbox", class: "overwrite", intent: expect.any(String) })
+    expect(discordReadMark).toMatchObject({ toolset: "inbox", class: "overwrite" })
+    expect(typeof discordReadMark.intent).toBe("string")
     expect(discordReadMark.description).toContain("only when the person asks")
   })
 })
