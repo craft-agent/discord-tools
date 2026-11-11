@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { failure } from "../chats/read.testing"
-import { SERVER } from "../discord/objects.testing"
+import { ALICE, SERVER } from "../discord/objects.testing"
 import { ToolError } from "../errors"
 import { seedServers } from "../people/people.testing"
 import { checkArgs } from "./args"
@@ -8,6 +8,7 @@ import { createServerFixture, type ServerFixture } from "./servers.testing"
 import { SERVER_METHODS, serverReadInput } from "./schemas"
 
 const OTHER_SERVER = "1400000000000000101"
+const EVENT = "1400000000000000701"
 
 /** The message `checkArgs` refuses the arguments with; fails when it accepts them. */
 function refusal(args: Record<string, unknown>): string {
@@ -29,12 +30,42 @@ describe("the arguments", () => {
     accepted({ method: "roles", server: SERVER })
     accepted({ method: "emojis", server: SERVER })
     accepted({ method: "emojis", server: SERVER, query: "wave", limit: 300 })
+    accepted({ method: "events", server: SERVER })
+    accepted({ method: "events", server: SERVER, limit: 100 })
+    accepted({ method: "events", server: SERVER, event: EVENT, after: ALICE, limit: 100 })
+    accepted({ method: "invites", server: SERVER, limit: 100 })
   })
 
   test("an argument of the other method is refused, naming the method that takes it", () => {
     expect(refusal({ method: "info", server: SERVER, query: "a" })).toContain("Only method emojis takes it")
-    expect(refusal({ method: "roles", server: SERVER, limit: 5 })).toContain("Only method emojis takes it")
+    expect(refusal({ method: "roles", server: SERVER, limit: 5 })).toContain(
+      "Only methods emojis, events and invites take it",
+    )
     expect(refusal({ method: "roles", server: SERVER, limit: 5 })).toContain("it takes: account, method, server.")
+    expect(refusal({ method: "invites", server: SERVER, event: EVENT })).toContain("Only method events takes it")
+    expect(refusal({ method: "emojis", server: SERVER, after: ALICE })).toContain("Only method events takes it")
+    expect(refusal({ method: "events", server: SERVER, query: "a" })).toContain("Only method emojis takes it")
+  })
+
+  test("`after` pages the interested users of `event`, so it needs `event`", () => {
+    expect(refusal({ method: "events", server: SERVER, after: ALICE })).toContain(
+      "`after` pages the interested users of `event`",
+    )
+  })
+
+  test("`event` and `after` must be ids", () => {
+    expect(refusal({ method: "events", server: SERVER, event: "party" })).toContain("`event` must be an id")
+    expect(refusal({ method: "events", server: SERVER, event: EVENT, after: "alice" })).toContain(
+      "`after` must be an id",
+    )
+  })
+
+  test("`limit` has the maximum of its method, and the refusal names it", () => {
+    expect(refusal({ method: "events", server: SERVER, limit: 101 })).toContain("at most 100")
+    expect(refusal({ method: "events", server: SERVER, event: EVENT, limit: 101 })).toContain("at most 100")
+    expect(refusal({ method: "invites", server: SERVER, limit: 101 })).toContain("at most 100")
+    expect(refusal({ method: "invites", server: SERVER, limit: 300 })).toContain("method invites is at most 100")
+    accepted({ method: "emojis", server: SERVER, limit: 300 })
   })
 
   test("the server is required and must be an id, not a name", async () => {
@@ -44,7 +75,7 @@ describe("the arguments", () => {
   })
 
   test("the methods are the ones the tool dispatches", () => {
-    expect([...SERVER_METHODS]).toEqual(["info", "roles", "emojis"])
+    expect([...SERVER_METHODS]).toEqual(["info", "roles", "emojis", "events", "invites"])
   })
 
   test("the schema bounds the method, the query and the limit and refuses unknown arguments", () => {
@@ -56,6 +87,8 @@ describe("the arguments", () => {
       { method: "emojis", server: SERVER, limit: 0 },
       { method: "emojis", server: SERVER, limit: 301 },
       { method: "emojis", server: SERVER, limit: 1.5 },
+      { method: "events", server: SERVER, limit: 0 },
+      { method: "invites", server: SERVER, limit: 301 },
       { method: "info", server: SERVER, color: "red" },
     ]) {
       expect(() => serverReadInput.strict().parse(args)).toThrow()
@@ -80,6 +113,8 @@ describe("a call", () => {
     expect((await failure(f.servers({ method: "info", server: SERVER, query: "a" }))).code).toBe("invalid_argument")
     expect((await failure(f.servers({ method: "roles", server: "tea house" }))).code).toBe("invalid_argument")
     expect((await failure(f.servers({ method: "roles" }))).code).toBe("invalid_argument")
+    expect((await failure(f.servers({ method: "events", server: SERVER, after: ALICE }))).code).toBe("invalid_argument")
+    expect((await failure(f.servers({ method: "invites", server: SERVER, limit: 101 }))).code).toBe("invalid_argument")
     expect(f.discord.api).toEqual([])
   })
 
