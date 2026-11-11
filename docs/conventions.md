@@ -642,6 +642,30 @@ Every entry point takes the same settings:
   push notifications stay as they were; the one tool that marks a chat read is
   its own write tool (see "Writes").
 
+## People
+
+- **People and servers are read live, one request at a time.** The `people`
+  toolset's reads (`discord_people_read`, `discord_server_read`) ask Discord
+  on every call and keep no friend list, note, profile, member or role in the
+  mirror: such things change without a trace a user account can poll, and a
+  stored copy would be stale with nothing to say so. Only the user objects a
+  read returns go through the ingest into the users the mirror knows, as a
+  search's authors do, so a later call can name them.
+- **A person or a server is an id the mirror knows.** A user argument must be
+  a user the label's mirror holds (from a chat, a mention, a friend list), a
+  server argument a server it holds; anything else is `not_found` before a
+  request is made. A name is only ever search text or a filter.
+- **`friends` is the user's own list.** `discord_people_read` method
+  `friends` asks `GET /users/@me/relationships` and lists friends only, by
+  name, each with the nickname the user gave them and the id of a DM with
+  them that the mirror already holds (never one opened for the call). Pending
+  requests are counted, incoming and outgoing, without saying who sent them,
+  and blocked users are left out. A local `query` filters by name.
+- **`notes` are the user's own words about others.** Method `notes` asks
+  `GET /users/@me/notes`, or `GET /users/@me/notes/{user}` for one user. A
+  note is private to the user; the result says so, and a user with no note is
+  `note: null`, not an error.
+
 ## History
 
 - **Counts are the mirror's, and say where it falls short.**
