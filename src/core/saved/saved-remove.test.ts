@@ -147,7 +147,8 @@ describe("the tool", () => {
   })
 
   test("is an overwrite in the inbox toolset, with an intent", () => {
-    expect(discordSavedRemove).toMatchObject({ toolset: "inbox", class: "overwrite", intent: expect.any(String) })
+    expect(discordSavedRemove).toMatchObject({ toolset: "inbox", class: "overwrite" })
+    expect(typeof discordSavedRemove.intent).toBe("string")
     expect(discordSavedRemove.description).toContain("`already`")
   })
 })
