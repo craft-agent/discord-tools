@@ -14,6 +14,7 @@ const CHAT_READ = "discord_chat_read"
 const SEARCH_READ = "discord_search_read"
 const SYNC_READ = "discord_sync_read"
 const INBOX_READ = "discord_inbox_read"
+const PEOPLE_READ = "discord_people_read"
 const HISTORY_READ = "discord_history_read"
 const WRITE_TOOLS = [
   "discord_sync_add",
@@ -138,6 +139,7 @@ try {
     expect(expected.includes(SEARCH_READ), `Expected the MCP registry to include ${SEARCH_READ}.`)
     expect(expected.includes(SYNC_READ), `Expected the MCP registry to include ${SYNC_READ}.`)
     expect(expected.includes(INBOX_READ), `Expected the MCP registry to include ${INBOX_READ}.`)
+    expect(expected.includes(PEOPLE_READ), `Expected the MCP registry to include ${PEOPLE_READ}.`)
     expect(
       expected.includes(HISTORY_READ) === allToolsets,
       `Expected the MCP registry to ${allToolsets ? "include" : "omit"} ${HISTORY_READ} with toolsets all.`,

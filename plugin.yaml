@@ -14,6 +14,7 @@ provides_tools:
   - discord_message_delete
   - discord_message_edit
   - discord_message_send
+  - discord_people_read
   - discord_pin_add
   - discord_pin_remove
   - discord_reaction_add

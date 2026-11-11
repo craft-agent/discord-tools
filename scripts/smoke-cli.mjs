@@ -17,6 +17,7 @@ const CHAT_READ = "discord_chat_read"
 const SEARCH_READ = "discord_search_read"
 const SYNC_READ = "discord_sync_read"
 const INBOX_READ = "discord_inbox_read"
+const PEOPLE_READ = "discord_people_read"
 const HISTORY_READ = "discord_history_read"
 const WRITE_TOOLS = {
   discord_sync_add: "idempotent",
@@ -92,6 +93,10 @@ async function listsTheServersTools() {
     expect(
       listed.some((tool) => tool.id === INBOX_READ && tool.class === "read"),
       `Expected ${label} to include ${INBOX_READ} as a read tool`,
+    )
+    expect(
+      listed.some((tool) => tool.id === PEOPLE_READ && tool.class === "read"),
+      `Expected ${label} to include ${PEOPLE_READ} as a read tool`,
     )
     const historyOn = settings.includes("all")
     expect(

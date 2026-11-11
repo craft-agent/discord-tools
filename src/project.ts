@@ -19,13 +19,14 @@ export const PROJECT = {
     "chats",
     "search",
     "inbox",
+    "people",
     "sends",
     "history",
     "files",
     "actions",
   ] as readonly string[],
   /** The toolsets on when a setting names none. */
-  defaultToolsets: ["account", "sync", "chats", "search", "inbox", "sends"] as readonly string[],
+  defaultToolsets: ["account", "sync", "chats", "search", "inbox", "people", "sends"] as readonly string[],
   /** The package's own settings, which the tools themselves read: each snake_case name and its type. */
   options: {} as Readonly<Record<string, OptionType>>,
   /** The environment variables the tools read besides the settings, which Codex forwards to the server after them. */

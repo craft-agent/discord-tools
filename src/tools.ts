@@ -9,6 +9,7 @@ import { discordFileSave } from "./core/files/save-tool"
 import { discordExportCreate } from "./core/history/export-tool"
 import { discordHistoryRead } from "./core/history/read"
 import { discordInboxRead } from "./core/inbox/read"
+import { discordPeopleRead } from "./core/people/read"
 import { discordReadMark } from "./core/read-mark/read-mark-tool"
 import { discordSavedAdd, discordSavedRemove } from "./core/saved/saved-tool"
 import { discordSearchRead } from "./core/search/read"
@@ -27,6 +28,7 @@ export const ALL_TOOLS: ToolSpec[] = [
   discordChatRead,
   discordSearchRead,
   discordInboxRead,
+  discordPeopleRead,
   discordHistoryRead,
   discordExportCreate,
   discordSavedAdd,
