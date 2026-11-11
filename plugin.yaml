@@ -16,6 +16,8 @@ provides_tools:
   - discord_pin_remove
   - discord_reaction_add
   - discord_reaction_remove
+  - discord_saved_add
+  - discord_saved_remove
   - discord_search_read
   - discord_sync_add
   - discord_sync_read
