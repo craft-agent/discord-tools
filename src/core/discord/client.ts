@@ -10,6 +10,14 @@ import {
   mediaUrl,
   receiveDownload,
 } from "./download"
+import {
+  GATEWAY_MAX_PACKED_BYTES,
+  GATEWAY_URL,
+  type GatewayReady,
+  GatewayTokenRejected,
+  identifyPayload,
+  readGatewayReady,
+} from "./gateway"
 import { httpError, parseJson, requiresTwoFactor, retryAfter } from "./http-errors"
 import {
   type ClientHints,
@@ -25,10 +33,18 @@ import {
 import type { LabelPaths } from "./labels"
 import { maskTokens } from "./mask"
 import { createPacer } from "./pacing"
-import { DEFAULT_REFERER, REQUEST_HEADER_ORDER, mediaHeaders, requestHeaders, uploadHeaders } from "./request-headers"
+import {
+  DEFAULT_REFERER,
+  REQUEST_HEADER_ORDER,
+  gatewayHeaders,
+  mediaHeaders,
+  requestHeaders,
+  uploadHeaders,
+} from "./request-headers"
 import { readToken, recordRejected, rejectedAt } from "./token"
 import {
   type DownloadTransport,
+  type SocketTransport,
   type Transport,
   type TransportRequest,
   type TransportResponse,
@@ -39,6 +55,8 @@ import { type UploadOptions, type UploadResult, NOT_STORAGE_URL, storageUrl } fr
 export { REQUEST_HEADER_ORDER }
 export { isMediaUrl } from "./download"
 export { isStorageUrl } from "./upload"
+export { GATEWAY_READY_TIMEOUT_MS } from "./gateway"
+export type { GatewayReady, ReadStateEntry } from "./gateway"
 export type { DownloadOptions, DownloadResult, UploadOptions, UploadResult }
 
 /** Where every API request goes. */
@@ -106,12 +124,21 @@ export type DiscordClientOptions = {
   loadTransport?: (os: ClientOs) => Promise<Transport>
   /** Sends the downloads; by default Chrome's fingerprint through wreq, loaded on first use. */
   download?: DownloadTransport
+  /** Opens the gateway's WebSocket; by default Chrome's fingerprint through wreq, loaded on first use. */
+  socket?: SocketTransport
   os?: ClientOs
   now?: () => number
   sleep?: (ms: number) => Promise<void>
   random?: () => number
   /** The most requests this client sends; one more throws `BudgetSpent`. */
   budget?: number
+}
+
+/** Per-call options of `gatewayReady`. */
+export type GatewayReadyOptions = {
+  /** How long to wait for READY, counted from sending the upgrade. */
+  timeoutMs: number
+  signal?: AbortSignal
 }
 
 /** The one way to reach Discord's API as the label's account. */
@@ -134,6 +161,14 @@ export type DiscordClient = {
    * with no request. See `UploadResult` for the other outcomes.
    */
   upload(url: string, body: Uint8Array, options: UploadOptions): Promise<UploadResult>
+  /**
+   * Opens the gateway once, to read READY, and closes it with 1000 at once:
+   * paced and counted as one request, never retried. It sends Identify with no
+   * presence and nothing else. Nothing that holds the token reaches an error;
+   * Close 4004 is a rejected token: recorded and thrown as a 401 is
+   * (`unauthenticated`). See `readGatewayReady`.
+   */
+  gatewayReady(options: GatewayReadyOptions): Promise<GatewayReady>
   /** The requests sent so far, the build number page and the uploads and downloads included. */
   readonly requests: number
 }
@@ -173,10 +208,10 @@ function checkAbort(signal?: AbortSignal): void {
   if (signal?.aborted) throw abortError(signal)
 }
 
-function lazyWreq<Answer>(
-  load: () => Promise<(request: TransportRequest) => Promise<Answer>>,
-): (request: TransportRequest) => Promise<Answer> {
-  let loaded: Promise<(request: TransportRequest) => Promise<Answer>> | undefined
+function lazyWreq<Request extends { signal?: AbortSignal | undefined }, Answer>(
+  load: () => Promise<(request: Request) => Promise<Answer>>,
+): (request: Request) => Promise<Answer> {
+  let loaded: Promise<(request: Request) => Promise<Answer>> | undefined
   return async (request) => {
     loaded ??= Promise.resolve()
       .then(load)
@@ -234,6 +269,8 @@ export function createDiscordClient(options: DiscordClientOptions): DiscordClien
     )
   const sendDownload =
     options.download ?? lazyWreq(() => import("./transport-wreq").then((module) => module.wreqDownload(os)))
+  const openSocket =
+    options.socket ?? lazyWreq(() => import("./transport-wreq").then((module) => module.wreqSocket(os)))
   const systemLocale = locale()
   const discordTag = discordLocale(systemLocale)
   const zone = timeZone()
@@ -556,11 +593,56 @@ export function createDiscordClient(options: DiscordClientOptions): DiscordClien
     }
   }
 
+  const gatewayReady = async (request: GatewayReadyOptions): Promise<GatewayReady> => {
+    checkAbort(request.signal)
+    if (!Number.isFinite(request.timeoutMs) || request.timeoutMs <= 0) {
+      throw new ToolError("internal_error", "The gateway needs a positive time limit.")
+    }
+    const current = await getSession(request.signal)
+    try {
+      checkAbort(request.signal)
+      const identify = identifyPayload({ token: current.token, superProperties: current.superProperties })
+      const socket = await dispatchWith(
+        {
+          method: "GET",
+          url: GATEWAY_URL,
+          headers: gatewayHeaders({ os, locale: discordTag }),
+          timeoutMs: request.timeoutMs,
+          ...(request.signal ? { signal: request.signal } : {}),
+        },
+        async (outgoing) => {
+          try {
+            return await openSocket({
+              url: outgoing.url,
+              headers: outgoing.headers,
+              maxMessageSize: GATEWAY_MAX_PACKED_BYTES,
+              ...(outgoing.signal ? { signal: outgoing.signal } : {}),
+            })
+          } catch (error) {
+            throw transportError("read", current, error, request.signal)
+          }
+        },
+        current.token,
+      )
+      try {
+        return await readGatewayReady(socket, { identify, timeoutMs: request.timeoutMs, signal: request.signal, now })
+      } catch (error) {
+        if (!(error instanceof GatewayTokenRejected)) throw error
+        await recordRejected(options.paths, current.token, now()).catch(() => {})
+        session = undefined
+        throw httpError(401, {}, undefined, current.token)
+      }
+    } catch (error) {
+      throw sanitizedError(error, current.token)
+    }
+  }
+
   return {
     read,
     write,
     download: downloadFile,
     upload: uploadFile,
+    gatewayReady,
     get requests() {
       return requests
     },
