@@ -667,6 +667,17 @@ Every entry point takes the same settings:
   without a request. Discord's cap on saves without a reminder comes back as
   its refusal. The list is not in the mirror, so nothing follows a change
   there, and a read-back after an uncertain outcome reads the list itself.
+- **A read mark is one chat, up to one message.** `discord_read_mark` names
+  the chat and, optionally, a message of it the mirror holds; left out, the
+  newest message the mirror holds for the chat. It sends `POST
+/channels/{c}/messages/{m}/ack` with `{ token: null }` and never `manual`,
+  so a mark older than the chat's current one never moves the read state
+  back. It replaces the chat's read state on every device, so it is an
+  overwrite. Discord offers no read of read state, so an outcome that may
+  have reached Discord is `uncertain` with `read_back: "skipped"`; a second
+  mark changes nothing further. When the message is left out, the prompt pins
+  the newest one it showed, so a message that arrives after the prompt makes
+  the call `stale` instead of marking past what the person saw.
 - **Nothing marks a chat read but the tool for it.** A read mark clears the
   unread state on every device the user has, so it is a call the harness asks
   about, never a side effect of looking.
@@ -713,29 +724,30 @@ Every entry point takes the same settings:
   list itself is local, so its prompt has no text.
 - **The facts the tools add**, in the order they are shown:
 
-  | Label           | Value                                                             | Shown                                          |
-  | --------------- | ----------------------------------------------------------------- | ---------------------------------------------- |
-  | `Chat`          | the kind of chat: `Direct message`, `Group DM`, `Text channel`, … | always                                         |
-  | `Server`        | the server's name                                                 | a chat in a server                             |
-  | `Channel`       | the channel a thread belongs to, as `#name`                       | a thread                                       |
-  | `Reminder`      | the reminder's time in UTC, as an ISO 8601 time, or `none`        | an addition to the saved list                  |
-  | `Author`        | who wrote the message, `You` for the user's own                   | a reaction, a pin, a save                      |
-  | `Message`       | the message, quoted short                                         | a reaction, a pin, a save, a saved-list change |
-  | `Unpack`        | the entries named, joined with `, `, or `Every archive`           | `unpack` of a save                             |
-  | `Current text`  | the text an edit replaces, quoted short                           | an edit                                        |
-  | `Reply to`      | the message replied to, quoted short                              | a reply                                        |
-  | `Mass mentions` | `Notify`                                                          | `mass_mentions` of a send or an edit           |
-  | `Notifications` | `Silent`                                                          | `silent`                                       |
-  | `Files`         | each file's name and size, as `a.pdf (1.2 MB)`, joined with `, `  | a file send                                    |
-  | `Follows`       | `Whole server` or `Named channels`                                | an addition to the sync list                   |
-  | `Channels`      | the channels named, as `#name`, joined with `, `                  | a sync list change with `channels`             |
-  | `Excluded`      | the channels excluded, as `#name`, joined with `, `               | an addition with `exclude`                     |
-  | `Length`        | `{count} characters`, in code points                              | a send, an edit's new text                     |
+  | Label           | Value                                                             | Shown                                                       |
+  | --------------- | ----------------------------------------------------------------- | ----------------------------------------------------------- |
+  | `Chat`          | the kind of chat: `Direct message`, `Group DM`, `Text channel`, … | always                                                      |
+  | `Server`        | the server's name                                                 | a chat in a server                                          |
+  | `Channel`       | the channel a thread belongs to, as `#name`                       | a thread                                                    |
+  | `Reminder`      | the reminder's time in UTC, as an ISO 8601 time, or `none`        | an addition to the saved list                               |
+  | `Author`        | who wrote the message, `You` for the user's own                   | a reaction, a pin, a save                                   |
+  | `Message`       | the message, quoted short                                         | a reaction, a pin, a save, a saved-list change, a read mark |
+  | `Read state`    | `cleared on every device up to this message`                      | a read mark                                                 |
+  | `Unpack`        | the entries named, joined with `, `, or `Every archive`           | `unpack` of a save                                          |
+  | `Current text`  | the text an edit replaces, quoted short                           | an edit                                                     |
+  | `Reply to`      | the message replied to, quoted short                              | a reply                                                     |
+  | `Mass mentions` | `Notify`                                                          | `mass_mentions` of a send or an edit                        |
+  | `Notifications` | `Silent`                                                          | `silent`                                                    |
+  | `Files`         | each file's name and size, as `a.pdf (1.2 MB)`, joined with `, `  | a file send                                                 |
+  | `Follows`       | `Whole server` or `Named channels`                                | an addition to the sync list                                |
+  | `Channels`      | the channels named, as `#name`, joined with `, `                  | a sync list change with `channels`                          |
+  | `Excluded`      | the channels excluded, as `#name`, joined with `, `               | an addition with `exclude`                                  |
+  | `Length`        | `{count} characters`, in code points                              | a send, an edit's new text                                  |
 
 ## Toolsets
 
 - **One per domain**: `account`, `sync` (the sync list), `chats`, `search`,
-  `inbox` (mentions, what waits for an answer, and the saved list), `people` (people and server
+  `inbox` (mentions, what waits for an answer, the saved list and read marks), `people` (people and server
   info), `sends`, `history` (counts and the export), `files` (saving received
   files), `actions` (the user's own messages, reactions and pins), `threads`
   (creating threads and forum posts) and `roles`.
