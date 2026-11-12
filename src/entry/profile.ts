@@ -1,14 +1,14 @@
-import type { OptionType, Toolsets } from "../core"
+import type { OptionSpec, Toolsets } from "../core"
 import { PROJECT } from "../project"
 
-/** The package identity, command, service, toolsets and the types of its tool options an entry point supplies. */
+/** The package identity, command, service, toolsets and the types of its tool options, with their bounds, an entry point supplies. */
 export type EntryProfile = {
   name: string
   cli: string
   serviceId: string
   envPrefix: string
   toolsets: Toolsets
-  options?: Readonly<Record<string, OptionType>>
+  options?: Readonly<Record<string, OptionSpec>>
 }
 
 /** The profile of this package, which every entry point uses unless a test supplies its own. */
