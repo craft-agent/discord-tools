@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test"
-import { delimiter } from "node:path"
 import { annotations, selectTools } from "../core"
 import { PROJECT } from "../project"
 import { EXIT_FAILED, EXIT_OK, EXIT_USAGE, type CliIo } from "./cli"
@@ -227,7 +226,7 @@ describe("run", () => {
       "--cwd",
       "/x",
       "--send-dirs",
-      ["/custom/send1", "/custom/send2"].join(delimiter),
+      "/custom/send1,/custom/send2",
       "--send-max-mb",
       "12",
     ]
@@ -260,11 +259,17 @@ describe("usage", () => {
     [["target", ADD_ID, "--cwd", "/x", "--state-dir"], "--state-dir"],
     [["target", ADD_ID, "--cwd", "/x", "--state-dir", "rel/path"], "--state-dir"],
     [["target", ADD_ID, "--cwd", "/x", "--download-dir", "rel/path"], "--download-dir"],
-    [["target", ADD_ID, "--cwd", "/x", "--download-max-mb", "5"], "--download-max-mb"],
-    [["run", ADD_ID, "--cwd", "/x", "--download-max-mb", "0"], "download_max_mb"],
+    [
+      ["target", ADD_ID, "--cwd", "/x", "--download-max-mb", "0"],
+      "--download-max-mb must be a whole number from 1 to 500.",
+    ],
+    [
+      ["run", ADD_ID, "--cwd", "/x", "--download-max-mb", "0"],
+      "--download-max-mb must be a whole number from 1 to 500.",
+    ],
     [["target", ADD_ID, "--cwd", "/x", "--send-dirs", "rel/path"], "--send-dirs"],
-    [["target", ADD_ID, "--cwd", "/x", "--send-max-mb", "5"], "--send-max-mb"],
-    [["run", ADD_ID, "--cwd", "/x", "--send-max-mb", "0"], "send_max_mb"],
+    [["target", ADD_ID, "--cwd", "/x", "--send-max-mb", "501"], "--send-max-mb must be a whole number from 1 to 500."],
+    [["run", ADD_ID, "--cwd", "/x", "--send-max-mb", "0"], "--send-max-mb must be a whole number from 1 to 500."],
   ])("%j is one line on stderr, exit 2 and nothing on stdout", async (argv, message) => {
     const run = await cli(argv as string[])
     expect(run.code).toBe(EXIT_USAGE)

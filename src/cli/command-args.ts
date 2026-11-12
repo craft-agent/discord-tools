@@ -1,13 +1,17 @@
 import { isAbortError, isToolError, ToolError } from "../core"
 import { maskTokens } from "../core/discord/mask"
 import { PROJECT_PROFILE } from "../entry/profile"
-import { parseStorageSettings } from "../entry/settings"
+import { parseToolOptions } from "../entry/settings"
+import { storageSettings } from "../entry/storage"
 import { PROJECT } from "../project"
 import { EXIT_FAILED, EXIT_USAGE, type CommandIo } from "./command-io"
 
 /** The flags the account commands share. */
 export const ACCOUNT_FLAG = "--account"
 export const STATE_DIR_FLAG = "--state-dir"
+
+/** The settings whose flags a command that selects no tools takes. */
+const DIRECTORY_SETTINGS: readonly string[] = ["state_dir", "download_dir", "send_dirs"]
 
 /** The flags a command takes: those with a value (`--flag value` or `--flag=value`) and the switches. */
 export type FlagParserSpec<V extends string = string, S extends string = string> = {
@@ -109,8 +113,15 @@ export function parseFlagArgs<V extends string = string, S extends string = stri
   return { values, switches, rest }
 }
 
-/** Reads the state directory from the arguments `parseFlagArgs` left, where nothing else may remain. */
+/** Reads the state directory from the arguments `parseFlagArgs` left, where only the directory settings may remain. */
 export function parseCommandStateDir(rest: string[], io: CommandIo, stateDir?: string): string {
   const args = stateDir === undefined ? rest : [...rest, `${STATE_DIR_FLAG}=${stateDir}`]
-  return parseStorageSettings(args, io.env, io.profile ?? PROJECT_PROFILE).state_dir
+  const base = io.profile ?? PROJECT_PROFILE
+  const profile = {
+    ...base,
+    options: Object.fromEntries(
+      Object.entries(base.options ?? {}).filter(([name]) => DIRECTORY_SETTINGS.includes(name)),
+    ),
+  }
+  return storageSettings(parseToolOptions(args, io.env, profile), io.env, profile).state_dir
 }

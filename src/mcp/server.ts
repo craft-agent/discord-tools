@@ -23,7 +23,8 @@ import {
 import { errorBody } from "../entry/errors"
 import { PROJECT_PROFILE } from "../entry/profile"
 import { createToolRuntime, type RuntimeOptions } from "../entry/runtime"
-import { storageContext, type EntrySettings } from "../entry/settings"
+import type { EntrySettings } from "../entry/settings"
+import { storageContext } from "../entry/storage"
 import { elicitationConfirm } from "./confirm"
 import { createWorkingDirResolver } from "./roots"
 

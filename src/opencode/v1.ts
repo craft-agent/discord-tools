@@ -2,7 +2,7 @@ import { inputJsonSchema, type ToolOptions, type ToolRuntime, type ToolSpec, typ
 import { DESCRIBE_TIMEOUT_MS } from "../entry/description"
 import { approvalOf } from "../entry/pin"
 import { createToolRuntime } from "../entry/runtime"
-import type { StorageContext } from "../entry/settings"
+import type { StorageContext } from "../entry/storage"
 import {
   needsPermission,
   permissionMetadata,

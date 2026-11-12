@@ -463,6 +463,26 @@ the environment. Other labels are kept.
 
 [`docs/conventions.md`](docs/conventions.md) has the rules each step follows.
 
+A package declares each option as `text`, `boolean`, `number`, `list`, `path`
+or `paths`, or as an object with `type` and optional bounds. For example, in
+`src/project.ts`:
+
+```ts
+options: {
+  notes_dir: "path",
+  note_limit: { type: "number", integer: true, min: 1, max: 50 },
+}
+```
+
+`integer: true` requires a whole number; `min` and `max` bound a number or
+count a `list` or `paths` value's items. An object with only `type` means the
+same as the type alone. Hermes's `OPTIONS` mirrors the declarations on one
+line, with double quotes and Python's `True` for `integer`:
+
+```python
+OPTIONS: dict[str, str | dict[str, object]] = {"notes_dir": "path", "note_limit": {"type": "number", "integer": True, "min": 1, "max": 50}}
+```
+
 ## Reads and writes
 
 Every read tool is named `<prefix>_<domain>_read`. Reads can run unasked;
@@ -499,28 +519,38 @@ Where a write is asked about, and where it is not:
 Every entry point takes the same settings. A flag wins over its environment
 variable, and an option or setting wins over the variable too.
 
-| Setting           | Flag                | Variable                        | Meaning                                                                                                             |
-| ----------------- | ------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `toolsets`        | `--toolsets`        | `DISCORD_TOOLS_TOOLSETS`        | the toolsets that are on, or `all`; default those `src/project.ts` names                                            |
-| `read_only`       | `--read-only`       | `DISCORD_TOOLS_READ_ONLY`       | registers no tool that writes; wins over every other setting                                                        |
-| `tools`           | `--tools`           | `DISCORD_TOOLS_TOOLS`           | single tools to add by ID, whatever their toolset                                                                   |
-| `exclude_tools`   | `--exclude-tools`   | `DISCORD_TOOLS_EXCLUDE_TOOLS`   | single tools to remove by ID; wins over `tools` and `toolsets`                                                      |
-| `confirm`         | `--confirm`         | `DISCORD_TOOLS_CONFIRM`         | MCP server only: `harness` (default) or `elicitation`, as the conventions say                                       |
-| `language`        | `--language`        | `DISCORD_TOOLS_LANGUAGE`        | native plugins only: the approval prompt's language, such as `ja`                                                   |
-| `emoji`           | —                   | —                               | Hermes only: the emoji shown beside each toolset, by toolset name (`""` for none)                                   |
-| `state_dir`       | `--state-dir`       | `DISCORD_TOOLS_STATE_DIR`       | where every label's state lives; default `$XDG_STATE_HOME/discord-tools`                                            |
-| `download_dir`    | `--download-dir`    | `DISCORD_TOOLS_DOWNLOAD_DIR`    | where received files are saved; exports go under its private `exports/` folder; default `~/Downloads/discord-tools` |
-| `download_max_mb` | `--download-max-mb` | `DISCORD_TOOLS_DOWNLOAD_MAX_MB` | the most megabytes a received file may have, 1 to 500; default 100                                                  |
-| `send_dirs`       | `--send-dirs`       | `DISCORD_TOOLS_SEND_DIRS`       | where files may be sent from; default the working directory                                                         |
-| `send_max_mb`     | `--send-max-mb`     | `DISCORD_TOOLS_SEND_MAX_MB`     | the most megabytes a sent file may have, 1 to 500; default 10                                                       |
+| Setting           | Flag                | Variable                        | Meaning                                                                                                                     |
+| ----------------- | ------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `toolsets`        | `--toolsets`        | `DISCORD_TOOLS_TOOLSETS`        | the toolsets that are on, or `all`; default those `src/project.ts` names                                                    |
+| `read_only`       | `--read-only`       | `DISCORD_TOOLS_READ_ONLY`       | registers no tool that writes; wins over every other setting                                                                |
+| `tools`           | `--tools`           | `DISCORD_TOOLS_TOOLS`           | single tools to add by ID, whatever their toolset                                                                           |
+| `exclude_tools`   | `--exclude-tools`   | `DISCORD_TOOLS_EXCLUDE_TOOLS`   | single tools to remove by ID; wins over `tools` and `toolsets`                                                              |
+| `confirm`         | `--confirm`         | `DISCORD_TOOLS_CONFIRM`         | MCP server only: `harness` (default) or `elicitation`, as the conventions say                                               |
+| `language`        | `--language`        | `DISCORD_TOOLS_LANGUAGE`        | native plugins only: the approval prompt's language, such as `ja`                                                           |
+| `emoji`           | —                   | —                               | Hermes only: the emoji shown beside each toolset, by toolset name (`""` for none)                                           |
+| `state_dir`       | `--state-dir`       | `DISCORD_TOOLS_STATE_DIR`       | `path`: where every label's state lives; default `$XDG_STATE_HOME/discord-tools`                                            |
+| `download_dir`    | `--download-dir`    | `DISCORD_TOOLS_DOWNLOAD_DIR`    | `path`: where received files are saved; exports go under its private `exports/` folder; default `~/Downloads/discord-tools` |
+| `download_max_mb` | `--download-max-mb` | `DISCORD_TOOLS_DOWNLOAD_MAX_MB` | the most megabytes a received file may have, a whole number from 1 to 500; default 100                                      |
+| `send_dirs`       | `--send-dirs`       | `DISCORD_TOOLS_SEND_DIRS`       | `paths`: where files may be sent from, at most 20; default the working directory                                            |
+| `send_max_mb`     | `--send-max-mb`     | `DISCORD_TOOLS_SEND_MAX_MB`     | the most megabytes a sent file may have, a whole number from 1 to 500; default 10                                           |
 
-Lists are comma-separated in a flag or a variable. A package's own settings,
-listed in `options` in `src/project.ts`, take a row each here and are read the
-same way. Where each harness reads them:
+Lists are comma-separated in a flag or a variable, `send_dirs` too. This
+package's own settings, from `state_dir` to `send_max_mb`, are listed in
+`options` in `src/project.ts` and read the same way. A `path` is trimmed; `~`
+and `~/…` (also with the platform separator) stand for the home directory
+(`HOME` when it is absolute, else the account's). It must then be absolute and
+reaches the tool normalized, without a filesystem check. `paths` is a list of
+such paths, comma-separated in a flag or variable and an array of strings in a
+plugin option. A blank path counts as unset, so the default applies; blank
+list items are dropped, and a list with none left counts as unset. Bounds check only a given value, not an unset option. Refused values are
+`invalid_argument`, naming the flag, variable or option and what it must be.
+Hermes passes paths and lists to the command line, which checks the paths and
+bounds. Where each harness reads them:
 
 - **OpenCode** takes the plugin `options` shown above, with lists as arrays,
-  `read_only` as a boolean and `state_dir` as a path, and falls back to the variables. V2 runs plugins in
-  its background service, which keeps the environment it started with: a
+  `read_only` as a boolean and the megabyte limits as numbers, and falls back
+  to the variables. V2 runs plugins in its background service, which keeps
+  the environment it started with: a
   variable set where `opencode run` starts has no effect until the service is
   restarted in that environment (`opencode service restart`). V1 runs plugins
   in its own process.
@@ -539,7 +569,8 @@ same way. Where each harness reads them:
   Without a `language` setting, the approval card follows Hermes's own
   `display.language` (or `HERMES_LANGUAGE`), the language of its approval
   buttons, and else stays in English. The plugin passes its own environment
-  to the command line it runs, so the variables work too. A running gateway keeps the environment it started with;
+  to the command line it runs, so the variables work too. A running gateway
+  keeps the environment it started with;
   restart it (`hermes gateway restart`) after changing one.
 
 - **Claude Code, Grok Build and Antigravity** start the plugin's server without
@@ -571,8 +602,9 @@ same way. Where each harness reads them:
 - **Each label keeps its state in one directory**, `<state_dir>/<label>/`
   (mode 700): the mirror of synced messages, the sync list, the token file
   when there is one, and the copies of files being sent or received.
-  `state_dir` defaults to `$XDG_STATE_HOME/discord-tools`, or
-  `~/.local/state/discord-tools`. The mirror holds your private messages, so
+  `state_dir` defaults to `$XDG_STATE_HOME/discord-tools` when
+  `XDG_STATE_HOME` is absolute, else `~/.local/state/discord-tools`.
+  The mirror holds your private messages, so
   keep the directory out of backups you share.
 - **The token comes from `DISCORD_TOOLS_TOKEN_<LABEL>` when it is set**
   (`DISCORD_TOOLS_TOKEN_DEFAULT` for `default`), and from the token file that

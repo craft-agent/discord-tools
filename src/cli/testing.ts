@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { ToolError, abortError, defineTool, isWithin, type ToolSpec, type Translations, type WriteClass } from "../core"
 import type { EntryProfile } from "../entry/profile"
-import { NOTE_OPTION } from "../entry/options.testing"
+import { PROFILE_OPTIONS } from "../entry/options.testing"
 import { runCli, type CliIo } from "./cli"
 
 /** Fixtures the command-line tests share. */
@@ -12,7 +12,7 @@ export const PROFILE: EntryProfile = {
   cli: "demo-tools-cli",
   serviceId: "io.example.demo-tools",
   envPrefix: "DEMO",
-  options: { [NOTE_OPTION]: "text" },
+  options: PROFILE_OPTIONS,
   toolsets: { names: ["alpha", "beta"], defaults: ["alpha"] },
 }
 

@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { delimiter } from "node:path"
 import { settingsFromOptions } from "./settings"
-import { DEFAULT_DOWNLOADS, failure, profile } from "./settings.testing"
+import { DEFAULT_DOWNLOADS, failure, profile, resolved } from "./settings.testing"
 
 const fromOptions = (options: Record<string, unknown> | undefined, env: Record<string, string | undefined> = {}) =>
   settingsFromOptions(options, env, profile)
@@ -30,17 +29,18 @@ describe("settingsFromOptions", () => {
       read_only: true,
       tools: ["demo_thing_read"],
       exclude_tools: ["a"],
-      options: {},
-      state_dir: "/custom/state",
-      download_dir: "/custom/downloads",
-      download_max_mb: 250,
-      send_dirs: ["/custom/send1", "/custom/send2"],
-      send_max_mb: 25,
+      ...resolved({
+        state_dir: "/custom/state",
+        download_dir: "/custom/downloads",
+        download_max_mb: 250,
+        send_dirs: ["/custom/send1", "/custom/send2"],
+        send_max_mb: 25,
+      }),
     })
-    expect(fromOptions({ download_max_mb: "42" }).download_max_mb).toBe(42)
-    expect(fromOptions({ send_max_mb: "18" }).send_max_mb).toBe(18)
-    expect(fromOptions({ send_dirs: "/single/send" }).send_dirs).toEqual(["/single/send"])
+    expect(fromOptions({ send_dirs: ["/single/send"] }).send_dirs).toEqual(["/single/send"])
     expect(fromOptions({ send_dirs: [] }).send_dirs).toBeUndefined()
+    expect(fromOptions({ send_dirs: ["/a", "", "  ", "/b"] }).send_dirs).toEqual(["/a", "/b"])
+    expect(fromOptions({ state_dir: " ", download_dir: "" }, {})).toEqual(fromOptions({}))
     expect(fromOptions({ toolsets: "all" }).toolsets).toBe("all")
     expect(fromOptions({ toolsets: ["alpha", "all"] }).toolsets).toBe("all")
     expect(fromOptions({ toolsets: [] }).toolsets).toBeUndefined()
@@ -54,19 +54,20 @@ describe("settingsFromOptions", () => {
       DEMO_STATE_DIR: "/env/state",
       DEMO_DOWNLOAD_DIR: "/env/downloads",
       DEMO_DOWNLOAD_MAX_MB: "30",
-      DEMO_SEND_DIRS: ["/env/send1", "/env/send2"].join(delimiter),
+      DEMO_SEND_DIRS: "/env/send1,/env/send2",
       DEMO_SEND_MAX_MB: "15",
     }
     expect(fromOptions({}, env)).toEqual({
       toolsets: ["gamma"],
       read_only: true,
       tools: ["a", "b"],
-      options: {},
-      state_dir: "/env/state",
-      download_dir: "/env/downloads",
-      download_max_mb: 30,
-      send_dirs: ["/env/send1", "/env/send2"],
-      send_max_mb: 15,
+      ...resolved({
+        state_dir: "/env/state",
+        download_dir: "/env/downloads",
+        download_max_mb: 30,
+        send_dirs: ["/env/send1", "/env/send2"],
+        send_max_mb: 15,
+      }),
     })
     expect(
       fromOptions(
@@ -85,12 +86,13 @@ describe("settingsFromOptions", () => {
       toolsets: ["beta"],
       read_only: false,
       tools: ["a", "b"],
-      options: {},
-      state_dir: "/opt/state",
-      download_dir: "/opt/get",
-      download_max_mb: 5,
-      send_dirs: ["/opt/send1", "/opt/send2"],
-      send_max_mb: 8,
+      ...resolved({
+        state_dir: "/opt/state",
+        download_dir: "/opt/get",
+        download_max_mb: 5,
+        send_dirs: ["/opt/send1", "/opt/send2"],
+        send_max_mb: 8,
+      }),
     })
   })
 
@@ -105,14 +107,38 @@ describe("settingsFromOptions", () => {
     expect(failure(() => fromOptions({ state_dir: "relative" })).message).toContain('"state_dir"')
     expect(failure(() => fromOptions({ download_dir: 123 })).message).toContain('"download_dir"')
     expect(failure(() => fromOptions({ download_dir: "relative" })).message).toContain('"download_dir"')
-    for (const value of [true, 0, 501, 1.5, "abc", ["5"]]) {
-      expect(failure(() => fromOptions({ download_max_mb: value })).message).toContain("download_max_mb")
-      expect(failure(() => fromOptions({ send_max_mb: value })).message).toContain("send_max_mb")
+    for (const value of [true, "100", ["5"], Number.NaN]) {
+      expect(failure(() => fromOptions({ download_max_mb: value })).message).toBe(
+        'Option "download_max_mb" must be a finite number.',
+      )
+      expect(failure(() => fromOptions({ send_max_mb: value })).message).toBe(
+        'Option "send_max_mb" must be a finite number.',
+      )
     }
-    expect(failure(() => fromOptions({ send_dirs: 123 })).message).toContain('"send_dirs"')
-    expect(failure(() => fromOptions({ send_dirs: [123] })).message).toContain('"send_dirs"')
-    expect(failure(() => fromOptions({ send_dirs: "relative" })).message).toContain('"send_dirs"')
-    expect(failure(() => fromOptions({ send_dirs: ["/abs", "relative"] })).message).toContain('"send_dirs"')
+    for (const value of [0, 501, 1.5]) {
+      expect(failure(() => fromOptions({ download_max_mb: value })).message).toBe(
+        'Option "download_max_mb" must be a whole number from 1 to 500.',
+      )
+      expect(failure(() => fromOptions({ send_max_mb: value })).message).toBe(
+        'Option "send_max_mb" must be a whole number from 1 to 500.',
+      )
+    }
+    for (const value of [123, "/single/send", [123]]) {
+      expect(failure(() => fromOptions({ send_dirs: value })).message).toBe(
+        'Option "send_dirs" must be a list of absolute paths.',
+      )
+    }
+    expect(failure(() => fromOptions({ send_dirs: ["relative"] })).message).toBe(
+      'Option "send_dirs" must be an absolute path.',
+    )
+    expect(failure(() => fromOptions({ send_dirs: ["/abs", "relative"] })).message).toBe(
+      'Option "send_dirs" must be an absolute path.',
+    )
+    const twentyOne = Array.from({ length: 21 }, (_, i) => `/dir/${i}`)
+    expect(failure(() => fromOptions({ send_dirs: twentyOne })).message).toBe(
+      'Option "send_dirs" must list at most 20 items.',
+    )
+    expect(fromOptions({ send_dirs: [...twentyOne.slice(0, 20), " "] }).send_dirs).toHaveLength(20)
   })
 
   test("an unknown toolset or option is rejected, naming it", () => {
@@ -120,6 +146,10 @@ describe("settingsFromOptions", () => {
     expect(toolset).toContain('"bogus"')
     expect(toolset).toContain('option "toolsets"')
     expect(failure(() => fromOptions({ confirm: "harness" })).message).toContain('"confirm"')
+    const unknown = failure(() => fromOptions({ nope: 1 })).message
+    for (const name of ["toolsets", "state_dir", "download_max_mb", "send_dirs", "send_max_mb", "note_text"]) {
+      expect(unknown).toContain(name)
+    }
   })
 
   test("a bad environment variable is rejected only when no option overrides it", () => {

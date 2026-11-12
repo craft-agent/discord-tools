@@ -6,6 +6,7 @@ import { writeAccount } from "../core/discord/account-meta"
 import { fakeToken } from "../core/discord/fake-token.testing"
 import { ensureLabelDir } from "../core/discord/labels"
 import { failed, fakeHost, withHome } from "../core/discord/service.testing"
+import { PROJECT } from "../project"
 import type { EntryProfile } from "./profile"
 import type { RuntimeOptions } from "./runtime"
 
@@ -16,6 +17,7 @@ export const ACCOUNT_PROFILE: EntryProfile = {
   serviceId: "io.example.account-test",
   envPrefix: "EXAMPLE",
   toolsets: { names: ["account"], defaults: ["account"] },
+  options: PROJECT.options,
 }
 
 /** Isolated state and scheduler dependencies shared by the adapter integration tests. */

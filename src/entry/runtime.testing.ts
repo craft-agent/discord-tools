@@ -9,7 +9,7 @@ export function runtimeFixture(): Required<RuntimeOptions> {
     DEMO_STATE_DIR: "/runtime/state",
     DEMO_DOWNLOAD_DIR: "/runtime/downloads",
     DEMO_DOWNLOAD_MAX_MB: "42",
-    DEMO_SEND_DIRS: "/runtime/send1:/runtime/send2",
+    DEMO_SEND_DIRS: "/runtime/send1,/runtime/send2",
     DEMO_SEND_MAX_MB: "15",
   }
   const serviceHost: ServiceHost = new Proxy({} as ServiceHost, {

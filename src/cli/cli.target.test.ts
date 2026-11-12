@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { mkdtempSync, realpathSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { delimiter, join } from "node:path"
+import { join } from "node:path"
 import { PIN_PATTERN } from "../core"
 import { EXIT_FAILED, EXIT_OK } from "./cli"
 import { ADD_ID, DESCRIBED_ID, ENGLISH_WORDS, HANGING_DESCRIBE_ID, READ_ID, cli, json, specs } from "./testing"
@@ -168,16 +168,31 @@ describe("target", () => {
         return ctx.sendDirs ? [...ctx.sendDirs] : ["cwd"]
       },
     }
-    const run = await cli(
-      ["target", "demo_target_send", "--cwd", "/x", "--send-dirs", ["/flag/send1", "/flag/send2"].join(delimiter)],
-      "",
-      {
-        specs: [checkTool as any],
-        env: { DEMO_SEND_MAX_MB: "15" },
-      },
-    )
+    const run = await cli(["target", "demo_target_send", "--cwd", "/x", "--send-dirs", "/flag/send1,/flag/send2"], "", {
+      specs: [checkTool as any],
+      env: { DEMO_SEND_MAX_MB: "15" },
+    })
     expect(run.code).toBe(EXIT_OK)
     expect(seen).toEqual({ sendDirs: ["/flag/send1", "/flag/send2"], sendMaxMb: 15 })
     expect(json(run)).toMatchObject({ resources: ["/flag/send1", "/flag/send2"] })
+  })
+
+  test("accepts the size limits as flags", async () => {
+    let seen: { downloadMaxMb?: number; sendMaxMb?: number } = {}
+    const checkTool = {
+      ...specs[1]!,
+      id: "demo_target_limits",
+      async targets(_args: unknown, ctx: { downloadMaxMb?: number; sendMaxMb?: number }) {
+        seen = { downloadMaxMb: ctx.downloadMaxMb, sendMaxMb: ctx.sendMaxMb }
+        return ["limits"]
+      },
+    }
+    const run = await cli(
+      ["target", "demo_target_limits", "--cwd", "/x", "--download-max-mb", "20", "--send-max-mb=30"],
+      "",
+      { specs: [checkTool], env: { DEMO_SEND_MAX_MB: "15" } },
+    )
+    expect(run.code).toBe(EXIT_OK)
+    expect(seen).toEqual({ downloadMaxMb: 20, sendMaxMb: 30 })
   })
 })

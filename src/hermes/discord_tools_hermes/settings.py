@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-import os
 from collections.abc import Mapping
 from typing import Any
 
@@ -23,91 +22,6 @@ def _names(key: str, value: Any) -> str | None:
     if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
         raise SettingsError(f'setting "{key}" must be a list of names')
     return ",".join(value) or None
-
-
-def state_dir_flags(ctx: PluginContext) -> list[str]:
-    """Read ``state_dir`` and return ``["--state-dir", value]``, or ``[]`` when absent.
-
-    Raises:
-        SettingsError: the setting is present but not a non-empty string.
-    """
-    state_dir = ctx.get_config("state_dir")
-    if state_dir is None:
-        return []
-    if not isinstance(state_dir, str) or not state_dir.strip():
-        raise SettingsError('setting "state_dir" must be a path')
-    return ["--state-dir", state_dir]
-
-
-def download_dir_flags(ctx: PluginContext) -> list[str]:
-    """Read ``download_dir`` and return ``["--download-dir", value]``, or ``[]`` when absent.
-
-    Raises:
-        SettingsError: the setting is present but not a non-empty string.
-    """
-    download_dir = ctx.get_config("download_dir")
-    if download_dir is None:
-        return []
-    if not isinstance(download_dir, str) or not download_dir.strip():
-        raise SettingsError('setting "download_dir" must be a path')
-    return ["--download-dir", download_dir]
-
-
-def download_max_mb_flags(ctx: PluginContext) -> list[str]:
-    """Read ``download_max_mb`` and return ``["--download-max-mb", value]``, or ``[]`` when absent.
-
-    The range (1 to 500) is the command line's to check.
-
-    Raises:
-        SettingsError: the setting is present but not a whole number.
-    """
-    download_max_mb = ctx.get_config("download_max_mb")
-    if download_max_mb is None:
-        return []
-    if not isinstance(download_max_mb, int) or isinstance(download_max_mb, bool):
-        raise SettingsError('setting "download_max_mb" must be a whole number')
-    return ["--download-max-mb", str(download_max_mb)]
-
-
-def send_dirs_flags(ctx: PluginContext) -> list[str]:
-    """Read ``send_dirs`` and return ``["--send-dirs", value]``, or ``[]`` when absent.
-
-    Raises:
-        SettingsError: the setting is present but not a path or a list of paths.
-    """
-    send_dirs = ctx.get_config("send_dirs")
-    if send_dirs is None:
-        return []
-    if isinstance(send_dirs, str):
-        if not send_dirs.strip():
-            raise SettingsError('setting "send_dirs" must be a path or a list of paths')
-        return ["--send-dirs", send_dirs]
-    if isinstance(send_dirs, list) and not isinstance(send_dirs, bool) and all(isinstance(item, str) for item in send_dirs):
-        if not send_dirs:
-            return []
-        return ["--send-dirs", os.pathsep.join(send_dirs)]
-    raise SettingsError('setting "send_dirs" must be a path or a list of paths')
-
-
-def send_max_mb_flags(ctx: PluginContext) -> list[str]:
-    """Read ``send_max_mb`` and return ``["--send-max-mb", value]``, or ``[]`` when absent.
-
-    The range (1 to 500) is the command line's to check.
-
-    Raises:
-        SettingsError: the setting is present but not a whole number.
-    """
-    send_max_mb = ctx.get_config("send_max_mb")
-    if send_max_mb is None:
-        return []
-    if not isinstance(send_max_mb, int) or isinstance(send_max_mb, bool):
-        raise SettingsError('setting "send_max_mb" must be a whole number')
-    return ["--send-max-mb", str(send_max_mb)]
-
-
-def target_flags(ctx: PluginContext) -> list[str]:
-    """The flags ``target`` takes: the settings that say where files are, not which tools run."""
-    return state_dir_flags(ctx) + download_dir_flags(ctx) + send_dirs_flags(ctx)
 
 
 def language_setting(ctx: PluginContext) -> str | None:
@@ -133,11 +47,13 @@ def emoji_setting(ctx: PluginContext, defaults: Mapping[str, str] | None = None)
     return merged
 
 
-def _option_flag(name: str, kind: str, value: Any) -> list[str]:
+def _option_flag(name: str, declaration: str | dict[str, object], value: Any) -> list[str]:
+    kind = declaration["type"] if isinstance(declaration, dict) else declaration
     flag = f"--{name.replace('_', '-')}"
-    if kind == "text":
+    if kind in ("text", "path"):
         if not isinstance(value, str):
-            raise SettingsError(f'setting "{name}" must be text')
+            expected = "a path" if kind == "path" else "text"
+            raise SettingsError(f'setting "{name}" must be {expected}')
         return [flag, text] if (text := value.strip()) else []
     if kind == "boolean":
         if not isinstance(value, bool):
@@ -147,21 +63,25 @@ def _option_flag(name: str, kind: str, value: Any) -> list[str]:
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
             raise SettingsError(f'setting "{name}" must be a finite number')
         return [flag, str(value)]
-    if kind == "list":
+    if kind in ("list", "paths"):
         if not isinstance(value, list) or not all(isinstance(item, str) and "," not in item for item in value):
-            raise SettingsError(f'setting "{name}" must be a list of strings without commas')
+            expected = "paths" if kind == "paths" else "strings"
+            raise SettingsError(f'setting "{name}" must be a list of {expected} without commas')
         items = [item.strip() for item in value if item.strip()]
         return [flag, ",".join(items)] if items else []
     raise SettingsError(f'unknown option type "{kind}" for "{name}"')
 
 
-def option_flags(ctx: PluginContext, options: Mapping[str, str] | None = None) -> list[str]:
-    """The package's tool options as flags, with absent settings left to the command line's environment."""
+def option_flags(ctx: PluginContext, options: Mapping[str, str | dict[str, object]] | None = None) -> list[str]:
+    """The package's tool options as flags, with absent settings left to the command line's environment.
+
+    Bounds and path absoluteness are checked by the command line, not here.
+    """
     flags: list[str] = []
-    for name, kind in (project.OPTIONS if options is None else options).items():
+    for name, declaration in (project.OPTIONS if options is None else options).items():
         value = ctx.get_config(name)
         if value is not None:
-            flags += _option_flag(name, kind, value)
+            flags += _option_flag(name, declaration, value)
     return flags
 
 
@@ -193,9 +113,5 @@ def settings_flags(ctx: PluginContext) -> list[str]:
         value = ctx.get_config(key)
         if value is not None and (names := _names(key, value)):
             flags += [flag, names]
-
-    flags += target_flags(ctx)
-    flags += download_max_mb_flags(ctx)
-    flags += send_max_mb_flags(ctx)
 
     return [*flags, *option_flags(ctx)]

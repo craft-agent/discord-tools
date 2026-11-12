@@ -1,6 +1,6 @@
 import { expect } from "bun:test"
 import { isToolError } from "../core"
-import { NOTE_OPTION } from "./options.testing"
+import { PROFILE_OPTIONS } from "./options.testing"
 import type { EntryProfile } from "./profile"
 
 /** Fixtures the settings tests share. */
@@ -11,11 +11,16 @@ export const profile: EntryProfile = {
   serviceId: "io.example.demo-tools",
   envPrefix: "DEMO",
   toolsets: { names: ["alpha", "beta", "gamma"], defaults: ["alpha"] },
-  options: { [NOTE_OPTION]: "text" },
+  options: PROFILE_OPTIONS,
 }
 
 /** What the download and send settings resolve to when nothing sets them. */
 export const DEFAULT_DOWNLOADS = { download_dir: expect.any(String), download_max_mb: 100, send_max_mb: 10 }
+
+/** What the package's own settings read as `values` give: the values as the resolved settings, and again as the tool options they were read as. */
+export function resolved<T extends object>(values: T): T & { options: T } {
+  return { ...values, options: values }
+}
 
 export function failure(run: () => unknown): Error {
   try {
