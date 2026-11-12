@@ -891,6 +891,20 @@ Every entry point takes the same settings:
   thread, or the channel's newest threads the user owns with that name. The
   thread Discord returns goes through the ingest; nothing is marked current.
   A first message is a send of its own.
+- **A post is a thread with its first message, in a forum or media
+  channel.** `discord_post_create` names a forum or media channel the mirror
+  knows, the post's name, its text and up to 5 tags by id, each one the
+  forum's tags in the mirror list (`discord_chat_read` method `threads`
+  shows them); a tag it does not list, or no tag where the forum's flags
+  require one, is refused before any request. It sends
+  `POST /channels/{c}/threads` with the name, `applied_tags` and a `message`
+  built as a send's is: the text exactly as given, `@everyone`, `@here` and
+  role mentions notifying only with `mass_mentions`, and `silent` one
+  argument away. Discord decides the rest (moderated tags, slowmode, a media
+  channel that wants a file). Thread creation takes no nonce, so an outcome
+  that may have reached Discord is `uncertain` after one read-back of the
+  channel's newest posts the user owns with that name. The post and its
+  first message, which shares its id, go through the ingest.
 
 ## Approval prompts
 
@@ -939,6 +953,10 @@ Every entry point takes the same settings:
   when there is one, its name, public or private, and when it archives; the
   name is the model's words for others to read, shown as given, never
   translated.
+- **A post shows what it puts up.** Its prompt names the forum, the post's
+  name, its tags by the names the mirror holds, and a send's facts
+  (`Mass mentions`, `Notifications`, `Length`); its text is the first
+  message, verbatim, as a send's is.
 - **A change to the sync list names the server and its channels.** The
   server is its name in the mirror, else its id, since a server the account
   has left can still be removed; a channel is `#name`, else its id. The
@@ -958,18 +976,19 @@ Every entry point takes the same settings:
   | `Format`         | `Markdown`, `JSON` or `JSONL`                                                                       | an export                                                                            |
   | `Messages`       | `The newest {count}` or `The first {count} after {after}`, each with `, before {before}` when given | an export                                                                            |
   | `Folder`         | the exports folder, as an absolute path                                                             | an export                                                                            |
-  | `Name`           | the new thread's name, as given                                                                     | a new thread                                                                         |
+  | `Name`           | the new thread's or post's name, as given                                                           | a new thread, a post                                                                 |
+  | `Tags`           | the tags given, by their names in the mirror, joined with `, `                                      | a post with `tags`                                                                   |
   | `Visibility`     | `Public` or `Private`                                                                               | a new thread                                                                         |
   | `Archives after` | `1 hour`, `1 day`, `3 days` or `1 week`, or `Discord's default`                                     | a new thread                                                                         |
   | `Current text`   | the text an edit replaces, quoted short                                                             | an edit                                                                              |
   | `Reply to`       | the message replied to, quoted short                                                                | a reply                                                                              |
-  | `Mass mentions`  | `Notify`                                                                                            | `mass_mentions` of a send or an edit                                                 |
+  | `Mass mentions`  | `Notify`                                                                                            | `mass_mentions` of a send, an edit or a post                                         |
   | `Notifications`  | `Silent`                                                                                            | `silent`                                                                             |
   | `Files`          | each file's name and size, as `a.pdf (1.2 MB)`, joined with `, `                                    | a file send                                                                          |
   | `Follows`        | `Whole server` or `Named channels`                                                                  | an addition to the sync list                                                         |
   | `Channels`       | the channels named, as `#name`, joined with `, `                                                    | a sync list change with `channels`                                                   |
   | `Excluded`       | the channels excluded, as `#name`, joined with `, `                                                 | an addition with `exclude`                                                           |
-  | `Length`         | `{count} characters`, in code points                                                                | a send, an edit's new text                                                           |
+  | `Length`         | `{count} characters`, in code points                                                                | a send, an edit's new text, a post                                                   |
 
 ## Toolsets
 
