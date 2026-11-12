@@ -120,6 +120,7 @@ try {
     expect(skills.includes("discord-inbox"), "Expected setup to discover the inbox skill.")
     // A skill comes with its toolset's tools: sends has only writes, actions and files are off by default.
     for (const [skill, on] of [
+      ["discord-people", true],
       ["discord-sends", !readOnly],
       ["discord-actions", allToolsets && !readOnly],
       ["discord-history", allToolsets],
