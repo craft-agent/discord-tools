@@ -26,6 +26,22 @@ function filesFact(files: readonly { name: string; size: number }[]): CallFact {
   return { label: "Files", value: files.map(({ name, size }) => `${name} (${sizeText(size)})`).join(", ") }
 }
 
+/** What the files of a call add to its description: the `Files` fact and the `files` pin. */
+export type FilesDescription = { fact: CallFact; pins: Record<string, string> }
+
+/**
+ * The files found by the rules of the send itself (a file the send would refuse
+ * for where it is, what it is or its size throws its `invalid_argument`), as the
+ * `Files` fact and, as the `files` pin, their SHA-256 hashes in the order given
+ * joined with `,`.
+ */
+export async function describeFiles(paths: readonly string[], ctx: ToolContext): Promise<FilesDescription> {
+  const files = await locateOutgoing(paths, locateOptionsOf(ctx))
+  const hashes: string[] = []
+  for (const file of files) hashes.push(await hashFile(file.source, ctx.signal))
+  return { fact: filesFact(files), pins: { [FILES_PIN]: hashes.join(",") } }
+}
+
 /** The headline of a file send: to the chat, or a reply to its author when the mirror names one. */
 function headlineOf({ chat, reply }: SendTarget): CallHeadline {
   if (!reply) return { text: "About to send files to {chat}", values: { chat } }
@@ -46,13 +62,11 @@ function headlineOf({ chat, reply }: SendTarget): CallHeadline {
  */
 export async function describeFileSend(args: FileSendInput, ctx: ToolContext): Promise<CallDescription> {
   const target = await withMirror(args.account, ctx, (mirror) => describeSendTarget(mirror, args))
-  const files = await locateOutgoing(args.files, locateOptionsOf(ctx))
-  const hashes: string[] = []
-  for (const file of files) hashes.push(await hashFile(file.source, ctx.signal))
+  const { fact, pins } = await describeFiles(args.files, ctx)
   return {
     headline: headlineOf(target),
-    facts: [...target.facts, filesFact(files), ...(args.text === undefined ? [] : [lengthFact(args.text)])],
+    facts: [...target.facts, fact, ...(args.text === undefined ? [] : [lengthFact(args.text)])],
     ...(args.text === undefined ? {} : { text: { label: "Message text", body: args.text } }),
-    pins: { [FILES_PIN]: hashes.join(",") },
+    pins,
   }
 }

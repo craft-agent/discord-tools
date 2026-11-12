@@ -36,6 +36,11 @@ const ACTION_TOOLS = [
 ]
 const FILE_SAVE = "discord_file_save"
 const EXPORT_CREATE = "discord_export_create"
+const THREAD_CREATE = "discord_thread_create"
+const POST_CREATE = "discord_post_create"
+const FILE_POST = "discord_file_post"
+const THREAD_JOIN = "discord_thread_join"
+const THREAD_LEAVE = "discord_thread_leave"
 const NO_ACCOUNT = "not_found: No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "opencode-smoke-"))
 
@@ -118,11 +123,12 @@ try {
     expect(skills.includes("discord-sync"), "Expected setup to discover the sync skill.")
     expect(skills.includes("discord-search"), "Expected setup to discover the search skill.")
     expect(skills.includes("discord-inbox"), "Expected setup to discover the inbox skill.")
-    // A skill comes with its toolset's tools: sends has only writes, actions and files are off by default.
+    // A skill comes with its toolset's tools: sends has only writes; actions, threads and files are off by default.
     for (const [skill, on] of [
       ["discord-people", true],
       ["discord-sends", !readOnly],
       ["discord-actions", allToolsets && !readOnly],
+      ["discord-threads", allToolsets && !readOnly],
       ["discord-history", allToolsets],
       ["discord-files", allToolsets && !readOnly],
     ]) {
@@ -131,7 +137,16 @@ try {
         `Expected setup to ${on ? "discover" : "leave out"} ${skill} with read_only=${readOnly}.`,
       )
     }
-    for (const name of [...ACTION_TOOLS, FILE_SAVE, EXPORT_CREATE]) {
+    for (const name of [
+      ...ACTION_TOOLS,
+      FILE_SAVE,
+      EXPORT_CREATE,
+      THREAD_CREATE,
+      POST_CREATE,
+      FILE_POST,
+      THREAD_JOIN,
+      THREAD_LEAVE,
+    ]) {
       expect(
         expected.includes(name) === (allToolsets && !readOnly),
         `Expected the MCP registry to ${allToolsets && !readOnly ? "include" : "omit"} ${name} with read_only=${readOnly}.`,

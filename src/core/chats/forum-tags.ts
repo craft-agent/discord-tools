@@ -8,7 +8,7 @@ import { type TagItem, tagItem } from "./thread-schemas"
 const storedForum = z.object({ tags: z.array(tagItem) })
 
 /** The tags in a stored `forum` JSON; `null` when the column is empty or is not shaped as expected. */
-function storedTags(json: string | null): TagItem[] | null {
+export function storedTags(json: string | null): TagItem[] | null {
   if (json === null) return null
   try {
     const parsed = storedForum.safeParse(JSON.parse(json))

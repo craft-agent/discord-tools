@@ -142,6 +142,31 @@ describe("the registry", () => {
     expect(ids({ toolsets: ["files"], read_only: true })).not.toContain(id)
   })
 
+  test.each(["discord_thread_create", "discord_post_create", "discord_file_post"])(
+    "%s is an add tool in the off-by-default threads toolset, left out in read-only mode",
+    (id) => {
+      const ids = (settings: Parameters<typeof selectTools>[1]) =>
+        selectTools(ALL_TOOLS, settings, PROJECT_PROFILE.toolsets).map((spec) => spec.id)
+      expect(ALL_TOOLS.find((spec) => spec.id === id)).toMatchObject({ toolset: "threads", class: "add" })
+      expect(ids({})).not.toContain(id)
+      expect(ids({ toolsets: ["threads"] })).toContain(id)
+      expect(ids({ toolsets: "all" })).toContain(id)
+      expect(ids({ toolsets: ["threads"], read_only: true })).not.toContain(id)
+    },
+  )
+
+  test.each([
+    ["discord_thread_join", "idempotent"],
+    ["discord_thread_leave", "overwrite"],
+  ])("%s is a %s tool in the off-by-default threads toolset, left out in read-only mode", (id, writeClass) => {
+    const ids = (settings: Parameters<typeof selectTools>[1]) =>
+      selectTools(ALL_TOOLS, settings, PROJECT_PROFILE.toolsets).map((spec) => spec.id)
+    expect(ALL_TOOLS.find((spec) => spec.id === id)).toMatchObject({ toolset: "threads", class: writeClass })
+    expect(ids({})).not.toContain(id)
+    expect(ids({ toolsets: ["threads"] })).toContain(id)
+    expect(ids({ toolsets: ["threads"], read_only: true })).not.toContain(id)
+  })
+
   test("every tool id is unique", () => {
     const ids = ALL_TOOLS.map((spec) => spec.id)
     expect(new Set(ids).size).toBe(ids.length)

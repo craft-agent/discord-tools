@@ -9,6 +9,7 @@ import { SAVED_TRANSLATIONS } from "./core/saved/words"
 import { FILE_SEND_TRANSLATIONS } from "./core/sends/file-words"
 import { SEND_TRANSLATIONS } from "./core/sends/words"
 import { SYNC_TRANSLATIONS } from "./core/sync/words"
+import { THREAD_TRANSLATIONS } from "./core/threads/words"
 
 /** The translations of every tool's words, per language, which the native plugins use in their approval prompts. */
 export const ALL_TRANSLATIONS: Translations = mergeTranslations(
@@ -22,4 +23,5 @@ export const ALL_TRANSLATIONS: Translations = mergeTranslations(
   SAVED_TRANSLATIONS,
   READ_MARK_TRANSLATIONS,
   SYNC_TRANSLATIONS,
+  THREAD_TRANSLATIONS,
 )
