@@ -27,6 +27,7 @@ provides_tools:
   - discord_sync_add
   - discord_sync_read
   - discord_sync_remove
+  - discord_thread_create
 provides_hooks:
   - pre_tool_call
 config_schema:

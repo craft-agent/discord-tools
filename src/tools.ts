@@ -19,6 +19,7 @@ import { discordServerRead } from "./core/servers/read"
 import { discordSyncAdd } from "./core/sync/add"
 import { discordSyncRead } from "./core/sync/read"
 import { discordSyncRemove } from "./core/sync/remove"
+import { discordThreadCreate } from "./core/threads/create-tool"
 
 /** Every tool spec of the package; entry points register their tools from this list. */
 export const ALL_TOOLS: ToolSpec[] = [
@@ -45,4 +46,5 @@ export const ALL_TOOLS: ToolSpec[] = [
   discordReactionRemove,
   discordPinAdd,
   discordPinRemove,
+  discordThreadCreate,
 ]
