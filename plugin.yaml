@@ -7,6 +7,7 @@ provides_tools:
   - discord_account_read
   - discord_chat_read
   - discord_export_create
+  - discord_file_post
   - discord_file_save
   - discord_file_send
   - discord_history_read

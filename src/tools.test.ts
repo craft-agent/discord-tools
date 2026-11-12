@@ -142,7 +142,7 @@ describe("the registry", () => {
     expect(ids({ toolsets: ["files"], read_only: true })).not.toContain(id)
   })
 
-  test.each(["discord_thread_create", "discord_post_create"])(
+  test.each(["discord_thread_create", "discord_post_create", "discord_file_post"])(
     "%s is an add tool in the off-by-default threads toolset, left out in read-only mode",
     (id) => {
       const ids = (settings: Parameters<typeof selectTools>[1]) =>

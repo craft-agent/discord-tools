@@ -6,6 +6,8 @@ export const THREAD_TRANSLATIONS: Translations = {
     "Post in a Discord forum": "Discord フォーラムに投稿する",
     "About to post in a Discord forum": "Discord フォーラムに投稿しようとしています",
     "About to post in {chat}": "{chat} に投稿しようとしています",
+    "Post files in a Discord forum": "Discord フォーラムにファイルを投稿する",
+    "About to post files in a Discord forum": "Discord フォーラムにファイルを投稿しようとしています",
     Tags: "タグ",
     "Start a Discord thread": "Discord スレッドを開始する",
     "About to start a Discord thread": "Discord スレッドを開始しようとしています",

@@ -30,6 +30,7 @@ const FILE_SAVE = "discord_file_save"
 const EXPORT_CREATE = "discord_export_create"
 const THREAD_CREATE = "discord_thread_create"
 const POST_CREATE = "discord_post_create"
+const FILE_POST = "discord_file_post"
 const INBOX_READ = "discord_inbox_read"
 const PEOPLE_READ = "discord_people_read"
 const SERVER_READ = "discord_server_read"
@@ -222,8 +223,16 @@ async function listTools(settings) {
       )
       await expectToolError(client, POST_CREATE, { channel: "general", name: "x", text: "hi" }, "invalid_argument")
       console.log(`${POST_CREATE} carries its write annotations and refuses a name for an id.`)
+      expectAnnotations(
+        tools,
+        FILE_POST,
+        { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+        settings,
+      )
+      await expectToolError(client, FILE_POST, { channel: "general", name: "x", files: ["a.txt"] }, "invalid_argument")
+      console.log(`${FILE_POST} carries its write annotations and refuses a name for an id.`)
     } else {
-      for (const name of [...ACTION_TOOLS, FILE_SAVE, EXPORT_CREATE, THREAD_CREATE, POST_CREATE]) {
+      for (const name of [...ACTION_TOOLS, FILE_SAVE, EXPORT_CREATE, THREAD_CREATE, POST_CREATE, FILE_POST]) {
         expectAbsent(tools, name, settings)
       }
       console.log(`The actions, files, export, thread and post tools are absent under ${JSON.stringify(settings)}.`)
