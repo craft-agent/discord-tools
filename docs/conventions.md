@@ -877,6 +877,20 @@ Every entry point takes the same settings:
 - **Nothing marks a chat read but the tool for it.** A read mark clears the
   unread state on every device the user has, so it is a call the harness asks
   about, never a side effect of looking.
+- **A thread is started where its arguments say, and only there.**
+  `discord_thread_create` names a text or announcement channel the mirror
+  knows and, to start from a message, a message the mirror holds in that
+  channel: `POST /channels/{c}/messages/{m}/threads` makes a public thread
+  whose id is the message's. Without a message it sends
+  `POST /channels/{c}/threads` with `type` always given (11 public, 12 private,
+  since Discord's default is private), and a private thread only in a text
+  channel. Forums, media channels, threads and DMs are refused before any
+  request; Discord decides the rest (permissions, slowmode, a message that
+  already has a thread). Thread creation carries no nonce, so an outcome that
+  may have reached Discord is `uncertain` after one read-back: the message's
+  thread, or the channel's newest threads the user owns with that name. The
+  thread Discord returns goes through the ingest; nothing is marked current.
+  A first message is a send of its own.
 
 ## Approval prompts
 
@@ -920,34 +934,42 @@ Every entry point takes the same settings:
   file's own name depends on what the mirror holds when the call runs, so the
   prompt names the folder. Nothing leaves the machine, so the prompt has no
   text, but the file can hold private DMs: a person approves every export.
+- **A new thread names where it starts and what it is called.** Its prompt
+  shows the channel, the message it starts from (author and a short quote)
+  when there is one, its name, public or private, and when it archives; the
+  name is the model's words for others to read, shown as given, never
+  translated.
 - **A change to the sync list names the server and its channels.** The
   server is its name in the mirror, else its id, since a server the account
   has left can still be removed; a channel is `#name`, else its id. The
   list itself is local, so its prompt has no text.
 - **The facts the tools add**, in the order they are shown:
 
-  | Label           | Value                                                                                               | Shown                                                       |
-  | --------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-  | `Chat`          | the kind of chat: `Direct message`, `Group DM`, `Text channel`, …                                   | always                                                      |
-  | `Server`        | the server's name                                                                                   | a chat in a server                                          |
-  | `Channel`       | the channel a thread belongs to, as `#name`                                                         | a thread                                                    |
-  | `Reminder`      | the reminder's time in UTC, as an ISO 8601 time, or `none`                                          | an addition to the saved list                               |
-  | `Author`        | who wrote the message, `You` for the user's own                                                     | a reaction, a pin, a save                                   |
-  | `Message`       | the message, quoted short                                                                           | a reaction, a pin, a save, a saved-list change, a read mark |
-  | `Read state`    | `cleared on every device up to this message`                                                        | a read mark                                                 |
-  | `Unpack`        | the entries named, joined with `, `, or `Every archive`                                             | `unpack` of a save                                          |
-  | `Format`        | `Markdown`, `JSON` or `JSONL`                                                                       | an export                                                   |
-  | `Messages`      | `The newest {count}` or `The first {count} after {after}`, each with `, before {before}` when given | an export                                                   |
-  | `Folder`        | the exports folder, as an absolute path                                                             | an export                                                   |
-  | `Current text`  | the text an edit replaces, quoted short                                                             | an edit                                                     |
-  | `Reply to`      | the message replied to, quoted short                                                                | a reply                                                     |
-  | `Mass mentions` | `Notify`                                                                                            | `mass_mentions` of a send or an edit                        |
-  | `Notifications` | `Silent`                                                                                            | `silent`                                                    |
-  | `Files`         | each file's name and size, as `a.pdf (1.2 MB)`, joined with `, `                                    | a file send                                                 |
-  | `Follows`       | `Whole server` or `Named channels`                                                                  | an addition to the sync list                                |
-  | `Channels`      | the channels named, as `#name`, joined with `, `                                                    | a sync list change with `channels`                          |
-  | `Excluded`      | the channels excluded, as `#name`, joined with `, `                                                 | an addition with `exclude`                                  |
-  | `Length`        | `{count} characters`, in code points                                                                | a send, an edit's new text                                  |
+  | Label            | Value                                                                                               | Shown                                                                                |
+  | ---------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+  | `Chat`           | the kind of chat: `Direct message`, `Group DM`, `Text channel`, …                                   | always                                                                               |
+  | `Server`         | the server's name                                                                                   | a chat in a server                                                                   |
+  | `Channel`        | the channel a thread belongs to, as `#name`                                                         | a thread                                                                             |
+  | `Reminder`       | the reminder's time in UTC, as an ISO 8601 time, or `none`                                          | an addition to the saved list                                                        |
+  | `Author`         | who wrote the message, `You` for the user's own                                                     | a reaction, a pin, a save, a thread from a message                                   |
+  | `Message`        | the message, quoted short                                                                           | a reaction, a pin, a save, a saved-list change, a read mark, a thread from a message |
+  | `Read state`     | `cleared on every device up to this message`                                                        | a read mark                                                                          |
+  | `Unpack`         | the entries named, joined with `, `, or `Every archive`                                             | `unpack` of a save                                                                   |
+  | `Format`         | `Markdown`, `JSON` or `JSONL`                                                                       | an export                                                                            |
+  | `Messages`       | `The newest {count}` or `The first {count} after {after}`, each with `, before {before}` when given | an export                                                                            |
+  | `Folder`         | the exports folder, as an absolute path                                                             | an export                                                                            |
+  | `Name`           | the new thread's name, as given                                                                     | a new thread                                                                         |
+  | `Visibility`     | `Public` or `Private`                                                                               | a new thread                                                                         |
+  | `Archives after` | `1 hour`, `1 day`, `3 days` or `1 week`, or `Discord's default`                                     | a new thread                                                                         |
+  | `Current text`   | the text an edit replaces, quoted short                                                             | an edit                                                                              |
+  | `Reply to`       | the message replied to, quoted short                                                                | a reply                                                                              |
+  | `Mass mentions`  | `Notify`                                                                                            | `mass_mentions` of a send or an edit                                                 |
+  | `Notifications`  | `Silent`                                                                                            | `silent`                                                                             |
+  | `Files`          | each file's name and size, as `a.pdf (1.2 MB)`, joined with `, `                                    | a file send                                                                          |
+  | `Follows`        | `Whole server` or `Named channels`                                                                  | an addition to the sync list                                                         |
+  | `Channels`       | the channels named, as `#name`, joined with `, `                                                    | a sync list change with `channels`                                                   |
+  | `Excluded`       | the channels excluded, as `#name`, joined with `, `                                                 | an addition with `exclude`                                                           |
+  | `Length`         | `{count} characters`, in code points                                                                | a send, an edit's new text                                                           |
 
 ## Toolsets
 
