@@ -1,11 +1,11 @@
 import { serverName, withMirror } from "../chats/describe"
 import { userLookup } from "../chats/dms"
 import { displayName } from "../chats/format"
-import type { StoredRole } from "../discord/mirror-roles"
 import type { CallDescription, CallFact, ToolContext } from "../tool"
 import { checkUsers, findRole, requireSnapshot } from "./assign-check"
 import type { RoleAssignInput, RoleUnassignInput, RoleWriteInput } from "./assign-schemas"
 import { strongNames } from "./permissions"
+import { reasonText, rolePins, strongFacts } from "./role-describe"
 
 /** How many member names the headline names before it counts the rest. */
 const HEADLINE_NAMES = 3
@@ -16,15 +16,6 @@ function headlineMembers(names: readonly string[]): string {
   const others = names.length - HEADLINE_NAMES
   if (others <= 0) return shown
   return `${shown} and ${others} ${others === 1 ? "other" : "others"}`
-}
-
-/** What the prompt pins of the role besides what it shows: its permission bits, position and whether an integration manages it. */
-function rolePins(role: StoredRole): Record<string, string> {
-  return {
-    role_permissions: role.permissions.toString(),
-    role_position: String(role.position),
-    role_managed: String(role.managed),
-  }
 }
 
 /**
@@ -53,14 +44,14 @@ function describeRoleWrite(
       { label: "Server", value: serverName(mirror, input.server) },
       { label: "Role", value: roleName },
       { label: "Members", value: names.join(", ") },
-      ...(strong.length === 0 ? [] : [{ label: "Strong permissions", value: strong.join(", ") }]),
+      ...strongFacts(strong),
     ]
     return {
       headline: give
         ? { text: "About to give {role} to {members}", values: { role: roleName, members: headlineMembers(names) } }
         : { text: "About to take {role} from {member}", values: { role: roleName, member: names[0]! } },
       facts,
-      ...(input.reason === undefined ? {} : { text: { label: "Reason", body: input.reason } }),
+      ...reasonText(input.reason),
       pins: rolePins(role),
     }
   })

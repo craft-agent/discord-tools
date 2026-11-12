@@ -4,17 +4,17 @@ import { checkAbort, openChatSession, type ChatSession } from "../chats/session"
 import { expireRoleSnapshot } from "../discord/ingest"
 import { isRecord } from "../discord/ingest-values"
 import { serverOwned } from "../discord/mirror-roles"
-import { isAbortError, isToolError, ToolError } from "../errors"
 import { rolesPath } from "../people/role-list"
 import { StepErrors, type ToolContext } from "../tool"
-import { checkFresh, checkRoleWrite, checkUsers, findRole, requireSnapshot } from "./assign-check"
-import { readBackRole, serverReferer } from "./assign-read-back"
+import { checkRoleWrite, checkUsers, findRole, freshSnapshot } from "./assign-check"
+import { readBackRole } from "./assign-read-back"
 import {
   type RoleAssignInput,
   type RoleAssignResult,
   type RoleUnassignInput,
   type RoleWriteInput,
 } from "./assign-schemas"
+import { type RoleRequest, sendRoleWrite, storeInSnapshot, uncertainRoleWrite } from "./role-write"
 
 /** Where Discord keeps one member's hold on one role: `PUT` gives it, `DELETE` takes it. */
 export const memberRolePath = (server: string, user: string, role: string) =>
@@ -39,31 +39,19 @@ const UNCERTAIN_MESSAGE =
 type RoleChange = { input: RoleWriteInput; users: string[]; give: boolean }
 
 /** The one request of a change: a single user is a `PUT` or `DELETE` on the member, several users one `PATCH` on the role. */
-function requestOf({ input: { server, role }, users, give }: RoleChange) {
+function requestOf({ input: { server, role }, users, give }: RoleChange): RoleRequest {
   if (!give) return { method: "DELETE", path: memberRolePath(server, users[0]!, role) }
   if (users.length === 1) return { method: "PUT", path: memberRolePath(server, users[0]!, role) }
   return { method: "PATCH", path: bulkRolePath(server, role), body: { member_ids: users } }
 }
 
-/** Sends the change once and returns Discord's answer, `undefined` for an empty one. */
-function send(session: ChatSession, change: RoleChange): Promise<unknown> {
-  const { method, path, body } = requestOf(change)
-  return session.client().write(method, path, {
-    referer: serverReferer(change.input.server),
-    ...(body === undefined ? {} : { body }),
-    ...(change.input.reason === undefined ? {} : { reason: change.input.reason }),
-    ...(session.signal ? { signal: session.signal } : {}),
-  })
-}
-
 /**
  * Expires the server's snapshot through the ingest when the change reaches the
- * user's own roles, so the next role write reads them again. A failure to store
- * is recorded in `steps` and never hides the outcome of the write.
+ * user's own roles, so the next role write reads them again.
  */
 async function expireOwnSnapshot(session: ChatSession, { input, users }: RoleChange, steps: StepErrors) {
   if (!users.includes(session.me)) return
-  await steps.record("snapshot", async () => session.store(() => expireRoleSnapshot(session.mirror, input.server)))
+  await storeInSnapshot(session, steps, () => expireRoleSnapshot(session.mirror, input.server))
 }
 
 /**
@@ -77,8 +65,7 @@ async function changeRole(change: RoleChange, ctx: ToolContext): Promise<RoleAss
   const { input, users, give } = change
   const session = await openChatSession(input, ctx)
   try {
-    const snapshot = requireSnapshot(session, input.server)
-    checkFresh(snapshot, session.now())
+    const snapshot = freshSnapshot(session, input.server)
     const role = findRole(snapshot, input.role)
     checkRoleWrite(snapshot, role, serverOwned(session.mirror, input.server), give)
     checkUsers(session, users)
@@ -87,21 +74,14 @@ async function changeRole(change: RoleChange, ctx: ToolContext): Promise<RoleAss
     const steps = new StepErrors()
     checkAbort(session.signal)
 
-    let answer: unknown
-    try {
-      answer = await send(session, change)
-    } catch (error) {
-      if (isAbortError(error)) throw error
-      if (isToolError(error) && error.code !== "uncertain") throw error
-      await expireOwnSnapshot(session, change, steps)
-      throw new ToolError("uncertain", UNCERTAIN_MESSAGE, {
-        ...(error instanceof Error ? { cause: error } : {}),
-        details: { read_back: await readBackRole(session, input.server, input.role, users) },
-      })
-    }
+    const sent = await sendRoleWrite(session, input.server, input.reason, requestOf(change))
     await expireOwnSnapshot(session, change, steps)
+    if (sent.kind === "unclear") {
+      const readBack = await readBackRole(session, input.server, input.role, users)
+      throw uncertainRoleWrite(UNCERTAIN_MESSAGE, readBack, sent.cause)
+    }
 
-    const changed = give && users.length > 1 && isRecord(answer) ? answer : undefined
+    const changed = give && users.length > 1 && isRecord(sent.answer) ? sent.answer : undefined
     const applied = changed && users.filter((id) => Object.hasOwn(changed, id))
     return {
       server: input.server,

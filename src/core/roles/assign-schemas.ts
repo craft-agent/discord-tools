@@ -8,14 +8,11 @@ export const ASSIGN_USERS_MAX = 30
 /** The longest audit log `reason`, in UTF-16 units; Discord's own limit. */
 export const REASON_MAX = 512
 
-/** The arguments the two role writes share. */
-const roleWriteFields = {
+/** The arguments every role write takes besides the role: the account, the server and the audit log reason. */
+export const serverWriteFields = {
   account: z.string().optional().describe("The account label; left out, the only signed-in account."),
   server: snowflakeId("a server id").describe(
     "The server: its id, which the local mirror must know (from `discord_chat_read` method `servers`); never a name.",
-  ),
-  role: snowflakeId("a role id").describe(
-    "The role: its id from `discord_role_read` method `list`, which must have been read in the last 15 minutes; never a name.",
   ),
   reason: z
     .string()
@@ -26,6 +23,19 @@ const roleWriteFields = {
     .describe(
       `Why, up to ${REASON_MAX} characters: sent exactly as given with the change, so the server's audit log shows it, and shown in the approval prompt. Left out, none is sent.`,
     ),
+}
+
+/** The role a role write changes. */
+export const roleField = snowflakeId("a role id").describe(
+  "The role: its id from `discord_role_read` method `list`, which must have been read in the last 15 minutes; never a name.",
+)
+
+/** The arguments the writes to one existing role share. */
+export const roleWriteFields = {
+  account: serverWriteFields.account,
+  server: serverWriteFields.server,
+  role: roleField,
+  reason: serverWriteFields.reason,
 }
 
 export const roleAssignInput = z.object({
