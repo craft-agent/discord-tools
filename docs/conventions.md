@@ -401,6 +401,11 @@ Every entry point takes the same settings:
   runtime's own globals (`Bun.spawn`, `Bun.file`, …), so the same code runs on
   Node and on Bun. It knows no project either: names, prefixes and toolsets
   come from `src/project.ts` through the entry points.
+- **The one vendor name in `src/core/` is a protocol key.** The
+  administrative class publishes `_meta["anthropic/requiresUserInteraction"]`
+  (see "Write classes"), a key of the MCP metadata every entry point sends
+  alike, so the class keeps it beside its annotations. No code, description
+  or message names a harness or a product besides it, comments included.
 
 ## Programs a tool runs
 
