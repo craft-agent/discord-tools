@@ -35,7 +35,9 @@ describe("command-line tool options", () => {
       { specs: [spec] },
     )
     expect(run.code).toBe(EXIT_OK)
-    expect(seen).toEqual([{ stateDir: "/flag/state", options: { [NOTE_OPTION]: "from flag" } }])
+    expect(seen).toEqual([
+      { stateDir: "/flag/state", options: { state_dir: "/flag/state", [NOTE_OPTION]: "from flag" } },
+    ])
   })
 
   test("target and the person commands refuse the other settings' flags", async () => {

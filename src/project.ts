@@ -28,7 +28,13 @@ export const PROJECT = {
   /** The toolsets on when a setting names none. */
   defaultToolsets: ["account", "sync", "chats", "search", "inbox", "people", "sends"] as readonly string[],
   /** The package's own settings, which the tools themselves read: each snake_case name and its type, with bounds when it needs them. */
-  options: {} as Readonly<Record<string, OptionSpec>>,
+  options: {
+    state_dir: "path",
+    download_dir: "path",
+    download_max_mb: { type: "number", integer: true, min: 1, max: 500 },
+    send_dirs: { type: "paths", max: 20 },
+    send_max_mb: { type: "number", integer: true, min: 1, max: 500 },
+  } as Readonly<Record<string, OptionSpec>>,
   /** The environment variables the tools read besides the settings, which Codex forwards to the server after them. */
   toolVariables: [] as readonly string[],
 } as const

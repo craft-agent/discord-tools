@@ -200,8 +200,4 @@ def settings_flags(ctx: PluginContext) -> list[str]:
         if value is not None and (names := _names(key, value)):
             flags += [flag, names]
 
-    flags += target_flags(ctx)
-    flags += download_max_mb_flags(ctx)
-    flags += send_max_mb_flags(ctx)
-
     return [*flags, *option_flags(ctx)]

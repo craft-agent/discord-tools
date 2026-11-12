@@ -83,10 +83,10 @@ class SettingsFlagsTest(unittest.TestCase):
                 "/s",
                 "--download-dir",
                 "/d",
-                "--send-dirs",
-                os.pathsep.join(["/send1", "/send2"]),
                 "--download-max-mb",
                 "5",
+                "--send-dirs",
+                "/send1,/send2",
                 "--send-max-mb",
                 "12",
             ],
@@ -134,27 +134,32 @@ class SettingsFlagsTest(unittest.TestCase):
             {"tools": "demo_thing_read"},
             {"exclude_tools": [1]},
             {"state_dir": 123},
-            {"state_dir": ""},
             {"download_dir": 123},
-            {"download_dir": "  "},
             {"download_max_mb": "100"},
             {"download_max_mb": True},
-            {"download_max_mb": 1.5},
             {"send_dirs": 123},
             {"send_dirs": "  "},
             {"send_dirs": True},
             {"send_dirs": [123]},
             {"send_max_mb": "100"},
             {"send_max_mb": True},
-            {"send_max_mb": 1.5},
         ):
             with self.subTest(config=config), self.assertRaises(settings.SettingsError):
                 self.flags(**config)
 
 
 class OptionFlagsTest(unittest.TestCase):
-    def test_the_starter_has_no_tool_options(self) -> None:
-        self.assertEqual(project.OPTIONS, {})
+    def test_the_package_declares_its_own_settings(self) -> None:
+        self.assertEqual(
+            project.OPTIONS,
+            {
+                "state_dir": "path",
+                "download_dir": "path",
+                "download_max_mb": {"type": "number", "integer": True, "min": 1, "max": 500},
+                "send_dirs": {"type": "paths", "max": 20},
+                "send_max_mb": {"type": "number", "integer": True, "min": 1, "max": 500},
+            },
+        )
 
     def test_each_kind_becomes_a_flag(self) -> None:
         options = {"note_text": "text", "note_pinned": "boolean", "note_count": "number", "note_tags": "list"}

@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test"
-import { delimiter } from "node:path"
 import { z } from "zod"
 import { defineTool, type ToolSpec } from "../core"
 import { PROFILE } from "./testing"
@@ -89,25 +88,20 @@ describe("OpenCode state_dir setting", () => {
       })
     }
 
-    test("V1 passes download_dir and download_max_mb from options, and the number may be a string", async () => {
+    test("V1 passes download_dir and download_max_mb from options", async () => {
       const context: V1ToolContext = {
         directory: "/work/project",
         worktree: "/work/project",
         abort: new AbortController().signal,
         async ask() {},
       }
-      for (const [max, expected] of [
-        [25, 25],
-        ["26", 26],
-      ] as const) {
-        const recorder: { seen?: unknown } = {}
-        const { tool } = await createV1Server([downloadTool(recorder)], { profile: PROFILE })(
-          {},
-          { download_dir: "/v1/get", download_max_mb: max },
-        )
-        await tool.demo_download_read!.execute({}, context)
-        expect(recorder.seen).toEqual({ downloadDir: "/v1/get", downloadMaxMb: expected })
-      }
+      const recorder: { seen?: unknown } = {}
+      const { tool } = await createV1Server([downloadTool(recorder)], { profile: PROFILE })(
+        {},
+        { download_dir: "/v1/get", download_max_mb: 25 },
+      )
+      await tool.demo_download_read!.execute({}, context)
+      expect(recorder.seen).toEqual({ downloadDir: "/v1/get", downloadMaxMb: 25 })
     })
 
     test("V2 passes download_dir and download_max_mb from options and falls back to the environment", async () => {
@@ -159,25 +153,20 @@ describe("OpenCode state_dir setting", () => {
       })
     }
 
-    test("V1 passes send_dirs (array or string) and send_max_mb from options, and the number may be a string", async () => {
+    test("V1 passes send_dirs and send_max_mb from options", async () => {
       const context: V1ToolContext = {
         directory: "/work/project",
         worktree: "/work/project",
         abort: new AbortController().signal,
         async ask() {},
       }
-      for (const [dirs, max, expectedDirs, expectedMax] of [
-        [["/v1/send1", "/v1/send2"], 25, ["/v1/send1", "/v1/send2"], 25],
-        ["/v1/single", "26", ["/v1/single"], 26],
-      ] as const) {
-        const recorder: { seen?: unknown } = {}
-        const { tool } = await createV1Server([sendTool(recorder)], { profile: PROFILE })(
-          {},
-          { send_dirs: dirs, send_max_mb: max },
-        )
-        await tool.demo_send_read!.execute({}, context)
-        expect(recorder.seen).toEqual({ sendDirs: expectedDirs, sendMaxMb: expectedMax })
-      }
+      const recorder: { seen?: unknown } = {}
+      const { tool } = await createV1Server([sendTool(recorder)], { profile: PROFILE })(
+        {},
+        { send_dirs: ["/v1/send1", "/v1/send2"], send_max_mb: 25 },
+      )
+      await tool.demo_send_read!.execute({}, context)
+      expect(recorder.seen).toEqual({ sendDirs: ["/v1/send1", "/v1/send2"], sendMaxMb: 25 })
     })
 
     test("V2 passes send_dirs and send_max_mb from options and falls back to the environment", async () => {
@@ -190,7 +179,7 @@ describe("OpenCode state_dir setting", () => {
         ],
         [
           {},
-          { DEMO_SEND_DIRS: ["/v2/env1", "/v2/env2"].join(delimiter), DEMO_SEND_MAX_MB: "31" },
+          { DEMO_SEND_DIRS: "/v2/env1,/v2/env2", DEMO_SEND_MAX_MB: "31" },
           { sendDirs: ["/v2/env1", "/v2/env2"], sendMaxMb: 31 },
         ],
       ] as const) {

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import sys
 import threading
@@ -67,7 +66,10 @@ class ApprovalHookTest(FakeCliCase):
         hook = ctx.hooks[0][1]
         hook(tool_name="demo_thing_create", args={"target": "target/one"})
         [call] = self.target_calls()
-        self.assertEqual(call["argv"], ["target", "demo_thing_create", "--cwd", CWD, "--download-dir", "/custom/get"])
+        self.assertEqual(
+            call["argv"],
+            ["target", "demo_thing_create", "--cwd", CWD, "--download-dir", "/custom/get", "--download-max-mb", "5"],
+        )
 
     def test_send_dirs_flag_is_appended_to_target_call(self) -> None:
         self.reply("target demo_thing_create", stdout='{"resources":["target/one"]}\n')
@@ -83,7 +85,9 @@ class ApprovalHookTest(FakeCliCase):
                 "--cwd",
                 CWD,
                 "--send-dirs",
-                os.pathsep.join(["/custom/send1", "/custom/send2"]),
+                "/custom/send1,/custom/send2",
+                "--send-max-mb",
+                "5",
             ],
         )
 
