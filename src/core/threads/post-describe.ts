@@ -1,7 +1,7 @@
 import { describeChat, withMirror } from "../chats/describe"
 import type { Mirror } from "../discord/mirror"
 import { massMentionsFacts, lengthFact, silentFacts } from "../sends/describe"
-import type { CallDescription, CallFact, ToolContext } from "../tool"
+import type { CallDescription, CallFact, CallHeadline, ToolContext } from "../tool"
 import { postTags } from "./post-args"
 import type { PostCreateInput } from "./post-schemas"
 
@@ -35,6 +35,9 @@ export function describePostTarget(
   }
 }
 
+/** The headline of every post: the forum alone, since the name is a fact. */
+export const postHeadline = (chat: string): CallHeadline => ({ text: "About to post in {chat}", values: { chat } })
+
 /**
  * What a post will do, from the mirror alone: the forum, the name, the tags,
  * the notification flags, the text's length and the text as the first message.
@@ -43,7 +46,7 @@ export async function describePostCreate(args: PostCreateInput, ctx: ToolContext
   return withMirror(args.account, ctx, (mirror) => {
     const target = describePostTarget(mirror, args)
     return {
-      headline: { text: "About to post in {chat}", values: { chat: target.chat } },
+      headline: postHeadline(target.chat),
       facts: [...target.facts, lengthFact(args.text)],
       text: { label: "Message text", body: args.text },
     }

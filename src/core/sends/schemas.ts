@@ -77,16 +77,17 @@ export const fileSendInput = sendInput.extend({
 /** The arguments of `discord_file_send` after validation. */
 export type FileSendInput = z.output<typeof fileSendInput>
 
-export const fileSendOutput = sendOutput.extend({
-  files: z
-    .array(
-      z.object({
-        name: z.string().describe("The name the file was sent under."),
-        size: z.number().describe("Its size in bytes."),
-      }),
-    )
-    .describe("The files sent, in the order given."),
-})
+/** The `files` of a result that sent files: each one's name and size, in the order given. */
+export const sentFilesOutput = z
+  .array(
+    z.object({
+      name: z.string().describe("The name the file was sent under."),
+      size: z.number().describe("Its size in bytes."),
+    }),
+  )
+  .describe("The files sent, in the order given.")
+
+export const fileSendOutput = sendOutput.extend({ files: sentFilesOutput })
 
 /** The result of `discord_file_send`. */
 export type FileSendResult = z.infer<typeof fileSendOutput>
