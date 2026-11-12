@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import unittest
 from typing import Any
 from unittest import mock
@@ -43,40 +42,14 @@ class SettingsFlagsTest(unittest.TestCase):
     def test_false_and_empty_settings_give_no_flag(self) -> None:
         self.assertEqual(self.flags(toolsets=[], read_only=False, tools=[], exclude_tools=[]), [])
 
-    def test_state_dir_flag(self) -> None:
-        self.assertEqual(
-            settings.state_dir_flags(StubContext({"state_dir": "/custom/path"})), ["--state-dir", "/custom/path"]
-        )
-        self.assertEqual(settings.state_dir_flags(StubContext({})), [])
-
-    def test_state_dir_included_in_settings_flags(self) -> None:
-        self.assertEqual(self.flags(state_dir="/custom/path"), ["--state-dir", "/custom/path"])
-
-    def test_invalid_state_dir_refused(self) -> None:
-        for value in (123, True, "", "   ", []):
-            with self.subTest(value=value), self.assertRaises(settings.SettingsError):
-                settings.state_dir_flags(StubContext({"state_dir": value}))
-
-    def test_download_dir_flag(self) -> None:
-        self.assertEqual(
-            settings.download_dir_flags(StubContext({"download_dir": "/custom/get"})), ["--download-dir", "/custom/get"]
-        )
-        self.assertEqual(settings.download_dir_flags(StubContext({})), [])
-
-    def test_download_max_mb_flag(self) -> None:
-        self.assertEqual(
-            settings.download_max_mb_flags(StubContext({"download_max_mb": 250})), ["--download-max-mb", "250"]
-        )
-        self.assertEqual(settings.download_max_mb_flags(StubContext({})), [])
-
-    def test_download_settings_included_in_settings_flags(self) -> None:
+    def test_the_package_settings_become_their_flags_in_declaration_order(self) -> None:
         self.assertEqual(
             self.flags(
-                state_dir="/s",
-                download_dir="/d",
-                download_max_mb=5,
-                send_dirs=["/send1", "/send2"],
                 send_max_mb=12,
+                send_dirs=["/send1", "/send2"],
+                download_max_mb=5,
+                download_dir="/d",
+                state_dir="/s",
             ),
             [
                 "--state-dir",
@@ -92,39 +65,26 @@ class SettingsFlagsTest(unittest.TestCase):
             ],
         )
 
-    def test_send_dirs_flag(self) -> None:
-        self.assertEqual(
-            settings.send_dirs_flags(StubContext({"send_dirs": "/custom/send"})), ["--send-dirs", "/custom/send"]
-        )
-        self.assertEqual(
-            settings.send_dirs_flags(StubContext({"send_dirs": ["/send1", "/send2"]})),
-            ["--send-dirs", os.pathsep.join(["/send1", "/send2"])],
-        )
-        self.assertEqual(settings.send_dirs_flags(StubContext({"send_dirs": []})), [])
-        self.assertEqual(settings.send_dirs_flags(StubContext({})), [])
+    def test_each_package_setting_is_a_flag_alone(self) -> None:
+        for config, expected in (
+            ({"state_dir": "/custom/path"}, ["--state-dir", "/custom/path"]),
+            ({"download_dir": "/custom/get"}, ["--download-dir", "/custom/get"]),
+            ({"download_max_mb": 250}, ["--download-max-mb", "250"]),
+            ({"send_dirs": ["/custom/send"]}, ["--send-dirs", "/custom/send"]),
+            ({"send_max_mb": 25}, ["--send-max-mb", "25"]),
+        ):
+            with self.subTest(config=config):
+                self.assertEqual(self.flags(**config), expected)
 
-    def test_send_max_mb_flag(self) -> None:
+    def test_blank_and_empty_package_settings_give_no_flag(self) -> None:
         self.assertEqual(
-            settings.send_max_mb_flags(StubContext({"send_max_mb": 25})), ["--send-max-mb", "25"]
+            self.flags(state_dir="", download_dir="  ", send_dirs=[]),
+            [],
         )
-        self.assertEqual(settings.send_max_mb_flags(StubContext({})), [])
+        self.assertEqual(self.flags(send_dirs=["", " "]), [])
 
-    def test_target_flags_name_the_directories_but_not_the_size(self) -> None:
-        self.assertEqual(
-            settings.target_flags(
-                StubContext(
-                    {
-                        "state_dir": "/s",
-                        "download_dir": "/d",
-                        "send_dirs": ["/send1", "/send2"],
-                        "download_max_mb": 5,
-                        "send_max_mb": 10,
-                    }
-                )
-            ),
-            ["--state-dir", "/s", "--download-dir", "/d", "--send-dirs", os.pathsep.join(["/send1", "/send2"])],
-        )
-        self.assertEqual(settings.target_flags(StubContext({})), [])
+    def test_the_range_of_a_size_limit_is_the_command_lines_to_check(self) -> None:
+        self.assertEqual(self.flags(download_max_mb=0, send_max_mb=501), ["--download-max-mb", "0", "--send-max-mb", "501"])
 
     def test_a_wrong_type_is_refused(self) -> None:
         for config in (
@@ -134,13 +94,16 @@ class SettingsFlagsTest(unittest.TestCase):
             {"tools": "demo_thing_read"},
             {"exclude_tools": [1]},
             {"state_dir": 123},
+            {"state_dir": True},
+            {"state_dir": []},
             {"download_dir": 123},
             {"download_max_mb": "100"},
             {"download_max_mb": True},
             {"send_dirs": 123},
-            {"send_dirs": "  "},
+            {"send_dirs": "/one"},
             {"send_dirs": True},
             {"send_dirs": [123]},
+            {"send_dirs": ["/a,b"]},
             {"send_max_mb": "100"},
             {"send_max_mb": True},
         ):
