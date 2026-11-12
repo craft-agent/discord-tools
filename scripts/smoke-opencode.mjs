@@ -123,11 +123,12 @@ try {
     expect(skills.includes("discord-sync"), "Expected setup to discover the sync skill.")
     expect(skills.includes("discord-search"), "Expected setup to discover the search skill.")
     expect(skills.includes("discord-inbox"), "Expected setup to discover the inbox skill.")
-    // A skill comes with its toolset's tools: sends has only writes, actions and files are off by default.
+    // A skill comes with its toolset's tools: sends has only writes; actions, threads and files are off by default.
     for (const [skill, on] of [
       ["discord-people", true],
       ["discord-sends", !readOnly],
       ["discord-actions", allToolsets && !readOnly],
+      ["discord-threads", allToolsets && !readOnly],
       ["discord-history", allToolsets],
       ["discord-files", allToolsets && !readOnly],
     ]) {
