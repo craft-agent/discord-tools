@@ -24,6 +24,7 @@ TOOLSET_EMOJI: dict[str, str] = {
     "files": "📎",
     "actions": "🔧",
     "threads": "🧵",
+    "roles": "🎭",
 }
 
 #: The settings the tools themselves read: each snake_case name and a type (``text``, ``boolean``, ``number``,

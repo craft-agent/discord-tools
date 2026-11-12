@@ -1,8 +1,17 @@
 import { describe, expect, test } from "bun:test"
-import { selectTools } from "./core"
+import { annotations, selectTools, toolMeta } from "./core"
 import { PROJECT_PROFILE } from "./entry/profile"
 import { PROJECT } from "./project"
 import { ALL_TOOLS } from "./tools"
+
+/** The tools that change roles, all administrative. */
+const ROLE_WRITES = [
+  "discord_role_assign",
+  "discord_role_unassign",
+  "discord_role_create",
+  "discord_role_edit",
+  "discord_role_delete",
+]
 
 describe("the registry", () => {
   test("account read is a read tool selected by default and in read-only mode", () => {
@@ -166,6 +175,40 @@ describe("the registry", () => {
     expect(ids({ toolsets: ["threads"] })).toContain(id)
     expect(ids({ toolsets: ["threads"], read_only: true })).not.toContain(id)
   })
+
+  test("role read is a read tool in the off-by-default roles toolset, kept in read-only mode", () => {
+    const id = "discord_role_read"
+    const ids = (settings: Parameters<typeof selectTools>[1]) =>
+      selectTools(ALL_TOOLS, settings, PROJECT_PROFILE.toolsets).map((spec) => spec.id)
+    expect(ALL_TOOLS.find((spec) => spec.id === id)).toMatchObject({ toolset: "roles", class: "read" })
+    expect(ids({})).not.toContain(id)
+    expect(ids({ read_only: true })).not.toContain(id)
+    expect(ids({ toolsets: ["roles"] })).toContain(id)
+    expect(ids({ toolsets: "all" })).toContain(id)
+    expect(ids({ toolsets: ["roles"], read_only: true })).toContain(id)
+  })
+
+  test.each(ROLE_WRITES)(
+    "%s is an administrative tool in the off-by-default roles toolset, left out in read-only mode",
+    (id) => {
+      const ids = (settings: Parameters<typeof selectTools>[1]) =>
+        selectTools(ALL_TOOLS, settings, PROJECT_PROFILE.toolsets).map((spec) => spec.id)
+      expect(ALL_TOOLS.find((spec) => spec.id === id)).toMatchObject({ toolset: "roles", class: "administrative" })
+      expect(ids({})).not.toContain(id)
+      expect(ids({ toolsets: ["roles"] })).toContain(id)
+      expect(ids({ toolsets: "all" })).toContain(id)
+      expect(ids({ toolsets: ["roles"], read_only: true })).not.toContain(id)
+    },
+  )
+
+  test.each(ROLE_WRITES)(
+    "%s is published as destructive and not idempotent, and asks even under an allow rule",
+    (id) => {
+      const spec = ALL_TOOLS.find((tool) => tool.id === id)!
+      expect(annotations(spec)).toMatchObject({ readOnlyHint: false, destructiveHint: true, idempotentHint: false })
+      expect(toolMeta(spec)).toEqual({ "anthropic/requiresUserInteraction": true })
+    },
+  )
 
   test("every tool id is unique", () => {
     const ids = ALL_TOOLS.map((spec) => spec.id)

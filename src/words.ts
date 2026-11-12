@@ -5,6 +5,7 @@ import { FACT_TRANSLATIONS } from "./core/facts"
 import { FILE_TRANSLATIONS } from "./core/files/words"
 import { HISTORY_TRANSLATIONS } from "./core/history/words"
 import { READ_MARK_TRANSLATIONS } from "./core/read-mark/words"
+import { ROLE_TRANSLATIONS } from "./core/roles/words"
 import { SAVED_TRANSLATIONS } from "./core/saved/words"
 import { FILE_SEND_TRANSLATIONS } from "./core/sends/file-words"
 import { SEND_TRANSLATIONS } from "./core/sends/words"
@@ -24,4 +25,5 @@ export const ALL_TRANSLATIONS: Translations = mergeTranslations(
   READ_MARK_TRANSLATIONS,
   SYNC_TRANSLATIONS,
   THREAD_TRANSLATIONS,
+  ROLE_TRANSLATIONS,
 )

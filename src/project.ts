@@ -25,6 +25,7 @@ export const PROJECT = {
     "files",
     "actions",
     "threads",
+    "roles",
   ] as readonly string[],
   /** The toolsets on when a setting names none. */
   defaultToolsets: ["account", "sync", "chats", "search", "inbox", "people", "sends"] as readonly string[],

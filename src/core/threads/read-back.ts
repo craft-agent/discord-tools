@@ -55,7 +55,7 @@ async function ownThreadsNamed(session: ChatSession, parent: MirroredChannel, na
  * reported, not thrown, and a cancelled call looks at nothing: the write is
  * uncertain either way, and it is never sent again.
  */
-async function lookOnce<T>(session: ChatSession, look: () => Promise<T>): Promise<T | "failed" | "skipped"> {
+export async function lookOnce<T>(session: ChatSession, look: () => Promise<T>): Promise<T | "failed" | "skipped"> {
   if (session.signal?.aborted) return "skipped"
   try {
     return await look()

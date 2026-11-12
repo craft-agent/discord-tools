@@ -669,7 +669,9 @@ Every entry point takes the same settings:
   toolset's reads (`discord_people_read`, `discord_server_read`) ask Discord
   on every call and keep no friend list, note, profile, member or role in the
   mirror: such things change without a trace a user account can poll, and a
-  stored copy would be stale with nothing to say so. Only the user objects a
+  stored copy would be stale with nothing to say so. The one exception is the
+  `roles` toolset's snapshot, stored with its time so it can say how old it
+  is (see "Roles"). Only the user objects a
   read returns go through the ingest into the users the mirror knows, as a
   search's authors do, so a later call can name them.
 - **A person or a server is an id the mirror knows.** A user argument must be
@@ -727,6 +729,43 @@ Every entry point takes the same settings:
   do. Anyone holding a code can join the server, so the result
   and the skill say a code goes to the user only, never into a message, a
   file or another tool unless the user asks for that.
+
+## Roles
+
+- **A role write is checked against a snapshot, so the snapshot is stored.**
+  A prompt is drawn from the mirror alone, and the checks before a role write
+  (the user's highest role, the permissions the user holds) need the server's
+  roles and the user's own. `discord_role_read` methods `list` and `role` ask
+  `GET /guilds/{server}/roles`, `/roles/member-counts` and
+  `GET /users/@me/guilds/{server}/member`, and store through the ingest the
+  server's roles and the ids of the user's own roles, with the time they were
+  read. The roles a read did not return are dropped: a whole list vouches for
+  itself. Nobody else's roles are stored; a member's roles are
+  `discord_people_read`'s, read live.
+- **The snapshot says how old it is.** A read returns when it was taken, and
+  a role write refuses one older than 15 minutes, saying to read the roles
+  again: roles change without a trace a user account can poll.
+- **Permissions have Discord's names**, in lower case (`manage_messages`),
+  never bit numbers. A read lists a role's permissions by name, a bit with no
+  name as `bit{n}`, and marks the strong ones: those that act on other people,
+  the server or its settings (`administrator`, `ban_members`, `kick_members`,
+  `manage_guild`, `manage_roles`, `manage_channels`, `manage_webhooks`,
+  `manage_messages`, `moderate_members`, `mention_everyone`,
+  `manage_nicknames`, `manage_guild_expressions`, `manage_events`,
+  `manage_threads`, `view_audit_log`, `pin_messages`).
+- **The user's own permissions are worked out as Discord does.** They are
+  `@everyone`'s and every role the user holds, joined; an owner or a holder
+  of `administrator` has them all. A role is manageable when the user may
+  manage roles (`manage_roles`, `administrator` or owning the server), it sits
+  below the user's highest role (an owner is exempt; an equal position is not
+  below), it is not managed by an integration, and it is not `@everyone`.
+  Ownership is the mirror's server row, as the server list last said.
+- **A role's members are Discord's list of ids.** Method `members` asks
+  `GET /guilds/{server}/roles/{role}/member-ids` for a role the snapshot
+  holds, other than `@everyone`, which Discord does not list; Discord returns
+  at most 100 ids, and the result says when it reached that. Each id comes
+  with the name the mirror holds, null for a user it does not, and nothing is
+  stored.
 
 ## History
 
@@ -925,6 +964,53 @@ Every entry point takes the same settings:
   on: joining does not reopen one. The mirror holds no membership, so nothing
   follows a change there, and an outcome that may have reached Discord is
   `uncertain` after one read of the user's membership.
+- **A role write is administrative and checked against the snapshot first.**
+  Roles change what others may do in a server, so every role write is asked
+  about each time. Before any request, from the mirror alone: the server's
+  snapshot is under 15 minutes old, the user may manage roles, and the role
+  is one the user may manage (see "Roles"). A refused check names what to do,
+  such as reading the roles again. An optional `reason`, up to 512
+  characters, goes as `X-Audit-Log-Reason` and is shown in the prompt. A role
+  write that changes the user's own roles expires the snapshot through the
+  ingest, so the next role write reads them again. Discord checks the same
+  rules again and decides the rest.
+- **Giving a role never hands over more than the user has.**
+  `discord_role_assign` names a role and 1 to 30 distinct users the mirror
+  knows; `discord_role_unassign` names one. Giving a role that holds
+  `administrator`, or a permission the user lacks, is refused before a
+  request; taking one away is not. One user is
+  `PUT /guilds/{s}/members/{u}/roles/{r}`, several
+  `PATCH /guilds/{s}/roles/{r}/members` with `member_ids`; taking a role is
+  `DELETE /guilds/{s}/members/{u}/roles/{r}`. Giving a role someone holds,
+  or taking one they lack, changes nothing, so both are sent as asked. An
+  outcome that may have reached Discord is `uncertain` after one read-back:
+  the member's roles for one user, the role's member ids for several (which
+  list at most 100, so a user missing past that is unknown). Other people's
+  roles are never stored.
+- **Creating and editing a role grant only what the user may hand out.**
+  `discord_role_create` takes a name (1 to 100 characters), permissions by
+  name (none when left out), a color (`#rrggbb`), `hoist` and `mentionable`,
+  and sends `POST /guilds/{s}/roles`; Discord puts a new role at the bottom,
+  above `@everyone`. `discord_role_edit` names a role the user may manage and
+  any of a name, a color (or `none`), `hoist`, `mentionable`, permissions to
+  `grant` and to `revoke`, and sends `PATCH /guilds/{s}/roles/{r}` with only
+  what changes; `@everyone` may be edited, its permissions only. An edit
+  sends the role's whole new permission set, worked out from the snapshot,
+  so a name in both `grant` and `revoke`, or an edit that changes nothing, is
+  refused. Creating or granting `administrator`, or a permission the user
+  lacks, is refused before a request; revoking is not.
+- **Deleting a role is final.** `discord_role_delete` names a role the user
+  may manage and sends `DELETE /guilds/{s}/roles/{r}`; the role leaves
+  everyone who held it, and nothing brings it back.
+- **A done change follows in the snapshot.** The role Discord returns from a
+  creation or an edit, and the removal of a deleted one, go through the
+  ingest into the snapshot's roles without changing when it was read; a
+  change to a role the user holds expires the snapshot instead. Creating a
+  role takes no nonce, so an outcome that may have reached Discord is
+  `uncertain` after one read of the server's roles, whose roles with that
+  name are candidates, never a confirmation, and the creation is never
+  repeated. An unclear edit or delete reads the roles once too, and says
+  whether the role is there and as asked.
 
 ## Approval prompts
 
@@ -980,38 +1066,58 @@ Every entry point takes the same settings:
   name, its tags by the names the mirror holds, and a send's facts
   (`Mass mentions`, `Notifications`, `Length`); its text is the first
   message, verbatim, as a send's is.
+- **A role write names the role and whom it reaches.** Its prompt names the
+  server, the role by its name in the snapshot and, for giving or taking, the
+  members by the names the mirror holds (an id for one it does not); giving a
+  role with strong permissions lists them, since the person approves handing
+  them over. The `reason` is the prompt's text, verbatim. The prompt pins the
+  role's permissions and position as the snapshot holds them, so a role that
+  changed before the call runs makes it `stale`. A new role is named in the
+  headline by the name given; a creation lists every permission it gives and
+  an edit what it changes, each value as it will be, with the strong
+  permissions given marked apart.
 - **A change to the sync list names the server and its channels.** The
   server is its name in the mirror, else its id, since a server the account
   has left can still be removed; a channel is `#name`, else its id. The
   list itself is local, so its prompt has no text.
 - **The facts the tools add**, in the order they are shown:
 
-  | Label            | Value                                                                                               | Shown                                                                                |
-  | ---------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-  | `Chat`           | the kind of chat: `Direct message`, `Group DM`, `Text channel`, …                                   | always                                                                               |
-  | `Server`         | the server's name                                                                                   | a chat in a server                                                                   |
-  | `Channel`        | the channel a thread belongs to, as `#name`                                                         | a thread                                                                             |
-  | `Reminder`       | the reminder's time in UTC, as an ISO 8601 time, or `none`                                          | an addition to the saved list                                                        |
-  | `Author`         | who wrote the message, `You` for the user's own                                                     | a reaction, a pin, a save, a thread from a message                                   |
-  | `Message`        | the message, quoted short                                                                           | a reaction, a pin, a save, a saved-list change, a read mark, a thread from a message |
-  | `Read state`     | `cleared on every device up to this message`                                                        | a read mark                                                                          |
-  | `Unpack`         | the entries named, joined with `, `, or `Every archive`                                             | `unpack` of a save                                                                   |
-  | `Format`         | `Markdown`, `JSON` or `JSONL`                                                                       | an export                                                                            |
-  | `Messages`       | `The newest {count}` or `The first {count} after {after}`, each with `, before {before}` when given | an export                                                                            |
-  | `Folder`         | the exports folder, as an absolute path                                                             | an export                                                                            |
-  | `Name`           | the new thread's or post's name, as given                                                           | a new thread, a post                                                                 |
-  | `Tags`           | the tags given, by their names in the mirror, joined with `, `                                      | a post with `tags`                                                                   |
-  | `Visibility`     | `Public` or `Private`                                                                               | a new thread                                                                         |
-  | `Archives after` | `1 hour`, `1 day`, `3 days` or `1 week`, or `Discord's default`                                     | a new thread                                                                         |
-  | `Current text`   | the text an edit replaces, quoted short                                                             | an edit                                                                              |
-  | `Reply to`       | the message replied to, quoted short                                                                | a reply                                                                              |
-  | `Mass mentions`  | `Notify`                                                                                            | `mass_mentions` of a send, an edit or a post                                         |
-  | `Notifications`  | `Silent`                                                                                            | `silent`                                                                             |
-  | `Files`          | each file's name and size, as `a.pdf (1.2 MB)`, joined with `, `                                    | a file send, a post with files                                                       |
-  | `Follows`        | `Whole server` or `Named channels`                                                                  | an addition to the sync list                                                         |
-  | `Channels`       | the channels named, as `#name`, joined with `, `                                                    | a sync list change with `channels`                                                   |
-  | `Excluded`       | the channels excluded, as `#name`, joined with `, `                                                 | an addition with `exclude`                                                           |
-  | `Length`         | `{count} characters`, in code points                                                                | a send, an edit's new text, a post                                                   |
+  | Label                | Value                                                                                               | Shown                                                                                |
+  | -------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+  | `Chat`               | the kind of chat: `Direct message`, `Group DM`, `Text channel`, …                                   | always                                                                               |
+  | `Server`             | the server's name                                                                                   | a chat in a server                                                                   |
+  | `Channel`            | the channel a thread belongs to, as `#name`                                                         | a thread                                                                             |
+  | `Reminder`           | the reminder's time in UTC, as an ISO 8601 time, or `none`                                          | an addition to the saved list                                                        |
+  | `Author`             | who wrote the message, `You` for the user's own                                                     | a reaction, a pin, a save, a thread from a message                                   |
+  | `Message`            | the message, quoted short                                                                           | a reaction, a pin, a save, a saved-list change, a read mark, a thread from a message |
+  | `Read state`         | `cleared on every device up to this message`                                                        | a read mark                                                                          |
+  | `Unpack`             | the entries named, joined with `, `, or `Every archive`                                             | `unpack` of a save                                                                   |
+  | `Format`             | `Markdown`, `JSON` or `JSONL`                                                                       | an export                                                                            |
+  | `Messages`           | `The newest {count}` or `The first {count} after {after}`, each with `, before {before}` when given | an export                                                                            |
+  | `Folder`             | the exports folder, as an absolute path                                                             | an export                                                                            |
+  | `Name`               | the new thread's or post's name, as given                                                           | a new thread, a post                                                                 |
+  | `Tags`               | the tags given, by their names in the mirror, joined with `, `                                      | a post with `tags`                                                                   |
+  | `Visibility`         | `Public` or `Private`                                                                               | a new thread                                                                         |
+  | `Archives after`     | `1 hour`, `1 day`, `3 days` or `1 week`, or `Discord's default`                                     | a new thread                                                                         |
+  | `Current text`       | the text an edit replaces, quoted short                                                             | an edit                                                                              |
+  | `Reply to`           | the message replied to, quoted short                                                                | a reply                                                                              |
+  | `Mass mentions`      | `Notify`                                                                                            | `mass_mentions` of a send, an edit or a post                                         |
+  | `Notifications`      | `Silent`                                                                                            | `silent`                                                                             |
+  | `Files`              | each file's name and size, as `a.pdf (1.2 MB)`, joined with `, `                                    | a file send, a post with files                                                       |
+  | `Role`               | the role's name in the snapshot                                                                     | a write to an existing role                                                          |
+  | `Members`            | the members' names, joined with `, `                                                                | giving or taking a role                                                              |
+  | `New name`           | the role's name, as given                                                                           | a new role, an edit with `name`                                                      |
+  | `Strong permissions` | the strong permissions given, by name, joined with `, `                                             | giving, creating or granting any                                                     |
+  | `Color`              | `#rrggbb`, or `None`                                                                                | a role with `color`                                                                  |
+  | `Listed apart`       | `Yes` or `No`                                                                                       | a role with `hoist`                                                                  |
+  | `Mentionable`        | `Yes` or `No`                                                                                       | a role with `mentionable`                                                            |
+  | `Permissions`        | every permission given, by name, joined with `, `, or `None`                                        | a new role                                                                           |
+  | `Grant`              | the permissions granted, by name, joined with `, `                                                  | an edit with `grant`                                                                 |
+  | `Revoke`             | the permissions revoked, by name, joined with `, `                                                  | an edit with `revoke`                                                                |
+  | `Follows`            | `Whole server` or `Named channels`                                                                  | an addition to the sync list                                                         |
+  | `Channels`           | the channels named, as `#name`, joined with `, `                                                    | a sync list change with `channels`                                                   |
+  | `Excluded`           | the channels excluded, as `#name`, joined with `, `                                                 | an addition with `exclude`                                                           |
+  | `Length`             | `{count} characters`, in code points                                                                | a send, an edit's new text, a post                                                   |
 
 ## Toolsets
 
@@ -1019,7 +1125,8 @@ Every entry point takes the same settings:
   `inbox` (mentions, what waits for an answer, the saved list and read marks), `people` (people and server
   info), `sends`, `history` (counts and the export), `files` (saving received
   files), `actions` (the user's own messages, reactions and pins), `threads`
-  (creating threads and forum posts, joining and leaving threads) and `roles`.
+  (creating threads and forum posts, joining and leaving threads) and `roles`
+  (reading a server's roles and changing them).
 - **`account`, `sync`, `chats`, `search`, `inbox`, `people` and `sends` are on
   by default.** They cover reading a chat and answering it. `history` and
   `files` write files to disk; `actions` changes messages other people have

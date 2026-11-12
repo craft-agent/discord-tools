@@ -1,6 +1,6 @@
 ---
 name: discord-people
-description: 'Use when reading who someone is on Discord or what a server offers ("who is this user?", "which servers do we share?", "list my friends", "what did I note about them?", "what roles does she have in this server?", "find the member named …", "how many members does this server have?", "what roles exist here?", "which custom emoji can I use?", "what events are coming up?", "list this server''s invite links"). Covers friends, private notes, one-person profiles, membership and member search, server info, roles, emoji, stickers, events and private invite codes. Not for reading or searching messages (discord-chats, discord-search), changing roles (not yet), or sending (discord-sends).'
+description: 'Use when reading who someone is on Discord or what a server offers ("who is this user?", "which servers do we share?", "list my friends", "what did I note about them?", "what roles does she have in this server?", "find the member named …", "how many members does this server have?", "what roles exist here?", "which custom emoji can I use?", "what events are coming up?", "list this server''s invite links"). Covers friends, private notes, one-person profiles, membership and member search, server info, roles, emoji, stickers, events and private invite codes. Not for reading or searching messages (discord-chats, discord-search), changing roles (discord-roles), or sending (discord-sends).'
 metadata:
   toolset: people
 ---

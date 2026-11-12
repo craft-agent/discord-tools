@@ -192,6 +192,12 @@ all listed too.
 | threads | `discord_file_post`       | [discord-threads](skills/discord-threads/SKILL.md) | posts files in a forum or media channel                 |
 | threads | `discord_thread_join`     | [discord-threads](skills/discord-threads/SKILL.md) | joins a thread                                          |
 | threads | `discord_thread_leave`    | [discord-threads](skills/discord-threads/SKILL.md) | leaves a thread                                         |
+| roles   | `discord_role_read`       | [discord-roles](skills/discord-roles/SKILL.md)     | reads roles, permissions and role members               |
+| roles   | `discord_role_assign`     | [discord-roles](skills/discord-roles/SKILL.md)     | gives a role to one or several members                  |
+| roles   | `discord_role_unassign`   | [discord-roles](skills/discord-roles/SKILL.md)     | takes a role away from one member                       |
+| roles   | `discord_role_create`     | [discord-roles](skills/discord-roles/SKILL.md)     | creates a role with named permissions                   |
+| roles   | `discord_role_edit`       | [discord-roles](skills/discord-roles/SKILL.md)     | changes a role's name, color, flags or permissions      |
+| roles   | `discord_role_delete`     | [discord-roles](skills/discord-roles/SKILL.md)     | deletes a role from everyone who held it                |
 
 `account` is on by default and available with `read_only`. Call
 `discord_account_read` with `{}` to list every label, sorted, or with
@@ -363,6 +369,20 @@ follow a file send's directory, size and safety rules. Nothing is retried.
 Creation has no nonce: for `uncertain`, read `details.read_back`, check the
 channel's threads or posts and ask before trying again. Never repeat a
 creation blindly; a repeated join is harmless, but check before leaving again.
+
+`roles` is off by default because it changes what others may do; turn it on
+with `toolsets` (for example `--toolsets all`, or the defaults plus `roles`).
+`read_only` keeps only `discord_role_read`; every write is asked about each
+time, even under an allow rule. Read the roles first with method `list` or
+`role`: writes need a snapshot no older than 15 minutes, and a change to the
+user's own roles needs a fresh read. Targets are server, role and user ids the
+mirror knows, never names. Roles can be given, taken, created, edited or
+deleted; `administrator` is never given, created or granted, nor is anything
+the user lacks. The audit log names the user and records optional `reason`.
+Nothing is retried: for `uncertain`, read `details.read_back`, read the roles
+again and ask the person. Creation's candidates are only candidates; never
+repeat a creation blindly. Giving again or taking again is harmless, but
+check first.
 
 `history` is off by default because the export writes files; turn it on with
 `toolsets` (for example `--toolsets all`, or the defaults plus `history`).

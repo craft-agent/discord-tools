@@ -20,6 +20,7 @@ const INBOX_READ = "discord_inbox_read"
 const PEOPLE_READ = "discord_people_read"
 const SERVER_READ = "discord_server_read"
 const HISTORY_READ = "discord_history_read"
+const ROLE_READ = "discord_role_read"
 const WRITE_TOOLS = {
   discord_sync_add: "idempotent",
   discord_sync_remove: "overwrite",
@@ -43,6 +44,11 @@ const ACTION_TOOLS = {
   discord_file_post: "add",
   discord_thread_join: "idempotent",
   discord_thread_leave: "overwrite",
+  discord_role_assign: "administrative",
+  discord_role_unassign: "administrative",
+  discord_role_create: "administrative",
+  discord_role_edit: "administrative",
+  discord_role_delete: "administrative",
 }
 const NO_ACCOUNT = "No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "cli-tools-smoke-"))
@@ -114,6 +120,13 @@ async function listsTheServersTools() {
         ? listed.some((tool) => tool.id === HISTORY_READ && tool.class === "read")
         : !listed.some((tool) => tool.id === HISTORY_READ),
       `Expected ${label} to ${historyOn ? `include ${HISTORY_READ} as a read tool` : `omit ${HISTORY_READ}`}`,
+    )
+    const rolesOn = settings.includes("all")
+    expect(
+      rolesOn
+        ? listed.some((tool) => tool.id === ROLE_READ && tool.class === "read")
+        : !listed.some((tool) => tool.id === ROLE_READ),
+      `Expected ${label} to ${rolesOn ? `include ${ROLE_READ} as a read tool` : `omit ${ROLE_READ}`}`,
     )
     for (const [id, writeClass] of Object.entries(WRITE_TOOLS)) {
       const tool = listed.find((entry) => entry.id === id)

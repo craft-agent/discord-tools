@@ -69,20 +69,44 @@ describe("openMirrorForWrite", () => {
     expect(version(mirror)).toBe(MIRROR_VERSION)
     expect(MIGRATIONS).toHaveLength(MIRROR_VERSION)
     const tables = columnOf(mirror, "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
-    expect(tables).toEqual(["channels", "cursors", "messages", "meta", "sends", "servers", "users"])
+    expect(tables).toEqual([
+      "channels",
+      "cursors",
+      "messages",
+      "meta",
+      "role_snapshots",
+      "roles",
+      "sends",
+      "servers",
+      "users",
+    ])
     const indexes = columnOf(
       mirror,
       "SELECT name FROM sqlite_master WHERE type = 'index' AND sql IS NOT NULL ORDER BY name",
     )
-    expect(indexes).toEqual(["channels_server", "messages_author", "messages_channel", "sends_created"])
+    expect(indexes).toEqual(["channels_server", "messages_author", "messages_channel", "roles_server", "sends_created"])
   })
 
-  test("migrates a version-1 mirror to version 2 and keeps its rows", () => {
+  test("migrates a version-1 mirror to the current version and keeps its rows", () => {
     writeOlderMirror()
     const mirror = tracked(openMirrorForWrite(path))
-    expect(version(mirror)).toBe(2)
+    expect(version(mirror)).toBe(MIRROR_VERSION)
     expect(getMeta(mirror)).toEqual({ kept: "yes" })
     expect(rowsOf(mirror, "SELECT * FROM sends")).toEqual([])
+    expect(rowsOf(mirror, "SELECT * FROM roles")).toEqual([])
+  })
+
+  test("migrates a version-2 mirror to version 3 and keeps its rows", () => {
+    const raw = new DatabaseSync(path)
+    raw.exec(MIGRATIONS[0]!)
+    raw.exec(MIGRATIONS[1]!)
+    raw.exec("INSERT INTO meta (key, value) VALUES ('kept', 'yes'); PRAGMA user_version = 2")
+    raw.close()
+    const mirror = tracked(openMirrorForWrite(path))
+    expect(version(mirror)).toBe(3)
+    expect(getMeta(mirror)).toEqual({ kept: "yes" })
+    expect(rowsOf(mirror, "SELECT * FROM roles")).toEqual([])
+    expect(rowsOf(mirror, "SELECT * FROM role_snapshots")).toEqual([])
   })
 
   test("a mirror already at the current version is opened as it is", () => {
