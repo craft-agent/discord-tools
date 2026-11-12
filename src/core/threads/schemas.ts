@@ -8,7 +8,7 @@ export const THREAD_NAME_MAX = 100
 export const AUTO_ARCHIVE_MINUTES = [60, 1440, 4320, 10080] as const
 
 /** A thread name: 1 to `THREAD_NAME_MAX` characters, not whitespace only, and otherwise as given. */
-const threadName = z
+export const threadName = z
   .string()
   .min(1)
   .max(THREAD_NAME_MAX)

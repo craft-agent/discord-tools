@@ -18,6 +18,11 @@ export function massMentionsFacts(massMentions: boolean | undefined): CallFact[]
   return massMentions === true ? [{ label: "Mass mentions", value: { text: "Notify" } }] : []
 }
 
+/** The `Notifications` fact, only when the call is silent. */
+export function silentFacts(silent: boolean | undefined): CallFact[] {
+  return silent === true ? [{ label: "Notifications", value: { text: "Silent" } }] : []
+}
+
 /** The headline of a send: to the chat, or a reply to its author when the mirror names one. */
 function headlineOf(chat: string, reply?: { author: string | null }): CallHeadline {
   if (!reply) return { text: "About to send a message to {chat}", values: { chat } }
@@ -51,7 +56,7 @@ export function describeSendTarget(
       ...chat.facts,
       ...(quoted === "" ? [] : [{ label: "Reply to", value: quoted }]),
       ...massMentionsFacts(args.mass_mentions),
-      ...(args.silent === true ? [{ label: "Notifications", value: { text: "Silent" } }] : []),
+      ...silentFacts(args.silent),
     ],
   }
 }

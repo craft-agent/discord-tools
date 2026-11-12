@@ -23,7 +23,7 @@ const UNCERTAIN_MESSAGE =
 
 /** The channel type of a private thread, and of a public one; Discord's default without `type` is private, so it is always sent. */
 const PRIVATE_THREAD_TYPE = 12
-const PUBLIC_THREAD_TYPE = 11
+export const PUBLIC_THREAD_TYPE = 11
 
 /** The one request of a creation: the thread of a message, or a standalone thread of the channel. */
 function startRequest({ channel, message, name, private: isPrivate, auto_archive }: ThreadCreateInput): {

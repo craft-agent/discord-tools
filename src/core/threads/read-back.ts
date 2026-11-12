@@ -51,25 +51,31 @@ async function ownThreadsNamed(session: ChatSession, parent: MirroredChannel, na
 }
 
 /**
- * The one look after an uncertain creation: the thread of the message, or the
- * channel's newest threads the account owns with that name. A failing look is
- * reported, not thrown, and a cancelled call looks at nothing: the creation is
- * uncertain either way, and it is never sent again.
+ * The one look after an uncertain creation, as `find` makes it. A failing look
+ * is reported, not thrown, and a cancelled call looks at nothing: the creation
+ * is uncertain either way, and it is never sent again.
  */
-export async function readBack(
+async function lookAfter(session: ChatSession, find: () => Promise<FoundThread[]>): Promise<ReadBack> {
+  if (session.signal?.aborted) return "skipped"
+  try {
+    return { found: await find() }
+  } catch {
+    return "failed"
+  }
+}
+
+/** The look after an uncertain thread: the thread of the message, or the channel's newest threads the account owns with that name. */
+export function readBack(
   session: ChatSession,
   { message, name }: Pick<ThreadCreateInput, "message" | "name">,
   parent: MirroredChannel,
 ): Promise<ReadBack> {
-  if (session.signal?.aborted) return "skipped"
-  try {
-    return {
-      found:
-        message === undefined
-          ? await ownThreadsNamed(session, parent, name)
-          : await threadOfMessage(session, parent, message),
-    }
-  } catch {
-    return "failed"
-  }
+  return lookAfter(session, () =>
+    message === undefined ? ownThreadsNamed(session, parent, name) : threadOfMessage(session, parent, message),
+  )
+}
+
+/** The look after an uncertain post: the forum's newest posts the account owns with that name. */
+export function readBackPost(session: ChatSession, name: string, parent: MirroredChannel): Promise<ReadBack> {
+  return lookAfter(session, () => ownThreadsNamed(session, parent, name))
 }
