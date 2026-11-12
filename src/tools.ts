@@ -12,6 +12,7 @@ import { discordInboxRead } from "./core/inbox/read"
 import { discordPeopleRead } from "./core/people/read"
 import { discordReadMark } from "./core/read-mark/read-mark-tool"
 import { discordSavedAdd, discordSavedRemove } from "./core/saved/saved-tool"
+import { discordRoleAssign, discordRoleUnassign } from "./core/roles/assign-tool"
 import { discordRoleRead } from "./core/roles/read"
 import { discordSearchRead } from "./core/search/read"
 import { discordFileSend } from "./core/sends/file-send-tool"
@@ -56,4 +57,6 @@ export const ALL_TOOLS: ToolSpec[] = [
   discordThreadJoin,
   discordThreadLeave,
   discordRoleRead,
+  discordRoleAssign,
+  discordRoleUnassign,
 ]

@@ -22,7 +22,9 @@ provides_tools:
   - discord_reaction_add
   - discord_reaction_remove
   - discord_read_mark
+  - discord_role_assign
   - discord_role_read
+  - discord_role_unassign
   - discord_saved_add
   - discord_saved_remove
   - discord_search_read

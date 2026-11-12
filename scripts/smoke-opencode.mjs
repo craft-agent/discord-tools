@@ -42,6 +42,8 @@ const POST_CREATE = "discord_post_create"
 const FILE_POST = "discord_file_post"
 const THREAD_JOIN = "discord_thread_join"
 const THREAD_LEAVE = "discord_thread_leave"
+const ROLE_ASSIGN = "discord_role_assign"
+const ROLE_UNASSIGN = "discord_role_unassign"
 const NO_ACCOUNT = "not_found: No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "opencode-smoke-"))
 
@@ -147,6 +149,8 @@ try {
       FILE_POST,
       THREAD_JOIN,
       THREAD_LEAVE,
+      ROLE_ASSIGN,
+      ROLE_UNASSIGN,
     ]) {
       expect(
         expected.includes(name) === (allToolsets && !readOnly),
