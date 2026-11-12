@@ -57,8 +57,8 @@ describe("arguments the tool refuses before anything is requested", () => {
 
 describe("channels the mirror does not allow a thread in", () => {
   test.each([
-    ["a forum", FORUM, "a forum or media channel, which takes a post, not a thread"],
-    ["a media channel", MEDIA, "a forum or media channel, which takes a post, not a thread"],
+    ["a forum", FORUM, "a forum or media channel, which takes a post (discord_post_create), not a thread"],
+    ["a media channel", MEDIA, "a forum or media channel, which takes a post (discord_post_create), not a thread"],
     ["a category", CATEGORY, "not a text or announcement channel"],
     ["a thread", OLD_THREAD, "a thread, which cannot hold another"],
     ["a DM", DM, "a DM or group DM"],

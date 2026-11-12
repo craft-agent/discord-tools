@@ -20,7 +20,7 @@ const THREAD_PARENT_TYPES: readonly number[] = [TEXT_TYPE, ANNOUNCEMENT_TYPE]
 function refusedKind(type: number): string {
   const kind = channelKind(type)
   if (kind === "forum" || kind === "media") {
-    return "a forum or media channel, which takes a post, not a thread"
+    return "a forum or media channel, which takes a post (discord_post_create), not a thread"
   }
   if (THREAD_TYPES.includes(type))
     return "a thread, which cannot hold another: start it in the channel the thread belongs to"
