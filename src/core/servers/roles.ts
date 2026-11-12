@@ -1,4 +1,5 @@
 import { UNTRUSTED_NOTE } from "../chats/format"
+import type { ChatSession } from "../chats/session"
 import { intOrNull, isRecord, textOrNull, type JsonRecord } from "../discord/ingest-values"
 import { invalidResponse } from "../discord/sync-page"
 import { type ErrorCode, isToolError } from "../errors"
@@ -22,7 +23,7 @@ const ROLES_NOTE =
   "Every role of one server, highest first, read from Discord once; `members` is how many members hold the role as Discord counts them, null when it gives no count (`counts_missing` when it refused the counts). Role names are written by the server's admins. Nothing was stored in the local mirror."
 
 /** A role's color as `#rrggbb`; `null` for none (0) or a number that is no color. */
-function colorOrNull(value: unknown): string | null {
+export function colorOrNull(value: unknown): string | null {
   const color = intOrNull(value)
   return color === null || color <= 0 || color > COLOR_MAX ? null : `#${color.toString(16).padStart(6, "0")}`
 }
@@ -49,6 +50,14 @@ function countsOf(value: unknown): JsonRecord {
   return value
 }
 
+/** How many members hold each role of a server, by role id: Discord's answer, or `null` when it refused the counts alone. */
+export async function readRoleCounts(session: ChatSession, server: string): Promise<JsonRecord | null> {
+  return readLive(session, "GET", roleCountsPath(server)).then(countsOf, (error: unknown) => {
+    if (isToolError(error) && COUNTS_REFUSED.includes(error.code)) return null
+    throw error
+  })
+}
+
 /**
  * Method `roles`: every role of a server with how many members hold it, from
  * the role list and the member counts, asked one after the other. A refusal of
@@ -60,10 +69,7 @@ export const readRoles: ServerHandler = async (session, args) => {
   checkServer(session, server)
   const list = await readLive(session, "GET", rolesPath(server))
   const roles = listedRoles(list)
-  const counts = await readLive(session, "GET", roleCountsPath(server)).then(countsOf, (error: unknown) => {
-    if (isToolError(error) && COUNTS_REFUSED.includes(error.code)) return null
-    throw error
-  })
+  const counts = await readRoleCounts(session, server)
   const items = roles
     .map(({ id, role }) => roleItem(role, id, server, counts === null ? null : countOrNull(counts[id])))
     .sort(byPositionThenId)
