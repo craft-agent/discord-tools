@@ -1,6 +1,6 @@
 # discord-tools
 
-Discord tools for coding agents: chats, messages, search, inbox, history, files, sends and roles.
+Discord tools for coding agents: chats, messages, search, inbox, people and servers, history, files, sends and roles.
 
 > [!WARNING]
 > These tools act from your own Discord account, through the web client's
@@ -154,29 +154,31 @@ settings only to the MCP server, so they list every skill whatever the
 settings select. OpenCode V1 registers no skills, and its copied skills are
 all listed too.
 
-| Toolset | Tool                      | Skill                                              | Does                                        |
-| ------- | ------------------------- | -------------------------------------------------- | ------------------------------------------- |
-| account | `discord_account_read`    | [discord-account](skills/discord-account/SKILL.md) | reads local account, token and sync health  |
-| sync    | `discord_sync_read`       | [discord-sync](skills/discord-sync/SKILL.md)       | shows the sync list and suggests changes    |
-| sync    | `discord_sync_add`        | [discord-sync](skills/discord-sync/SKILL.md)       | follows a server or named channels          |
-| sync    | `discord_sync_remove`     | [discord-sync](skills/discord-sync/SKILL.md)       | stops following a server or channels        |
-| chats   | `discord_chat_read`       | [discord-chats](skills/discord-chats/SKILL.md)     | reads servers, channels, DMs and messages   |
-| search  | `discord_search_read`     | [discord-search](skills/discord-search/SKILL.md)   | searches the mirror or Discord's search     |
-| inbox   | `discord_inbox_read`      | [discord-inbox](skills/discord-inbox/SKILL.md)     | lists mentions, waiting chats and saves     |
-| inbox   | `discord_saved_add`       | [discord-inbox](skills/discord-inbox/SKILL.md)     | saves a message, optionally with a reminder |
-| inbox   | `discord_saved_remove`    | [discord-inbox](skills/discord-inbox/SKILL.md)     | removes a save and its reminder             |
-| inbox   | `discord_read_mark`       | [discord-inbox](skills/discord-inbox/SKILL.md)     | marks one chat read, on every device        |
-| sends   | `discord_message_send`    | [discord-sends](skills/discord-sends/SKILL.md)     | sends a text, optionally as a reply         |
-| sends   | `discord_file_send`       | [discord-sends](skills/discord-sends/SKILL.md)     | sends files, optionally with a text         |
-| history | `discord_history_read`    | [discord-history](skills/discord-history/SKILL.md) | counts messages per chat, author or day     |
-| history | `discord_export_create`   | [discord-history](skills/discord-history/SKILL.md) | writes a chat's history to a private file   |
-| files   | `discord_file_save`       | [discord-files](skills/discord-files/SKILL.md)     | saves the files of a message to disk        |
-| actions | `discord_message_edit`    | [discord-actions](skills/discord-actions/SKILL.md) | edits the account's own message             |
-| actions | `discord_message_delete`  | [discord-actions](skills/discord-actions/SKILL.md) | deletes the account's own message           |
-| actions | `discord_reaction_add`    | [discord-actions](skills/discord-actions/SKILL.md) | adds the account's reaction                 |
-| actions | `discord_reaction_remove` | [discord-actions](skills/discord-actions/SKILL.md) | takes back the account's reaction           |
-| actions | `discord_pin_add`         | [discord-actions](skills/discord-actions/SKILL.md) | pins a message                              |
-| actions | `discord_pin_remove`      | [discord-actions](skills/discord-actions/SKILL.md) | unpins a message                            |
+| Toolset | Tool                      | Skill                                              | Does                                                    |
+| ------- | ------------------------- | -------------------------------------------------- | ------------------------------------------------------- |
+| account | `discord_account_read`    | [discord-account](skills/discord-account/SKILL.md) | reads local account, token and sync health              |
+| sync    | `discord_sync_read`       | [discord-sync](skills/discord-sync/SKILL.md)       | shows the sync list and suggests changes                |
+| sync    | `discord_sync_add`        | [discord-sync](skills/discord-sync/SKILL.md)       | follows a server or named channels                      |
+| sync    | `discord_sync_remove`     | [discord-sync](skills/discord-sync/SKILL.md)       | stops following a server or channels                    |
+| chats   | `discord_chat_read`       | [discord-chats](skills/discord-chats/SKILL.md)     | reads servers, channels, DMs and messages               |
+| search  | `discord_search_read`     | [discord-search](skills/discord-search/SKILL.md)   | searches the mirror or Discord's search                 |
+| inbox   | `discord_inbox_read`      | [discord-inbox](skills/discord-inbox/SKILL.md)     | lists mentions, waiting chats and saves                 |
+| inbox   | `discord_saved_add`       | [discord-inbox](skills/discord-inbox/SKILL.md)     | saves a message, optionally with a reminder             |
+| inbox   | `discord_saved_remove`    | [discord-inbox](skills/discord-inbox/SKILL.md)     | removes a save and its reminder                         |
+| inbox   | `discord_read_mark`       | [discord-inbox](skills/discord-inbox/SKILL.md)     | marks one chat read, on every device                    |
+| people  | `discord_people_read`     | [discord-people](skills/discord-people/SKILL.md)   | reads friends, notes, profiles and members              |
+| people  | `discord_server_read`     | [discord-people](skills/discord-people/SKILL.md)   | reads a server's info, roles, emoji, events and invites |
+| sends   | `discord_message_send`    | [discord-sends](skills/discord-sends/SKILL.md)     | sends a text, optionally as a reply                     |
+| sends   | `discord_file_send`       | [discord-sends](skills/discord-sends/SKILL.md)     | sends files, optionally with a text                     |
+| history | `discord_history_read`    | [discord-history](skills/discord-history/SKILL.md) | counts messages per chat, author or day                 |
+| history | `discord_export_create`   | [discord-history](skills/discord-history/SKILL.md) | writes a chat's history to a private file               |
+| files   | `discord_file_save`       | [discord-files](skills/discord-files/SKILL.md)     | saves the files of a message to disk                    |
+| actions | `discord_message_edit`    | [discord-actions](skills/discord-actions/SKILL.md) | edits the account's own message                         |
+| actions | `discord_message_delete`  | [discord-actions](skills/discord-actions/SKILL.md) | deletes the account's own message                       |
+| actions | `discord_reaction_add`    | [discord-actions](skills/discord-actions/SKILL.md) | adds the account's reaction                             |
+| actions | `discord_reaction_remove` | [discord-actions](skills/discord-actions/SKILL.md) | takes back the account's reaction                       |
+| actions | `discord_pin_add`         | [discord-actions](skills/discord-actions/SKILL.md) | pins a message                                          |
+| actions | `discord_pin_remove`      | [discord-actions](skills/discord-actions/SKILL.md) | unpins a message                                        |
 
 `account` is on by default and available with `read_only`. Call
 `discord_account_read` with `{}` to list every label, sorted, or with
@@ -277,6 +279,16 @@ anything read, and every write here is asked about. There are no unread
 counts: Discord keeps them only behind its gateway, and a check on a real
 phone showed that even a brief gateway session holds back the phone's push
 notifications, so nothing here opens it.
+
+`people` is on by default, read-only and kept under `read_only`. Both tools
+read live on every call, one at a time, with user and server ids the mirror
+knows, never names; only returned user names are stored. `discord_people_read`
+reads friends, private notes, one person's profile, membership with role names,
+or member search. `discord_server_read` reads server info with approximate
+member and online counts, roles, custom emoji and stickers, upcoming events
+and interested users, or invites. Member search and invites need Manage Server.
+Invite codes go to the user only, never into a message, file or another tool
+unless the user asks for that; notes are private and never shared unless asked.
 
 `sends` is on by default; `read_only` leaves it out. `discord_message_send`
 sends one text to a DM, group DM, server channel or thread the mirror knows,

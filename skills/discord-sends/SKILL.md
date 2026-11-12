@@ -1,6 +1,6 @@
 ---
 name: discord-sends
-description: 'Use when sending a text or files to one of the user''s Discord chats as the user: answering a DM, a group chat, a server channel or a thread, replying to a specific message, or attaching files ("reply to Alice that I''ll be late", "post this in #general", "send the report to Bob", "answer that message"). Covers finding the chat and message ids, mentions, silent sends, which files may be sent and what to do when a send is uncertain. Not for saving received files (discord-files), creating threads, starting a new DM, or reading chats; editing or deleting a message, reactions and pins are discord-actions.'
+description: 'Use when sending a text or files to one of the user''s Discord chats as the user: answering a DM, a group chat, a server channel or a thread, replying to a specific message, or attaching files ("reply to Alice that I''ll be late", "post this in #general", "send the report to Bob", "answer that message"). Covers finding the chat and message ids, mentions, silent sends, which files may be sent and what to do when a send is uncertain. Not for saving received files (discord-files), who someone is or server info (discord-people), creating threads, starting a new DM, or reading chats; editing or deleting a message, reactions and pins are discord-actions.'
 metadata:
   toolset: sends
 ---
