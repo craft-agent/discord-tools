@@ -4,6 +4,15 @@ import { PROJECT_PROFILE } from "./entry/profile"
 import { PROJECT } from "./project"
 import { ALL_TOOLS } from "./tools"
 
+/** The tools that change roles, all administrative. */
+const ROLE_WRITES = [
+  "discord_role_assign",
+  "discord_role_unassign",
+  "discord_role_create",
+  "discord_role_edit",
+  "discord_role_delete",
+]
+
 describe("the registry", () => {
   test("account read is a read tool selected by default and in read-only mode", () => {
     const id = "discord_account_read"
@@ -179,7 +188,7 @@ describe("the registry", () => {
     expect(ids({ toolsets: ["roles"], read_only: true })).toContain(id)
   })
 
-  test.each(["discord_role_assign", "discord_role_unassign"])(
+  test.each(ROLE_WRITES)(
     "%s is an administrative tool in the off-by-default roles toolset, left out in read-only mode",
     (id) => {
       const ids = (settings: Parameters<typeof selectTools>[1]) =>
@@ -192,7 +201,7 @@ describe("the registry", () => {
     },
   )
 
-  test.each(["discord_role_assign", "discord_role_unassign"])(
+  test.each(ROLE_WRITES)(
     "%s is published as destructive and not idempotent, and asks even under an allow rule",
     (id) => {
       const spec = ALL_TOOLS.find((tool) => tool.id === id)!

@@ -44,6 +44,9 @@ const THREAD_JOIN = "discord_thread_join"
 const THREAD_LEAVE = "discord_thread_leave"
 const ROLE_ASSIGN = "discord_role_assign"
 const ROLE_UNASSIGN = "discord_role_unassign"
+const ROLE_CREATE = "discord_role_create"
+const ROLE_EDIT = "discord_role_edit"
+const ROLE_DELETE = "discord_role_delete"
 const NO_ACCOUNT = "not_found: No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "opencode-smoke-"))
 
@@ -151,6 +154,9 @@ try {
       THREAD_LEAVE,
       ROLE_ASSIGN,
       ROLE_UNASSIGN,
+      ROLE_CREATE,
+      ROLE_EDIT,
+      ROLE_DELETE,
     ]) {
       expect(
         expected.includes(name) === (allToolsets && !readOnly),

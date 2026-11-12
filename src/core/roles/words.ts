@@ -1,6 +1,6 @@
 import type { Translations } from "../words"
 
-/** The translations of the role write tools' words: their titles, intents, headline templates, fact labels and text label. */
+/** The translations of the role write tools' words: their titles, intents, headline templates, fact labels, fact values and text label. */
 export const ROLE_TRANSLATIONS: Translations = {
   ja: {
     "Give a Discord role": "Discord ロールを付与する",
@@ -9,9 +9,28 @@ export const ROLE_TRANSLATIONS: Translations = {
     "Take a Discord role away": "Discord ロールを外す",
     "About to take a Discord role away": "Discord ロールを外そうとしています",
     "About to take {role} from {member}": "{member} から {role} を外そうとしています",
+    "Create a Discord role": "Discord ロールを作成する",
+    "About to create a Discord role": "Discord ロールを作成しようとしています",
+    "About to create the role {name}": "ロール {name} を作成しようとしています",
+    "Edit a Discord role": "Discord ロールを編集する",
+    "About to edit a Discord role": "Discord ロールを編集しようとしています",
+    "About to edit {role}": "{role} を編集しようとしています",
+    "Delete a Discord role": "Discord ロールを削除する",
+    "About to delete a Discord role": "Discord ロールを削除しようとしています",
+    "About to delete {role}": "{role} を削除しようとしています",
     Role: "ロール",
     Members: "メンバー",
+    "New name": "新しい名前",
+    Color: "色",
+    "Listed apart": "メンバー一覧で分けて表示",
+    Mentionable: "メンション可能",
+    Permissions: "権限",
+    Grant: "付与",
+    Revoke: "剥奪",
     "Strong permissions": "強い権限",
     Reason: "理由",
+    Yes: "はい",
+    No: "いいえ",
+    None: "なし",
   },
 }

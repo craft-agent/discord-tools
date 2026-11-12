@@ -35,6 +35,10 @@ const THREAD_JOIN = "discord_thread_join"
 const THREAD_LEAVE = "discord_thread_leave"
 const ROLE_ASSIGN = "discord_role_assign"
 const ROLE_UNASSIGN = "discord_role_unassign"
+const ROLE_CREATE = "discord_role_create"
+const ROLE_EDIT = "discord_role_edit"
+const ROLE_DELETE = "discord_role_delete"
+const ROLE_WRITES = [ROLE_ASSIGN, ROLE_UNASSIGN, ROLE_CREATE, ROLE_EDIT, ROLE_DELETE]
 const INBOX_READ = "discord_inbox_read"
 const PEOPLE_READ = "discord_people_read"
 const SERVER_READ = "discord_server_read"
@@ -261,7 +265,7 @@ async function listTools(settings) {
         await expectToolError(client, name, { thread: "general" }, "invalid_argument")
       }
       console.log(`${THREAD_JOIN} and ${THREAD_LEAVE} carry their write annotations and refuse a name for an id.`)
-      for (const name of [ROLE_ASSIGN, ROLE_UNASSIGN]) {
+      for (const name of ROLE_WRITES) {
         expectAnnotations(tools, name, { readOnlyHint: false, destructiveHint: true, idempotentHint: false }, settings)
         if (tools.find((tool) => tool.name === name)?._meta?.[REQUIRES_USER_INTERACTION] !== true) {
           throw new Error(`Expected ${name} with ${REQUIRES_USER_INTERACTION}`)
@@ -269,7 +273,10 @@ async function listTools(settings) {
       }
       await expectToolError(client, ROLE_ASSIGN, { server: "general", role: "1", users: ["1"] }, "invalid_argument")
       await expectToolError(client, ROLE_UNASSIGN, { server: "general", role: "1", user: "1" }, "invalid_argument")
-      console.log(`${ROLE_ASSIGN} and ${ROLE_UNASSIGN} carry their write annotations and refuse a name for an id.`)
+      await expectToolError(client, ROLE_CREATE, { server: "general", name: "Tea" }, "invalid_argument")
+      await expectToolError(client, ROLE_EDIT, { server: "general", role: "1", hoist: true }, "invalid_argument")
+      await expectToolError(client, ROLE_DELETE, { server: "general", role: "1" }, "invalid_argument")
+      console.log(`${ROLE_WRITES.join(", ")} carry their write annotations and refuse a name for an id.`)
     } else {
       for (const name of [
         ...ACTION_TOOLS,
@@ -280,8 +287,7 @@ async function listTools(settings) {
         FILE_POST,
         THREAD_JOIN,
         THREAD_LEAVE,
-        ROLE_ASSIGN,
-        ROLE_UNASSIGN,
+        ...ROLE_WRITES,
       ]) {
         expectAbsent(tools, name, settings)
       }
