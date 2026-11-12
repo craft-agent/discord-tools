@@ -1,6 +1,27 @@
 import { newCounts, type IngestContext, type IngestCounts } from "./ingest-context"
 import type { Mirror } from "./mirror"
-import { storedRole } from "./mirror-roles"
+import { storedRole, type StoredRole } from "./mirror-roles"
+
+/** Prepares the store of one role of a server as Discord sent it, whole in `raw`, over the one stored under its id. */
+function roleUpsert(mirror: Mirror) {
+  const upsert = mirror.prepare(
+    `INSERT INTO roles (id, server, name, position, permissions, managed, raw, updated)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (id) DO UPDATE SET server = excluded.server, name = excluded.name, position = excluded.position,
+       permissions = excluded.permissions, managed = excluded.managed, raw = excluded.raw, updated = excluded.updated`,
+  )
+  return (server: bigint, role: StoredRole, entry: unknown, now: number) =>
+    upsert.run(
+      BigInt(role.id),
+      server,
+      role.name,
+      role.position,
+      role.permissions.toString(),
+      role.managed ? 1 : 0,
+      JSON.stringify(entry),
+      now,
+    )
+}
 
 /**
  * Replaces a server's stored roles with `roles`, a whole role list as Discord
@@ -17,12 +38,7 @@ export function ingestRoleSnapshot(
 ): IngestCounts {
   const counts = newCounts()
   const serverId = BigInt(server)
-  const upsert = mirror.prepare(
-    `INSERT INTO roles (id, server, name, position, permissions, managed, raw, updated)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT (id) DO UPDATE SET server = excluded.server, name = excluded.name, position = excluded.position,
-       permissions = excluded.permissions, managed = excluded.managed, raw = excluded.raw, updated = excluded.updated`,
-  )
+  const upsert = roleUpsert(mirror)
   const kept = new Set<bigint>()
   for (const entry of roles) {
     const role = storedRole(entry)
@@ -30,18 +46,8 @@ export function ingestRoleSnapshot(
       counts.skipped += 1
       continue
     }
-    const id = BigInt(role.id)
-    kept.add(id)
-    upsert.run(
-      id,
-      serverId,
-      role.name,
-      role.position,
-      role.permissions.toString(),
-      role.managed ? 1 : 0,
-      JSON.stringify(entry),
-      ctx.now,
-    )
+    kept.add(BigInt(role.id))
+    upsert(serverId, role, entry, ctx.now)
     counts.stored += 1
   }
 
@@ -60,6 +66,36 @@ export function ingestRoleSnapshot(
        ON CONFLICT (server) DO UPDATE SET own_roles = excluded.own_roles, read_at = excluded.read_at`,
     )
     .run(serverId, JSON.stringify([...new Set(ownRoles)]), ctx.now)
+  return counts
+}
+
+/**
+ * Stores one role of a server as Discord sent it, over the one stored under its
+ * id, without changing when the snapshot was read: a role a write created or
+ * changed, which the snapshot's next read will confirm. An entry without a
+ * valid id or permission bit set is skipped and counted.
+ */
+export function ingestRole(mirror: Mirror, ctx: IngestContext, server: string, entry: unknown): IngestCounts {
+  const counts = newCounts()
+  const role = storedRole(entry)
+  if (role === null) {
+    counts.skipped += 1
+    return counts
+  }
+  roleUpsert(mirror)(BigInt(server), role, entry, ctx.now)
+  counts.stored += 1
+  return counts
+}
+
+/**
+ * Removes one role from a server's stored roles, without changing when the
+ * snapshot was read. A role the server does not store is left alone and
+ * nothing is counted.
+ */
+export function ingestRoleRemoval(mirror: Mirror, server: string, role: string): IngestCounts {
+  const counts = newCounts()
+  const { changes } = mirror.prepare("DELETE FROM roles WHERE id = ? AND server = ?").run(BigInt(role), BigInt(server))
+  counts.deleted += Number(changes)
   return counts
 }
 

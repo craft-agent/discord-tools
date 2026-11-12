@@ -1,4 +1,4 @@
-import { idText, idTexts, intOrNull, isRecord, textOrNull } from "./ingest-values"
+import { idText, idTexts, intOrNull, isRecord, textOrNull, type JsonRecord } from "./ingest-values"
 import type { Mirror } from "./mirror"
 
 /** How long a role snapshot may be relied on for a role write, in milliseconds: roles change without a trace a user account can poll. */
@@ -45,6 +45,15 @@ export function serverOwned(mirror: Mirror, server: string): boolean {
   const row = mirror.prepare("SELECT owner FROM servers WHERE id = ?").get(BigInt(server)) as
     { owner: number | null } | undefined
   return row?.owner === 1
+}
+
+/** The object Discord sent for a stored role, kept whole; `null` for a role the server does not store. */
+export function readRoleRaw(mirror: Mirror, server: string, role: string): JsonRecord | null {
+  const row = mirror.prepare("SELECT raw FROM roles WHERE id = ? AND server = ?").get(BigInt(role), BigInt(server)) as
+    { raw: string } | undefined
+  if (row === undefined) return null
+  const raw: unknown = JSON.parse(row.raw)
+  return isRecord(raw) ? raw : null
 }
 
 type RoleRow = { id: string; name: string | null; position: number; permissions: string; managed: number }

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { expireRoleSnapshot, ingestRoleSnapshot } from "./ingest"
+import { expireRoleSnapshot, ingestRole, ingestRoleRemoval, ingestRoleSnapshot } from "./ingest"
 import { createTestMirror, rowById, rowsOf, type TestMirror } from "./mirror.testing"
-import { readRoleSnapshot, serverOwned, storedRole } from "./mirror-roles"
+import { readRoleRaw, readRoleSnapshot, serverOwned, storedRole } from "./mirror-roles"
 import { ctxAt, NOW, SERVER } from "./objects.testing"
 
 const OTHER_SERVER = "1400000000000000101"
@@ -97,6 +97,67 @@ describe("ingestRoleSnapshot", () => {
   })
 })
 
+describe("ingestRole", () => {
+  test("stores a new role with its raw object and leaves the snapshot's read time and own roles", () => {
+    snapshot(SERVER, [role(MOD)], [MOD])
+    const created = role(ADMIN, { position: 4, permissions: EVERY_BIT, color: 5 })
+    expect(t.write(() => ingestRole(t.mirror, ctxAt(NOW + 9), SERVER, created))).toEqual({
+      stored: 1,
+      deleted: 0,
+      skipped: 0,
+    })
+    expect(rowById(t.mirror, "roles", ADMIN)).toMatchObject({
+      server: SERVER,
+      position: 4,
+      permissions: EVERY_BIT,
+      raw: JSON.stringify(created),
+      updated: NOW + 9,
+    })
+    expect(readRoleSnapshot(t.mirror, SERVER)).toMatchObject({ ownRoles: [MOD], readAt: NOW })
+    expect(readRoleSnapshot(t.mirror, SERVER)!.roles.map(({ id }) => id)).toEqual([ADMIN, MOD])
+  })
+
+  test("updates the role stored under the id, and leaves the others", () => {
+    snapshot(SERVER, [role(MOD), role(GONE)], [MOD])
+    t.write(() => ingestRole(t.mirror, ctxAt(NOW + 1), SERVER, role(MOD, { name: "Renamed", permissions: "8" })))
+    expect(rowById(t.mirror, "roles", MOD)).toMatchObject({ name: "Renamed", permissions: "8" })
+    expect(rowById(t.mirror, "roles", GONE)).toMatchObject({ name: "role 03" })
+    expect(readRoleSnapshot(t.mirror, SERVER)!.readAt).toBe(NOW)
+  })
+
+  test("skips an entry without a valid id or permission bit set, and counts it", () => {
+    for (const entry of [{ ...role(MOD), permissions: undefined }, role("12x"), null, "text"]) {
+      expect(t.write(() => ingestRole(t.mirror, ctxAt(NOW), SERVER, entry))).toEqual({
+        stored: 0,
+        deleted: 0,
+        skipped: 1,
+      })
+    }
+    expect(rowsOf(t.mirror, "SELECT count(*) AS n FROM roles")).toEqual([{ n: 0 }])
+  })
+})
+
+describe("ingestRoleRemoval", () => {
+  test("deletes the one role of the server, and leaves the snapshot's read time and the other roles", () => {
+    snapshot(SERVER, [role(MOD), role(GONE)], [MOD])
+    expect(t.write(() => ingestRoleRemoval(t.mirror, SERVER, GONE))).toEqual({ stored: 0, deleted: 1, skipped: 0 })
+    expect(rowById(t.mirror, "roles", GONE)).toBeUndefined()
+    expect(readRoleSnapshot(t.mirror, SERVER)).toMatchObject({ readAt: NOW, ownRoles: [MOD] })
+    expect(readRoleSnapshot(t.mirror, SERVER)!.roles).toHaveLength(1)
+  })
+
+  test("counts nothing for a role the server does not store, and leaves another server's role with that id", () => {
+    snapshot(OTHER_SERVER, [role(OTHER_ROLE)], [])
+    expect(t.write(() => ingestRoleRemoval(t.mirror, SERVER, MOD))).toEqual({ stored: 0, deleted: 0, skipped: 0 })
+    expect(t.write(() => ingestRoleRemoval(t.mirror, SERVER, OTHER_ROLE))).toEqual({
+      stored: 0,
+      deleted: 0,
+      skipped: 0,
+    })
+    expect(rowById(t.mirror, "roles", OTHER_ROLE)).toBeDefined()
+  })
+})
+
 describe("expireRoleSnapshot", () => {
   test("sets the server's read time to 0 and keeps its roles and own roles", () => {
     snapshot(SERVER, [role(MOD)], [MOD])
@@ -128,6 +189,16 @@ describe("readRoleSnapshot", () => {
     const stored = readRoleSnapshot(t.mirror, SERVER)!
     expect(stored.roles.map(({ id }) => id)).toEqual([ADMIN, MOD, GONE, SERVER])
     expect(stored.roles[0]!.permissions).toBe(18446744073709551615n)
+  })
+})
+
+describe("readRoleRaw", () => {
+  test("is the object Discord sent, for a role of that server; null for any other", () => {
+    const sent = role(MOD, { color: 7, hoist: true })
+    snapshot(SERVER, [sent, role(GONE)])
+    expect(readRoleRaw(t.mirror, SERVER, MOD)).toEqual(sent)
+    expect(readRoleRaw(t.mirror, OTHER_SERVER, MOD)).toBeNull()
+    expect(readRoleRaw(t.mirror, SERVER, OTHER_ROLE)).toBeNull()
   })
 })
 
