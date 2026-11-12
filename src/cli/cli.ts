@@ -10,6 +10,7 @@ import {
   ToolError,
   type ErrorCode,
   type ErrorDetails,
+  type ToolOptions,
   type ToolSpec,
   type Translations,
 } from "../core"
@@ -18,7 +19,7 @@ import { approvalOf, checkPin } from "../entry/pin"
 import { PROJECT_PROFILE } from "../entry/profile"
 import { createToolRuntime } from "../entry/runtime"
 import {
-  parseStorageSettings,
+  parseTargetSettings,
   parseToolSettings,
   promptLanguage,
   storageContext,
@@ -58,8 +59,21 @@ export type CliIo = CommandIo & {
 
 type Command =
   | { name: "list"; selected: ToolSpec[] }
-  | ({ name: "run"; toolId: string; cwd: string; pin: string | undefined; selected: ToolSpec[] } & StorageContext)
-  | ({ name: "target"; toolId: string; cwd: string; language: string | undefined } & StorageContext)
+  | ({
+      name: "run"
+      toolId: string
+      cwd: string
+      pin: string | undefined
+      selected: ToolSpec[]
+      options: ToolOptions
+    } & StorageContext)
+  | ({
+      name: "target"
+      toolId: string
+      cwd: string
+      language: string | undefined
+      options: ToolOptions
+    } & StorageContext)
 
 /** Splits `<flag> <value>` or `<flag>=<value>` from the remaining arguments; the last one given wins. */
 function takeFlag(argv: string[], flag: string): { value: string | undefined; rest: string[] } {
@@ -101,12 +115,14 @@ function parseCommand(argv: string[], io: Pick<CliIo, "specs" | "env" | "profile
   if (name === "target") {
     const { value: language, rest: afterLanguage } = takeFlag(rest, LANGUAGE_FLAG)
     const { value: harnessLanguage, rest: settingFlags } = takeFlag(afterLanguage, HARNESS_LANGUAGE_FLAG)
+    const { options, ...storage } = parseTargetSettings(settingFlags, io.env, profile)
     return {
       name,
       toolId,
       cwd,
-      ...storageContext(parseStorageSettings(settingFlags, io.env, profile)),
+      ...storageContext(storage),
       language: promptLanguage(language, io.env, harnessLanguage, profile),
+      options,
     }
   }
 
@@ -121,6 +137,7 @@ function parseCommand(argv: string[], io: Pick<CliIo, "specs" | "env" | "profile
     cwd,
     pin,
     selected: selectTools(io.specs, settings, profile.toolsets),
+    options: settings.options,
     ...storageContext(settings),
   }
 }
@@ -167,6 +184,7 @@ async function runTool(command: Extract<Command, { name: "run" }>, io: CliIo): P
     const ctx = {
       cwd: command.cwd,
       ownDir: io.ownDir,
+      options: command.options,
       stateDir: command.stateDir,
       downloadDir: command.downloadDir,
       downloadMaxMb: command.downloadMaxMb,
@@ -195,6 +213,7 @@ async function targetOf(command: Extract<Command, { name: "target" }>, io: CliIo
     const ctx = {
       cwd: command.cwd,
       ownDir: io.ownDir,
+      options: command.options,
       stateDir: command.stateDir,
       downloadDir: command.downloadDir,
       downloadMaxMb: command.downloadMaxMb,
@@ -253,7 +272,9 @@ const PERSON_COMMANDS: Partial<Record<string, (argv: string[], io: CliIo) => Pro
  * language) of that description and the resources when there is a description.
  * `target` takes `--language <tag>`, else `<envPrefix>_LANGUAGE`, else `--harness-language <tag>` (the harness's own
  * display language) as the prompt language; none, or one without a table,
- * keeps English. Standard output carries only the JSON document; a
+ * keeps English. `list`, `run` and `target` also take the package's tool options,
+ * as flags or `<envPrefix>_<OPTION>` variables, and `run` and `target` hand their
+ * values to the tool as `options`. Standard output carries only the JSON document; a
  * mistake in the command line is one line on standard error and `EXIT_USAGE`.
  * `login`, `sync`, `service` and `remove` are for a person managing an account's local
  * state (see `PERSON_COMMANDS`). Resolves to the exit code.

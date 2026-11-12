@@ -439,8 +439,10 @@ the environment. Other labels are kept.
    the entry points do. A tool that runs a program is tested against a fake of
    that program on `PATH`; no test reaches a real service.
 3. List it in `src/tools.ts`. A new toolset goes into `toolsets` in
-   `src/project.ts` (and `defaultToolsets` when it is on by default), and a
-   variable the tool reads besides the settings into `toolVariables`.
+   `src/project.ts` (and `defaultToolsets` when it is on by default), a
+   setting of the package's own into `options` (and `OPTIONS` in `project.py`
+   with `config_schema` in `plugin.yaml`), and a variable the tool reads
+   besides the settings into `toolVariables`.
 4. Add or update the toolset's skill, `skills/<prefix>-<toolset>/SKILL.md`,
    whose frontmatter names the toolset under `metadata`.
 5. Run `pnpm run build && pnpm run manifests` to list the tool in
@@ -500,7 +502,9 @@ variable, and an option or setting wins over the variable too.
 | `send_dirs`       | `--send-dirs`       | `DISCORD_TOOLS_SEND_DIRS`       | where files may be sent from; default the working directory                                                         |
 | `send_max_mb`     | `--send-max-mb`     | `DISCORD_TOOLS_SEND_MAX_MB`     | the most megabytes a sent file may have, 1 to 500; default 10                                                       |
 
-Lists are comma-separated in a flag or a variable. Where each harness reads them:
+Lists are comma-separated in a flag or a variable. A package's own settings,
+listed in `options` in `src/project.ts`, take a row each here and are read the
+same way. Where each harness reads them:
 
 - **OpenCode** takes the plugin `options` shown above, with lists as arrays,
   `read_only` as a boolean and `state_dir` as a path, and falls back to the variables. V2 runs plugins in
@@ -577,7 +581,7 @@ Lists are comma-separated in a flag or a variable. Where each harness reads them
 ## Layout
 
 - `src/project.ts` — the package's name, tool ID prefix, setting prefix,
-  toolsets and the other variables its tools read.
+  toolsets, tool options and the other variables its tools read.
 - `src/core/` — the tool contract and the tools, free of any harness and of
   the project's names.
 - `src/tools.ts` — the list of every tool, which each entry point registers.
