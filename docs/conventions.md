@@ -821,6 +821,12 @@ Every entry point takes the same settings:
   and never retried, 120 seconds each and 600 for all. A reservation or an
   upload that fails means nothing was sent: the message is posted only once
   every file is up.
+- **A post with files sends them as a file send does.** `discord_file_post`
+  takes a post's arguments and `files`, found, checked, copied, reserved in
+  the forum channel and uploaded by the rules above, and its prompt pins them
+  the same way; the text is optional, since files alone make a first message.
+  Everything a post refuses before a request is refused before the files are
+  copied or reserved.
 
 ## Writes
 
@@ -984,7 +990,7 @@ Every entry point takes the same settings:
   | `Reply to`       | the message replied to, quoted short                                                                | a reply                                                                              |
   | `Mass mentions`  | `Notify`                                                                                            | `mass_mentions` of a send, an edit or a post                                         |
   | `Notifications`  | `Silent`                                                                                            | `silent`                                                                             |
-  | `Files`          | each file's name and size, as `a.pdf (1.2 MB)`, joined with `, `                                    | a file send                                                                          |
+  | `Files`          | each file's name and size, as `a.pdf (1.2 MB)`, joined with `, `                                    | a file send, a post with files                                                       |
   | `Follows`        | `Whole server` or `Named channels`                                                                  | an addition to the sync list                                                         |
   | `Channels`       | the channels named, as `#name`, joined with `, `                                                    | a sync list change with `channels`                                                   |
   | `Excluded`       | the channels excluded, as `#name`, joined with `, `                                                 | an addition with `exclude`                                                           |
@@ -1003,4 +1009,5 @@ Every entry point takes the same settings:
   already read and `threads` creates lasting posts; `roles` changes what
   others may do in a server. Each is one setting away.
 - **Text and file sends are tools of their own** in `sends`, so a permission
-  rule can let texts through while files are asked for every time.
+  rule can let texts through while files are asked for every time. A post and
+  a post with files are tools of their own in `threads` for the same reason.
