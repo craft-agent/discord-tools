@@ -964,6 +964,29 @@ Every entry point takes the same settings:
   on: joining does not reopen one. The mirror holds no membership, so nothing
   follows a change there, and an outcome that may have reached Discord is
   `uncertain` after one read of the user's membership.
+- **A role write is administrative and checked against the snapshot first.**
+  Roles change what others may do in a server, so every role write is asked
+  about each time. Before any request, from the mirror alone: the server's
+  snapshot is under 15 minutes old, the user may manage roles, and the role
+  is one the user may manage (see "Roles"). A refused check names what to do,
+  such as reading the roles again. An optional `reason`, up to 512
+  characters, goes as `X-Audit-Log-Reason` and is shown in the prompt. A role
+  write that changes the user's own roles expires the snapshot through the
+  ingest, so the next role write reads them again. Discord checks the same
+  rules again and decides the rest.
+- **Giving a role never hands over more than the user has.**
+  `discord_role_assign` names a role and 1 to 30 distinct users the mirror
+  knows; `discord_role_unassign` names one. Giving a role that holds
+  `administrator`, or a permission the user lacks, is refused before a
+  request; taking one away is not. One user is
+  `PUT /guilds/{s}/members/{u}/roles/{r}`, several
+  `PATCH /guilds/{s}/roles/{r}/members` with `member_ids`; taking a role is
+  `DELETE /guilds/{s}/members/{u}/roles/{r}`. Giving a role someone holds,
+  or taking one they lack, changes nothing, so both are sent as asked. An
+  outcome that may have reached Discord is `uncertain` after one read-back:
+  the member's roles for one user, the role's member ids for several (which
+  list at most 100, so a user missing past that is unknown). Other people's
+  roles are never stored.
 
 ## Approval prompts
 
@@ -1019,38 +1042,48 @@ Every entry point takes the same settings:
   name, its tags by the names the mirror holds, and a send's facts
   (`Mass mentions`, `Notifications`, `Length`); its text is the first
   message, verbatim, as a send's is.
+- **A role write names the role and whom it reaches.** Its prompt names the
+  server, the role by its name in the snapshot and, for giving or taking, the
+  members by the names the mirror holds (an id for one it does not); giving a
+  role with strong permissions lists them, since the person approves handing
+  them over. The `reason` is the prompt's text, verbatim. The prompt pins the
+  role's permissions and position as the snapshot holds them, so a role that
+  changed before the call runs makes it `stale`.
 - **A change to the sync list names the server and its channels.** The
   server is its name in the mirror, else its id, since a server the account
   has left can still be removed; a channel is `#name`, else its id. The
   list itself is local, so its prompt has no text.
 - **The facts the tools add**, in the order they are shown:
 
-  | Label            | Value                                                                                               | Shown                                                                                |
-  | ---------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-  | `Chat`           | the kind of chat: `Direct message`, `Group DM`, `Text channel`, …                                   | always                                                                               |
-  | `Server`         | the server's name                                                                                   | a chat in a server                                                                   |
-  | `Channel`        | the channel a thread belongs to, as `#name`                                                         | a thread                                                                             |
-  | `Reminder`       | the reminder's time in UTC, as an ISO 8601 time, or `none`                                          | an addition to the saved list                                                        |
-  | `Author`         | who wrote the message, `You` for the user's own                                                     | a reaction, a pin, a save, a thread from a message                                   |
-  | `Message`        | the message, quoted short                                                                           | a reaction, a pin, a save, a saved-list change, a read mark, a thread from a message |
-  | `Read state`     | `cleared on every device up to this message`                                                        | a read mark                                                                          |
-  | `Unpack`         | the entries named, joined with `, `, or `Every archive`                                             | `unpack` of a save                                                                   |
-  | `Format`         | `Markdown`, `JSON` or `JSONL`                                                                       | an export                                                                            |
-  | `Messages`       | `The newest {count}` or `The first {count} after {after}`, each with `, before {before}` when given | an export                                                                            |
-  | `Folder`         | the exports folder, as an absolute path                                                             | an export                                                                            |
-  | `Name`           | the new thread's or post's name, as given                                                           | a new thread, a post                                                                 |
-  | `Tags`           | the tags given, by their names in the mirror, joined with `, `                                      | a post with `tags`                                                                   |
-  | `Visibility`     | `Public` or `Private`                                                                               | a new thread                                                                         |
-  | `Archives after` | `1 hour`, `1 day`, `3 days` or `1 week`, or `Discord's default`                                     | a new thread                                                                         |
-  | `Current text`   | the text an edit replaces, quoted short                                                             | an edit                                                                              |
-  | `Reply to`       | the message replied to, quoted short                                                                | a reply                                                                              |
-  | `Mass mentions`  | `Notify`                                                                                            | `mass_mentions` of a send, an edit or a post                                         |
-  | `Notifications`  | `Silent`                                                                                            | `silent`                                                                             |
-  | `Files`          | each file's name and size, as `a.pdf (1.2 MB)`, joined with `, `                                    | a file send, a post with files                                                       |
-  | `Follows`        | `Whole server` or `Named channels`                                                                  | an addition to the sync list                                                         |
-  | `Channels`       | the channels named, as `#name`, joined with `, `                                                    | a sync list change with `channels`                                                   |
-  | `Excluded`       | the channels excluded, as `#name`, joined with `, `                                                 | an addition with `exclude`                                                           |
-  | `Length`         | `{count} characters`, in code points                                                                | a send, an edit's new text, a post                                                   |
+  | Label                | Value                                                                                               | Shown                                                                                |
+  | -------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+  | `Chat`               | the kind of chat: `Direct message`, `Group DM`, `Text channel`, …                                   | always                                                                               |
+  | `Server`             | the server's name                                                                                   | a chat in a server                                                                   |
+  | `Channel`            | the channel a thread belongs to, as `#name`                                                         | a thread                                                                             |
+  | `Reminder`           | the reminder's time in UTC, as an ISO 8601 time, or `none`                                          | an addition to the saved list                                                        |
+  | `Author`             | who wrote the message, `You` for the user's own                                                     | a reaction, a pin, a save, a thread from a message                                   |
+  | `Message`            | the message, quoted short                                                                           | a reaction, a pin, a save, a saved-list change, a read mark, a thread from a message |
+  | `Read state`         | `cleared on every device up to this message`                                                        | a read mark                                                                          |
+  | `Unpack`             | the entries named, joined with `, `, or `Every archive`                                             | `unpack` of a save                                                                   |
+  | `Format`             | `Markdown`, `JSON` or `JSONL`                                                                       | an export                                                                            |
+  | `Messages`           | `The newest {count}` or `The first {count} after {after}`, each with `, before {before}` when given | an export                                                                            |
+  | `Folder`             | the exports folder, as an absolute path                                                             | an export                                                                            |
+  | `Name`               | the new thread's or post's name, as given                                                           | a new thread, a post                                                                 |
+  | `Tags`               | the tags given, by their names in the mirror, joined with `, `                                      | a post with `tags`                                                                   |
+  | `Visibility`         | `Public` or `Private`                                                                               | a new thread                                                                         |
+  | `Archives after`     | `1 hour`, `1 day`, `3 days` or `1 week`, or `Discord's default`                                     | a new thread                                                                         |
+  | `Current text`       | the text an edit replaces, quoted short                                                             | an edit                                                                              |
+  | `Reply to`           | the message replied to, quoted short                                                                | a reply                                                                              |
+  | `Mass mentions`      | `Notify`                                                                                            | `mass_mentions` of a send, an edit or a post                                         |
+  | `Notifications`      | `Silent`                                                                                            | `silent`                                                                             |
+  | `Files`              | each file's name and size, as `a.pdf (1.2 MB)`, joined with `, `                                    | a file send, a post with files                                                       |
+  | `Role`               | the role's name in the snapshot                                                                     | a role write                                                                         |
+  | `Members`            | the members' names, joined with `, `                                                                | giving or taking a role                                                              |
+  | `Strong permissions` | the strong permissions the role holds, by name, joined with `, `                                    | giving a role that holds any                                                         |
+  | `Follows`            | `Whole server` or `Named channels`                                                                  | an addition to the sync list                                                         |
+  | `Channels`           | the channels named, as `#name`, joined with `, `                                                    | a sync list change with `channels`                                                   |
+  | `Excluded`           | the channels excluded, as `#name`, joined with `, `                                                 | an addition with `exclude`                                                           |
+  | `Length`             | `{count} characters`, in code points                                                                | a send, an edit's new text, a post                                                   |
 
 ## Toolsets
 
