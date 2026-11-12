@@ -669,7 +669,9 @@ Every entry point takes the same settings:
   toolset's reads (`discord_people_read`, `discord_server_read`) ask Discord
   on every call and keep no friend list, note, profile, member or role in the
   mirror: such things change without a trace a user account can poll, and a
-  stored copy would be stale with nothing to say so. Only the user objects a
+  stored copy would be stale with nothing to say so. The one exception is the
+  `roles` toolset's snapshot, stored with its time so it can say how old it
+  is (see "Roles"). Only the user objects a
   read returns go through the ingest into the users the mirror knows, as a
   search's authors do, so a later call can name them.
 - **A person or a server is an id the mirror knows.** A user argument must be
@@ -727,6 +729,43 @@ Every entry point takes the same settings:
   do. Anyone holding a code can join the server, so the result
   and the skill say a code goes to the user only, never into a message, a
   file or another tool unless the user asks for that.
+
+## Roles
+
+- **A role write is checked against a snapshot, so the snapshot is stored.**
+  A prompt is drawn from the mirror alone, and the checks before a role write
+  (the user's highest role, the permissions the user holds) need the server's
+  roles and the user's own. `discord_role_read` methods `list` and `role` ask
+  `GET /guilds/{server}/roles`, `/roles/member-counts` and
+  `GET /users/@me/guilds/{server}/member`, and store through the ingest the
+  server's roles and the ids of the user's own roles, with the time they were
+  read. The roles a read did not return are dropped: a whole list vouches for
+  itself. Nobody else's roles are stored; a member's roles are
+  `discord_people_read`'s, read live.
+- **The snapshot says how old it is.** A read returns when it was taken, and
+  a role write refuses one older than 15 minutes, saying to read the roles
+  again: roles change without a trace a user account can poll.
+- **Permissions have Discord's names**, in lower case (`manage_messages`),
+  never bit numbers. A read lists a role's permissions by name, a bit with no
+  name as `bit{n}`, and marks the strong ones: those that act on other people,
+  the server or its settings (`administrator`, `ban_members`, `kick_members`,
+  `manage_guild`, `manage_roles`, `manage_channels`, `manage_webhooks`,
+  `manage_messages`, `moderate_members`, `mention_everyone`,
+  `manage_nicknames`, `manage_guild_expressions`, `manage_events`,
+  `manage_threads`, `view_audit_log`, `pin_messages`).
+- **The user's own permissions are worked out as Discord does.** They are
+  `@everyone`'s and every role the user holds, joined; an owner or a holder
+  of `administrator` has them all. A role is manageable when the user may
+  manage roles (`manage_roles`, `administrator` or owning the server), it sits
+  below the user's highest role (an owner is exempt; an equal position is not
+  below), it is not managed by an integration, and it is not `@everyone`.
+  Ownership is the mirror's server row, as the server list last said.
+- **A role's members are Discord's list of ids.** Method `members` asks
+  `GET /guilds/{server}/roles/{role}/member-ids` for a role the snapshot
+  holds, other than `@everyone`, which Discord does not list; Discord returns
+  at most 100 ids, and the result says when it reached that. Each id comes
+  with the name the mirror holds, null for a user it does not, and nothing is
+  stored.
 
 ## History
 
@@ -1019,7 +1058,8 @@ Every entry point takes the same settings:
   `inbox` (mentions, what waits for an answer, the saved list and read marks), `people` (people and server
   info), `sends`, `history` (counts and the export), `files` (saving received
   files), `actions` (the user's own messages, reactions and pins), `threads`
-  (creating threads and forum posts, joining and leaving threads) and `roles`.
+  (creating threads and forum posts, joining and leaving threads) and `roles`
+  (reading a server's roles and changing them).
 - **`account`, `sync`, `chats`, `search`, `inbox`, `people` and `sends` are on
   by default.** They cover reading a chat and answering it. `history` and
   `files` write files to disk; `actions` changes messages other people have
