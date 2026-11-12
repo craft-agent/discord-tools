@@ -41,6 +41,8 @@ const ACTION_TOOLS = {
   discord_thread_create: "add",
   discord_post_create: "add",
   discord_file_post: "add",
+  discord_thread_join: "idempotent",
+  discord_thread_leave: "overwrite",
 }
 const NO_ACCOUNT = "No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "cli-tools-smoke-"))

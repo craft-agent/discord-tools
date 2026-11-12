@@ -51,17 +51,22 @@ async function ownThreadsNamed(session: ChatSession, parent: MirroredChannel, na
 }
 
 /**
- * The one look after an uncertain creation, as `find` makes it. A failing look
- * is reported, not thrown, and a cancelled call looks at nothing: the creation
- * is uncertain either way, and it is never sent again.
+ * The one look after an uncertain write, as `look` makes it. A failing look is
+ * reported, not thrown, and a cancelled call looks at nothing: the write is
+ * uncertain either way, and it is never sent again.
  */
-async function lookAfter(session: ChatSession, find: () => Promise<FoundThread[]>): Promise<ReadBack> {
+async function lookOnce<T>(session: ChatSession, look: () => Promise<T>): Promise<T | "failed" | "skipped"> {
   if (session.signal?.aborted) return "skipped"
   try {
-    return { found: await find() }
+    return await look()
   } catch {
     return "failed"
   }
+}
+
+/** The one look after an uncertain creation, as `find` makes it. */
+function lookAfter(session: ChatSession, find: () => Promise<FoundThread[]>): Promise<ReadBack> {
+  return lookOnce(session, async () => ({ found: await find() }))
 }
 
 /** The look after an uncertain thread: the thread of the message, or the channel's newest threads the account owns with that name. */
@@ -78,4 +83,26 @@ export function readBack(
 /** The look after an uncertain post: the forum's newest posts the account owns with that name. */
 export function readBackPost(session: ChatSession, name: string, parent: MirroredChannel): Promise<ReadBack> {
   return lookAfter(session, () => ownThreadsNamed(session, parent, name))
+}
+
+/** What the look after an uncertain join or leave saw: whether the account is a member of the thread, or that it could not look (`failed`) or was cancelled first (`skipped`). */
+export type MembershipReadBack = { member: boolean } | "failed" | "skipped"
+
+/** Whether the account is in the thread: Discord has no member record (404) once it left or never joined. */
+async function isMember(session: ChatSession, thread: MirroredChannel): Promise<{ member: boolean }> {
+  try {
+    await session.client().read("GET", `/channels/${thread.target.id}/thread-members/${session.me}`, {
+      referer: thread.target.referer,
+      ...(session.signal ? { signal: session.signal } : {}),
+    })
+    return { member: true }
+  } catch (error) {
+    if (isToolError(error) && error.code === "not_found") return { member: false }
+    throw error
+  }
+}
+
+/** The look after an uncertain join or leave: the account's own record in the thread's members. */
+export function readBackMembership(session: ChatSession, thread: MirroredChannel): Promise<MembershipReadBack> {
+  return lookOnce(session, () => isMember(session, thread))
 }

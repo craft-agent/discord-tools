@@ -10,9 +10,10 @@ import { translator } from "../words"
 import { discordThreadCreate } from "./create-tool"
 import { createFilePostFixture } from "./file-post.testing"
 import { discordFilePost } from "./file-post-tool"
+import { discordThreadJoin, discordThreadLeave } from "./membership-tool"
 import { BUG, POST, TAGGED_FORUM, TEXT } from "./post.testing"
 import { discordPostCreate } from "./post-tool"
-import { NAME, SAID } from "./threads.testing"
+import { NAME, OLD_THREAD, SAID } from "./threads.testing"
 import { THREAD_TRANSLATIONS } from "./words"
 
 const ja = translator(THREAD_TRANSLATIONS, "ja")
@@ -46,6 +47,7 @@ describe("THREAD_TRANSLATIONS", () => {
       discordPostCreate.intent!,
       discordFilePost.title,
       discordFilePost.intent!,
+      ...[discordThreadJoin, discordThreadLeave].flatMap((spec) => [spec.title, spec.intent!]),
     ]
     const calls = [
       { channel: CHANNEL, message: SAID },
@@ -61,6 +63,9 @@ describe("THREAD_TRANSLATIONS", () => {
     for (const extra of [{}, { text: TEXT, tags: [BUG], silent: true, mass_mentions: true }]) {
       words.push(...wordsOf((await callDescription(discordFilePost, { ...FILE_POST, ...extra }, f.ctx))!))
     }
+    for (const spec of [discordThreadJoin, discordThreadLeave]) {
+      words.push(...wordsOf((await callDescription(spec, { thread: OLD_THREAD }, f.ctx))!))
+    }
     const own = [...new Set(words)].filter((word) => !owned.has(word))
     expect(Object.keys(THREAD_TRANSLATIONS.ja!).sort()).toEqual(own.sort())
   })
@@ -68,7 +73,15 @@ describe("THREAD_TRANSLATIONS", () => {
   test("keeps the placeholder of the headline templates, and translates the titles and the intents", () => {
     expect(ja.template("About to start a thread in {chat}")).toBe("{chat} でスレッドを開始しようとしています")
     expect(ja.template("About to post in {chat}")).toBe("{chat} に投稿しようとしています")
-    for (const spec of [discordThreadCreate, discordPostCreate, discordFilePost]) {
+    expect(ja.template("About to join {chat}")).toBe("{chat} に参加しようとしています")
+    expect(ja.template("About to leave {chat}")).toBe("{chat} から退出しようとしています")
+    for (const spec of [
+      discordThreadCreate,
+      discordPostCreate,
+      discordFilePost,
+      discordThreadJoin,
+      discordThreadLeave,
+    ]) {
       expect(ja.word(spec.title)).not.toBe(spec.title)
       expect(ja.word(spec.intent!)).not.toBe(spec.intent!)
     }

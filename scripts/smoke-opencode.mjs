@@ -39,6 +39,8 @@ const EXPORT_CREATE = "discord_export_create"
 const THREAD_CREATE = "discord_thread_create"
 const POST_CREATE = "discord_post_create"
 const FILE_POST = "discord_file_post"
+const THREAD_JOIN = "discord_thread_join"
+const THREAD_LEAVE = "discord_thread_leave"
 const NO_ACCOUNT = "not_found: No Discord account is signed in yet"
 const stateDir = mkdtempSync(join(tmpdir(), "opencode-smoke-"))
 
@@ -134,7 +136,16 @@ try {
         `Expected setup to ${on ? "discover" : "leave out"} ${skill} with read_only=${readOnly}.`,
       )
     }
-    for (const name of [...ACTION_TOOLS, FILE_SAVE, EXPORT_CREATE, THREAD_CREATE, POST_CREATE, FILE_POST]) {
+    for (const name of [
+      ...ACTION_TOOLS,
+      FILE_SAVE,
+      EXPORT_CREATE,
+      THREAD_CREATE,
+      POST_CREATE,
+      FILE_POST,
+      THREAD_JOIN,
+      THREAD_LEAVE,
+    ]) {
       expect(
         expected.includes(name) === (allToolsets && !readOnly),
         `Expected the MCP registry to ${allToolsets && !readOnly ? "include" : "omit"} ${name} with read_only=${readOnly}.`,
