@@ -46,3 +46,16 @@ config_schema:
   emoji:
     type: dict
     description: 'The emoji shown beside each toolset, by toolset name; "" shows none. Merged over the package''s emoji.'
+  state_dir:
+    description: Absolute path to every label's state. Defaults to $XDG_STATE_HOME/discord-tools when XDG_STATE_HOME is absolute, else ~/.local/state/discord-tools. A blank path uses the default.
+  download_dir:
+    description: Absolute path for received files, with exports in exports/. Defaults to ~/Downloads/discord-tools. A blank path uses the default.
+  download_max_mb:
+    type: int
+    description: Whole megabytes per received file, from 1 to 500. Defaults to 100.
+  send_dirs:
+    type: list
+    description: Up to 20 absolute directories files may be sent from. Blank items are dropped. Defaults to the working directory when unset.
+  send_max_mb:
+    type: int
+    description: Whole megabytes per sent file, from 1 to 500. Defaults to 10.

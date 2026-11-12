@@ -312,11 +312,14 @@ Every entry point takes the same settings:
   mapping, an entry whose value is not a string, and a name that is no toolset
   are ignored rather than refused: the setting only changes what is shown, so a
   typo must not take every tool away.
-- **`state_dir`**: where every account's state lives (see "Accounts and state").
-- **`download_dir`** and **`download_max_mb`**: where received files are saved
-  and the size each may have (see "Files").
-- **`send_dirs`** and **`send_max_mb`**: where files may be sent from and the
-  size each may have (see "Files").
+- **`state_dir`**: this package's `path` option for every account's state
+  (see "Accounts and state"), read as "Options" below describes.
+- **`download_dir`** and **`download_max_mb`**: this package's `path` and
+  whole `number` (1 to 500) options for received files and their size
+  (see "Files"), read as "Options" below describes.
+- **`send_dirs`** and **`send_max_mb`**: this package's `paths` (at most 20
+  directories) and whole `number` (1 to 500) options for sent files and their
+  size (see "Files"), read as "Options" below describes.
 - **Options** are the package's own settings, the ones the tools themselves
   read, listed in `options` in `src/project.ts` (and `OPTIONS` in the Hermes
   plugin's `project.py`), each mapping a snake_case name to its type (`text`,
@@ -440,8 +443,9 @@ Every entry point takes the same settings:
   the token file when there is one, the sync service's lock and progress, the
   service record, and the short-lived copies of files being sent or received.
   The state root is
-  the `state_dir` setting, by default `$XDG_STATE_HOME/discord-tools`, or
-  `~/.local/state/discord-tools` without it. One directory per label means a
+  the `state_dir` path option, by default `$XDG_STATE_HOME/discord-tools`
+  when `XDG_STATE_HOME` is absolute, else `~/.local/state/discord-tools`.
+  One directory per label means a
   label is moved, backed up or removed as a whole.
 - **`account` picks the label.** Left out, it picks the only label; with
   several, the call fails as `invalid_argument` and lists them. One account is
@@ -771,15 +775,16 @@ Every entry point takes the same settings:
   The state directory and the tools' own install directory are never among
   them, nor a directory that holds either, so a home directory never
   qualifies.
-- **Received files are saved under `download_dir`**, by default
-  `~/Downloads/<name>`, where a person looks for downloads first; it is an
-  absolute path once `~` is expanded. Each message gets a folder of its own,
+- **Received files are saved under `download_dir`**, a `path` option read as
+  "Options" describes, by default `~/Downloads/discord-tools`, where a person
+  looks for downloads first. Each message gets a folder of its own,
   `<channel>-<message>`, so files from different people never mix, and
   nothing is ever overwritten: a name already taken gets a number. A
   directory that is not there yet is made on the first save, never by a
   read.
-- **A file is at most `download_max_mb` megabytes**, 100 by default and 500
-  at most. Discord's own limits on uploads are smaller for most accounts; the
+- **A file is at most `download_max_mb` megabytes**, a whole `number` option
+  from 1 to 500 read as "Options" describes, 100 by default.
+  Discord's own limits on uploads are smaller for most accounts; the
   cap keeps a link preview or an archive from filling the disk.
 - **Downloads come only from Discord's CDN and media proxy**
   (`cdn.discordapp.com`, `media.discordapp.net`,
@@ -792,11 +797,11 @@ Every entry point takes the same settings:
   Files are written without an execute bit and, on macOS, marked as
   downloaded, so the system asks before one is opened. An archive is
   unpacked only when asked, into a new folder beside it.
-- **Files are sent only from `send_dirs`**, by default the call's working
-  directory, where the file an agent made usually is; each directory is
-  absolute once `~` is expanded. A message carries at most 10 files, each at
-  most `send_max_mb` megabytes, 10 by default (Discord's limit without Nitro)
-  and 500 at most.
+- **Files are sent only from `send_dirs`**, a `paths` option of at most 20
+  directories read as "Options" describes, by default the call's working
+  directory, where the file an agent made usually is. A message carries at
+  most 10 files, each at most `send_max_mb` megabytes, a whole `number` option
+  from 1 to 500, 10 by default (Discord's limit without Nitro).
 - **What would leak is never sent, wherever it is**: credentials, keys and
   local databases by name or by a folder on the way (`.ssh`, `.aws`, `.git`,
   `.config`, …), and any file holding a private key. Programs, installers and
