@@ -4,6 +4,7 @@ import { approvalOf } from "../entry/pin"
 import { createToolRuntime } from "../entry/runtime"
 import type { StorageContext } from "../entry/storage"
 import {
+  harnessError,
   needsPermission,
   permissionMetadata,
   persistableResources,
@@ -66,6 +67,7 @@ function v1Tool(
       let pin: string | undefined
       if (needsPermission(spec)) {
         const approval = await approvalOf(spec, args, ctx, DESCRIBE_TIMEOUT_MS, t)
+        if (approval.refused) throw harnessError(approval.refused)
         const { resources, description } = approval
         pin = approval.pin
         await context.ask({
