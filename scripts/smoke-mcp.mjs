@@ -37,6 +37,7 @@ const INBOX_READ = "discord_inbox_read"
 const PEOPLE_READ = "discord_people_read"
 const SERVER_READ = "discord_server_read"
 const HISTORY_READ = "discord_history_read"
+const ROLE_READ = "discord_role_read"
 const INBOX_WRITE_TOOLS = ["discord_saved_add", "discord_saved_remove", "discord_read_mark"]
 const REQUIRES_USER_INTERACTION = "anthropic/requiresUserInteraction"
 const NO_ACCOUNT = "No Discord account is signed in yet"
@@ -132,6 +133,15 @@ async function listTools(settings) {
     } else {
       expectAbsent(tools, HISTORY_READ, settings)
       console.log(`${HISTORY_READ} is absent under ${JSON.stringify(settings)}.`)
+    }
+
+    if (settings.includes("all")) {
+      expectAnnotations(tools, ROLE_READ, { readOnlyHint: true }, settings)
+      await expectToolError(client, ROLE_READ, { method: "list", server: "general" }, "invalid_argument")
+      console.log(`${ROLE_READ} is read-only and refuses a name for an id under ${JSON.stringify(settings)}.`)
+    } else {
+      expectAbsent(tools, ROLE_READ, settings)
+      console.log(`${ROLE_READ} is absent under ${JSON.stringify(settings)}.`)
     }
 
     if (settings.includes("--read-only")) {

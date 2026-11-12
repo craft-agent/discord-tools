@@ -17,6 +17,7 @@ const INBOX_READ = "discord_inbox_read"
 const PEOPLE_READ = "discord_people_read"
 const SERVER_READ = "discord_server_read"
 const HISTORY_READ = "discord_history_read"
+const ROLE_READ = "discord_role_read"
 const WRITE_TOOLS = [
   "discord_sync_add",
   "discord_sync_remove",
@@ -161,6 +162,10 @@ try {
     expect(
       expected.includes(HISTORY_READ) === allToolsets,
       `Expected the MCP registry to ${allToolsets ? "include" : "omit"} ${HISTORY_READ} with toolsets all.`,
+    )
+    expect(
+      expected.includes(ROLE_READ) === allToolsets,
+      `Expected the MCP registry to ${allToolsets ? "include" : "omit"} ${ROLE_READ} with toolsets all.`,
     )
     for (const name of WRITE_TOOLS) {
       expect(

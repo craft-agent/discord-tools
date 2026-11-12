@@ -167,6 +167,18 @@ describe("the registry", () => {
     expect(ids({ toolsets: ["threads"], read_only: true })).not.toContain(id)
   })
 
+  test("role read is a read tool in the off-by-default roles toolset, kept in read-only mode", () => {
+    const id = "discord_role_read"
+    const ids = (settings: Parameters<typeof selectTools>[1]) =>
+      selectTools(ALL_TOOLS, settings, PROJECT_PROFILE.toolsets).map((spec) => spec.id)
+    expect(ALL_TOOLS.find((spec) => spec.id === id)).toMatchObject({ toolset: "roles", class: "read" })
+    expect(ids({})).not.toContain(id)
+    expect(ids({ read_only: true })).not.toContain(id)
+    expect(ids({ toolsets: ["roles"] })).toContain(id)
+    expect(ids({ toolsets: "all" })).toContain(id)
+    expect(ids({ toolsets: ["roles"], read_only: true })).toContain(id)
+  })
+
   test("every tool id is unique", () => {
     const ids = ALL_TOOLS.map((spec) => spec.id)
     expect(new Set(ids).size).toBe(ids.length)
