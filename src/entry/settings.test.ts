@@ -1,16 +1,7 @@
 import { describe, expect, test } from "bun:test"
-import { delimiter } from "node:path"
 import { PROJECT } from "../project"
 import type { EntryProfile } from "./profile"
-import {
-  forwardedVariables,
-  parseSettings,
-  parseStorageSettings,
-  parseTargetSettings,
-  parseToolSettings,
-  settingVariables,
-} from "./settings"
-import { NOTE_OPTION } from "./options.testing"
+import { forwardedVariables, parseSettings, parseToolSettings, settingVariables } from "./settings"
 import { DEFAULT_DOWNLOADS, failure, profile, resolved } from "./settings.testing"
 
 const parse = (argv: string[], env: Record<string, string | undefined> = {}) => parseSettings(argv, env, profile)
@@ -362,67 +353,5 @@ describe("parseToolSettings", () => {
       state_dir: expect.any(String),
       ...DEFAULT_DOWNLOADS,
     })
-  })
-})
-
-describe("parseStorageSettings", () => {
-  const parseStorage = (argv: string[], env: Record<string, string | undefined> = {}) =>
-    parseStorageSettings(argv, env, profile)
-
-  test("reads --state-dir, --download-dir and --send-dirs, and max_mb settings from the environment", () => {
-    expect(
-      parseStorage(["--state-dir=/s", "--download-dir", "/d", "--send-dirs", ["/send/a", "/send/b"].join(delimiter)], {
-        DEMO_DOWNLOAD_MAX_MB: "12",
-        DEMO_SEND_MAX_MB: "15",
-      }),
-    ).toEqual({
-      state_dir: "/s",
-      download_dir: "/d",
-      download_max_mb: 12,
-      send_dirs: ["/send/a", "/send/b"],
-      send_max_mb: 15,
-    })
-    expect(parseStorage([], { DEMO_DOWNLOAD_DIR: "/env/d", DEMO_SEND_DIRS: "/env/send" })).toEqual({
-      state_dir: expect.any(String),
-      download_dir: "/env/d",
-      download_max_mb: 100,
-      send_dirs: ["/env/send"],
-      send_max_mb: 10,
-    })
-  })
-
-  test("rejects any other setting flag, naming it", () => {
-    for (const flag of ["--read-only", "--download-max-mb=5", "--send-max-mb=5", "--tools=a"]) {
-      expect(failure(() => parseStorage([flag])).message).toContain(flag.split("=")[0]!)
-    }
-  })
-
-  test("rejects the package's own settings' flags, naming them", () => {
-    expect(failure(() => parseStorage(["--note-text=x"])).message).toContain("--note-text")
-  })
-})
-
-describe("parseTargetSettings", () => {
-  const parseTarget = (argv: string[], env: Record<string, string | undefined> = {}) =>
-    parseTargetSettings(argv, env, profile)
-
-  test("reads the storage flags and the package's own settings together", () => {
-    expect(
-      parseTarget(["--state-dir=/s", "--note-text", "flag"], { DEMO_DOWNLOAD_MAX_MB: "12", DEMO_NOTE_TEXT: "env" }),
-    ).toEqual({
-      options: { state_dir: "/s", download_max_mb: 12, [NOTE_OPTION]: "flag" },
-      state_dir: "/s",
-      download_dir: expect.any(String),
-      download_max_mb: 12,
-      send_max_mb: 10,
-    })
-    expect(parseTarget([], { DEMO_NOTE_TEXT: "env" }).options).toEqual({ [NOTE_OPTION]: "env" })
-    expect(parseTarget([]).options).toEqual({})
-  })
-
-  test("rejects every other setting flag, naming it", () => {
-    for (const flag of ["--read-only", "--tools=a", "--toolsets=alpha"]) {
-      expect(failure(() => parseTarget([flag])).message).toContain(flag.split("=")[0]!)
-    }
   })
 })
