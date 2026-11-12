@@ -987,6 +987,30 @@ Every entry point takes the same settings:
   the member's roles for one user, the role's member ids for several (which
   list at most 100, so a user missing past that is unknown). Other people's
   roles are never stored.
+- **Creating and editing a role grant only what the user may hand out.**
+  `discord_role_create` takes a name (1 to 100 characters), permissions by
+  name (none when left out), a color (`#rrggbb`), `hoist` and `mentionable`,
+  and sends `POST /guilds/{s}/roles`; Discord puts a new role at the bottom,
+  above `@everyone`. `discord_role_edit` names a role the user may manage and
+  any of a name, a color (or `none`), `hoist`, `mentionable`, permissions to
+  `grant` and to `revoke`, and sends `PATCH /guilds/{s}/roles/{r}` with only
+  what changes; `@everyone` may be edited, its permissions only. An edit
+  sends the role's whole new permission set, worked out from the snapshot,
+  so a name in both `grant` and `revoke`, or an edit that changes nothing, is
+  refused. Creating or granting `administrator`, or a permission the user
+  lacks, is refused before a request; revoking is not.
+- **Deleting a role is final.** `discord_role_delete` names a role the user
+  may manage and sends `DELETE /guilds/{s}/roles/{r}`; the role leaves
+  everyone who held it, and nothing brings it back.
+- **A done change follows in the snapshot.** The role Discord returns from a
+  creation or an edit, and the removal of a deleted one, go through the
+  ingest into the snapshot's roles without changing when it was read; a
+  change to a role the user holds expires the snapshot instead. Creating a
+  role takes no nonce, so an outcome that may have reached Discord is
+  `uncertain` after one read of the server's roles, whose roles with that
+  name are candidates, never a confirmation, and the creation is never
+  repeated. An unclear edit or delete reads the roles once too, and says
+  whether the role is there and as asked.
 
 ## Approval prompts
 
@@ -1048,7 +1072,10 @@ Every entry point takes the same settings:
   role with strong permissions lists them, since the person approves handing
   them over. The `reason` is the prompt's text, verbatim. The prompt pins the
   role's permissions and position as the snapshot holds them, so a role that
-  changed before the call runs makes it `stale`.
+  changed before the call runs makes it `stale`. A new role is named in the
+  headline by the name given; a creation lists every permission it gives and
+  an edit what it changes, each value as it will be, with the strong
+  permissions given marked apart.
 - **A change to the sync list names the server and its channels.** The
   server is its name in the mirror, else its id, since a server the account
   has left can still be removed; a channel is `#name`, else its id. The
@@ -1077,9 +1104,16 @@ Every entry point takes the same settings:
   | `Mass mentions`      | `Notify`                                                                                            | `mass_mentions` of a send, an edit or a post                                         |
   | `Notifications`      | `Silent`                                                                                            | `silent`                                                                             |
   | `Files`              | each file's name and size, as `a.pdf (1.2 MB)`, joined with `, `                                    | a file send, a post with files                                                       |
-  | `Role`               | the role's name in the snapshot                                                                     | a role write                                                                         |
+  | `Role`               | the role's name in the snapshot                                                                     | a write to an existing role                                                          |
   | `Members`            | the members' names, joined with `, `                                                                | giving or taking a role                                                              |
-  | `Strong permissions` | the strong permissions the role holds, by name, joined with `, `                                    | giving a role that holds any                                                         |
+  | `New name`           | the role's name, as given                                                                           | a new role, an edit with `name`                                                      |
+  | `Strong permissions` | the strong permissions given, by name, joined with `, `                                             | giving, creating or granting any                                                     |
+  | `Color`              | `#rrggbb`, or `None`                                                                                | a role with `color`                                                                  |
+  | `Listed apart`       | `Yes` or `No`                                                                                       | a role with `hoist`                                                                  |
+  | `Mentionable`        | `Yes` or `No`                                                                                       | a role with `mentionable`                                                            |
+  | `Permissions`        | every permission given, by name, joined with `, `, or `None`                                        | a new role                                                                           |
+  | `Grant`              | the permissions granted, by name, joined with `, `                                                  | an edit with `grant`                                                                 |
+  | `Revoke`             | the permissions revoked, by name, joined with `, `                                                  | an edit with `revoke`                                                                |
   | `Follows`            | `Whole server` or `Named channels`                                                                  | an addition to the sync list                                                         |
   | `Channels`           | the channels named, as `#name`, joined with `, `                                                    | a sync list change with `channels`                                                   |
   | `Excluded`           | the channels excluded, as `#name`, joined with `, `                                                 | an addition with `exclude`                                                           |
