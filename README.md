@@ -1,6 +1,6 @@
 # discord-tools
 
-Discord tools for coding agents: chats, messages, search, inbox, people and servers, history, files, sends and roles.
+Discord tools for coding agents: chats, messages, search, inbox, people and servers, history, files, sends, threads and roles.
 
 > [!WARNING]
 > These tools act from your own Discord account, through the web client's
@@ -179,6 +179,11 @@ all listed too.
 | actions | `discord_reaction_remove` | [discord-actions](skills/discord-actions/SKILL.md) | takes back the account's reaction                       |
 | actions | `discord_pin_add`         | [discord-actions](skills/discord-actions/SKILL.md) | pins a message                                          |
 | actions | `discord_pin_remove`      | [discord-actions](skills/discord-actions/SKILL.md) | unpins a message                                        |
+| threads | `discord_thread_create`   | [discord-threads](skills/discord-threads/SKILL.md) | starts a thread in a channel or from a message          |
+| threads | `discord_post_create`     | [discord-threads](skills/discord-threads/SKILL.md) | posts in a forum or media channel                       |
+| threads | `discord_file_post`       | [discord-threads](skills/discord-threads/SKILL.md) | posts files in a forum or media channel                 |
+| threads | `discord_thread_join`     | [discord-threads](skills/discord-threads/SKILL.md) | joins a thread                                          |
+| threads | `discord_thread_leave`    | [discord-threads](skills/discord-threads/SKILL.md) | leaves a thread                                         |
 
 `account` is on by default and available with `read_only`. Call
 `discord_account_read` with `{}` to list every label, sorted, or with
@@ -336,6 +341,20 @@ once and never retried, and followed in the mirror. Anything that may have
 reached Discord is `uncertain`: `details.applied` says whether one read-back of
 the chat saw the new state (`null` when it could not tell). Repeating an
 action is harmless, but check the chat and ask first.
+
+`threads` is off by default because it creates lasting posts; turn it on with
+`toolsets` (for example `--toolsets all`, or the defaults plus `threads`).
+`read_only` leaves all five tools out, and every call is asked about. Targets
+are ids the mirror knows: `discord_thread_create` starts a public or private
+thread in a text or announcement channel, optionally from a message (public
+only); `discord_post_create` creates a text post in a forum or media channel;
+`discord_file_post` creates one with files, optionally with text;
+`discord_thread_join` and `discord_thread_leave` change only the user's
+membership. Tags are ids from `discord_chat_read` method `threads`; files
+follow a file send's directory, size and safety rules. Nothing is retried.
+Creation has no nonce: for `uncertain`, read `details.read_back`, check the
+channel's threads or posts and ask before trying again. Never repeat a
+creation blindly; a repeated join is harmless, but check before leaving again.
 
 `history` is off by default because the export writes files; turn it on with
 `toolsets` (for example `--toolsets all`, or the defaults plus `history`).
