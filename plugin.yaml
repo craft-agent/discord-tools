@@ -17,6 +17,7 @@ provides_tools:
   - discord_people_read
   - discord_pin_add
   - discord_pin_remove
+  - discord_post_create
   - discord_reaction_add
   - discord_reaction_remove
   - discord_read_mark

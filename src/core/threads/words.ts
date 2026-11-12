@@ -1,8 +1,12 @@
 import type { Translations } from "../words"
 
-/** The translations of the thread tool's words: its title, intent, headline template, fact labels and values. */
+/** The translations of the thread and post tools' words: their titles, intents, headline templates, fact labels and values. */
 export const THREAD_TRANSLATIONS: Translations = {
   ja: {
+    "Post in a Discord forum": "Discord フォーラムに投稿する",
+    "About to post in a Discord forum": "Discord フォーラムに投稿しようとしています",
+    "About to post in {chat}": "{chat} に投稿しようとしています",
+    Tags: "タグ",
     "Start a Discord thread": "Discord スレッドを開始する",
     "About to start a Discord thread": "Discord スレッドを開始しようとしています",
     "About to start a thread in {chat}": "{chat} でスレッドを開始しようとしています",
