@@ -136,6 +136,7 @@ try {
       ["discord-actions", allToolsets && !readOnly],
       ["discord-threads", allToolsets && !readOnly],
       ["discord-history", allToolsets],
+      ["discord-roles", allToolsets],
       ["discord-files", allToolsets && !readOnly],
     ]) {
       expect(
