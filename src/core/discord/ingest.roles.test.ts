@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { ingestRoleSnapshot } from "./ingest"
+import { expireRoleSnapshot, ingestRoleSnapshot } from "./ingest"
 import { createTestMirror, rowById, rowsOf, type TestMirror } from "./mirror.testing"
 import { readRoleSnapshot, serverOwned, storedRole } from "./mirror-roles"
 import { ctxAt, NOW, SERVER } from "./objects.testing"
@@ -94,6 +94,22 @@ describe("ingestRoleSnapshot", () => {
   test("stores each own role id once", () => {
     snapshot(SERVER, [role(MOD)], [MOD, MOD])
     expect(readRoleSnapshot(t.mirror, SERVER)?.ownRoles).toEqual([MOD])
+  })
+})
+
+describe("expireRoleSnapshot", () => {
+  test("sets the server's read time to 0 and keeps its roles and own roles", () => {
+    snapshot(SERVER, [role(MOD)], [MOD])
+    snapshot(OTHER_SERVER, [role(OTHER_ROLE)], [OTHER_ROLE])
+    expect(t.write(() => expireRoleSnapshot(t.mirror, SERVER))).toEqual({ stored: 1, deleted: 0, skipped: 0 })
+    expect(readRoleSnapshot(t.mirror, SERVER)).toMatchObject({ readAt: 0, ownRoles: [MOD] })
+    expect(readRoleSnapshot(t.mirror, SERVER)!.roles).toHaveLength(1)
+    expect(readRoleSnapshot(t.mirror, OTHER_SERVER)).toMatchObject({ readAt: NOW })
+  })
+
+  test("counts nothing for a server with no snapshot", () => {
+    expect(t.write(() => expireRoleSnapshot(t.mirror, SERVER))).toEqual({ stored: 0, deleted: 0, skipped: 0 })
+    expect(readRoleSnapshot(t.mirror, SERVER)).toBeNull()
   })
 })
 

@@ -62,3 +62,16 @@ export function ingestRoleSnapshot(
     .run(serverId, JSON.stringify([...new Set(ownRoles)]), ctx.now)
   return counts
 }
+
+/**
+ * Expires a server's role snapshot by setting its read time to 0, so every role
+ * write refuses it as out of date until the roles are read again. The stored
+ * roles stay, since a role's members can still be listed against them. A server
+ * without a snapshot is left alone and nothing is counted.
+ */
+export function expireRoleSnapshot(mirror: Mirror, server: string): IngestCounts {
+  const counts = newCounts()
+  const { changes } = mirror.prepare("UPDATE role_snapshots SET read_at = 0 WHERE server = ?").run(BigInt(server))
+  counts.stored += Number(changes)
+  return counts
+}
