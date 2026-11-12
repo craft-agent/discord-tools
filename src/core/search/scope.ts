@@ -21,7 +21,7 @@ export type DiscordScope = {
 }
 
 /** The server the mirror knows; `not_found` otherwise. */
-export function checkServer(session: ChatSession, server: string): void {
+export function checkServer(session: Pick<ChatSession, "mirror">, server: string): void {
   if (!session.mirror.prepare("SELECT 1 FROM servers WHERE id = ?").get(BigInt(server))) {
     throw new ToolError(
       "not_found",

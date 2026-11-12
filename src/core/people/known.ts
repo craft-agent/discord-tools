@@ -3,7 +3,7 @@ import type { ChatSession } from "../chats/session"
 import type { Mirror } from "../discord/mirror"
 
 /** The user the mirror knows; `not_found` otherwise, before any request is made. */
-export function checkUser(session: ChatSession, user: string): void {
+export function checkUser(session: Pick<ChatSession, "mirror">, user: string): void {
   if (!session.mirror.prepare("SELECT 1 FROM users WHERE id = ?").get(BigInt(user))) {
     throw new ToolError(
       "not_found",

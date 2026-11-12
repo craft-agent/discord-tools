@@ -35,7 +35,7 @@ export type RoleReadInput = z.output<typeof roleReadInput>
 
 const count = z.number().int().min(0)
 
-const roleRef = z.object({
+export const roleRef = z.object({
   id: z.string().describe("The role's id."),
   name: z.string().nullable().describe("The role's name, written by the server's admins."),
 })
@@ -78,7 +78,7 @@ const youItem = z.object({
   highest_position: z.number().int().describe("The position of the user's highest role."),
 })
 
-const memberItem = z.object({
+export const memberItem = z.object({
   id: z.string().describe("The member's user id."),
   name: z
     .string()
