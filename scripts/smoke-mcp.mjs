@@ -29,6 +29,8 @@ const ACTION_TOOLS = [MESSAGE_EDIT, MESSAGE_DELETE, REACTION_ADD, REACTION_REMOV
 const FILE_SAVE = "discord_file_save"
 const EXPORT_CREATE = "discord_export_create"
 const INBOX_READ = "discord_inbox_read"
+const PEOPLE_READ = "discord_people_read"
+const SERVER_READ = "discord_server_read"
 const HISTORY_READ = "discord_history_read"
 const INBOX_WRITE_TOOLS = ["discord_saved_add", "discord_saved_remove", "discord_read_mark"]
 const REQUIRES_USER_INTERACTION = "anthropic/requiresUserInteraction"
@@ -110,6 +112,14 @@ async function listTools(settings) {
 
     expectAnnotations(tools, INBOX_READ, { readOnlyHint: true }, settings)
     console.log(`${INBOX_READ} is read-only under ${JSON.stringify(settings)}.`)
+
+    expectAnnotations(tools, PEOPLE_READ, { readOnlyHint: true }, settings)
+    await expectToolError(client, PEOPLE_READ, { method: "notes", user: "general" }, "invalid_argument")
+    console.log(`${PEOPLE_READ} is read-only and refuses a name for an id under ${JSON.stringify(settings)}.`)
+
+    expectAnnotations(tools, SERVER_READ, { readOnlyHint: true }, settings)
+    await expectToolError(client, SERVER_READ, { method: "info", server: "general" }, "invalid_argument")
+    console.log(`${SERVER_READ} is read-only and refuses a name for an id under ${JSON.stringify(settings)}.`)
 
     if (settings.includes("all")) {
       expectAnnotations(tools, HISTORY_READ, { readOnlyHint: true }, settings)

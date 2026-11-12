@@ -14,6 +14,7 @@ provides_tools:
   - discord_message_delete
   - discord_message_edit
   - discord_message_send
+  - discord_people_read
   - discord_pin_add
   - discord_pin_remove
   - discord_reaction_add
@@ -22,6 +23,7 @@ provides_tools:
   - discord_saved_add
   - discord_saved_remove
   - discord_search_read
+  - discord_server_read
   - discord_sync_add
   - discord_sync_read
   - discord_sync_remove

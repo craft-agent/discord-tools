@@ -18,6 +18,7 @@ TOOLSET_EMOJI: dict[str, str] = {
     "chats": "💬",
     "search": "🔍",
     "inbox": "📥",
+    "people": "👥",
     "sends": "📤",
     "history": "📊",
     "files": "📎",

@@ -642,6 +642,71 @@ Every entry point takes the same settings:
   push notifications stay as they were; the one tool that marks a chat read is
   its own write tool (see "Writes").
 
+## People
+
+- **People and servers are read live, one request at a time.** The `people`
+  toolset's reads (`discord_people_read`, `discord_server_read`) ask Discord
+  on every call and keep no friend list, note, profile, member or role in the
+  mirror: such things change without a trace a user account can poll, and a
+  stored copy would be stale with nothing to say so. Only the user objects a
+  read returns go through the ingest into the users the mirror knows, as a
+  search's authors do, so a later call can name them.
+- **A person or a server is an id the mirror knows.** A user argument must be
+  a user the label's mirror holds (from a chat, a mention, a friend list), a
+  server argument a server it holds; anything else is `not_found` before a
+  request is made. A name is only ever search text or a filter.
+- **`friends` is the user's own list.** `discord_people_read` method
+  `friends` asks `GET /users/@me/relationships` and lists friends only, by
+  name, each with the nickname the user gave them and the id of a DM with
+  them that the mirror already holds (never one opened for the call). Pending
+  requests are counted, incoming and outgoing, without saying who sent them,
+  and blocked users are left out. A local `query` filters by name.
+- **`notes` are the user's own words about others.** Method `notes` asks
+  `GET /users/@me/notes`, or `GET /users/@me/notes/{user}` for one user. A
+  note is private to the user; the result says so, and a user with no note is
+  `note: null`, not an error.
+- **A profile is read one person at a time, when asked.** Method `profile`
+  asks `GET /users/{user}/profile` with mutual servers and friends, and with
+  `server` the member's profile there. Discord shows a profile only to a
+  friend, someone sharing a server, a bot or a pending request, and answers
+  others with a refusal that is passed on as it is. The official client reads
+  a profile when one is opened, never in bulk, so the tool and the skill keep
+  to the person asked about. Mutual servers are named from the mirror, null
+  for one it does not hold.
+- **A member is one server's view of a person.** Method `member` asks
+  `GET /guilds/{server}/members/{user}` and `GET /guilds/{server}/roles`, so
+  each role comes with its name, highest first. Method `members` searches a
+  server's members by name with `POST /guilds/{server}/members-search`, a
+  POST that changes nothing and is sent as a read, as a search's is; it needs
+  Manage Server, and
+  without it the refusal says to take ids from messages, mentions or the
+  friend list instead. Discord answers 202 while it indexes a server; that is
+  waited out once, as a search's is, then reported.
+- **A server is read whole, never through the mirror's copy.**
+  `discord_server_read` takes a `server` the mirror knows. Method `info` asks
+  `GET /guilds/{server}?with_counts=true` for what the server says of itself
+  and its approximate member and online counts; Discord's counts are
+  estimates, and the result says so. Method `roles` asks
+  `GET /guilds/{server}/roles` and `/roles/member-counts` and lists every role
+  highest first, with how many members hold it (null when Discord gives no
+  count). Method `emojis` asks `GET /guilds/{server}/emojis` and `/stickers`,
+  filters them by name locally and caps each list, saying when it did; an
+  emoji comes with the text that uses it in a message. Nothing they return is
+  stored: the mirror's server row stays what the sync last wrote.
+- **Events are Discord's upcoming list.** Method `events` asks
+  `GET /guilds/{server}/scheduled-events?with_user_count=true`, which holds
+  scheduled and active events only, never finished ones, and lists them by
+  start time with how many are interested. With `event` it asks
+  `GET /guilds/{server}/scheduled-events/{event}/users` for who is
+  interested, 100 at most, with `after` for the next page; those users go
+  through the ingest as a friend list's do.
+- **An invite code is a key, told to the user alone.** Method `invites` asks
+  `GET /guilds/{server}/invites`, which needs Manage Server; without it the
+  refusal says so. The inviters go through the ingest as interested users
+  do. Anyone holding a code can join the server, so the result
+  and the skill say a code goes to the user only, never into a message, a
+  file or another tool unless the user asks for that.
+
 ## History
 
 - **Counts are the mirror's, and say where it falls short.**
