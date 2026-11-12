@@ -1,5 +1,5 @@
 /** The schema version a current mirror has: the number of `MIGRATIONS`. */
-export const MIRROR_VERSION = 2
+export const MIRROR_VERSION = 3
 
 /**
  * `MIGRATIONS[i]` takes a mirror from version `i` to `i + 1`; entry 0 creates
@@ -13,7 +13,10 @@ export const MIRROR_VERSION = 2
  * `reactions` hold JSON text, and `raw` the object exactly as Discord sent it,
  * so a later tool can read a field without fetching history again.
  * The send ledger holds a SHA-256 hex of the text, never the text; `code`
- * is the error code of a `not_sent` or `uncertain` send.
+ * is the error code of a `not_sent` or `uncertain` send. `roles` holds one
+ * server's whole role list as its last snapshot read it, `permissions` being
+ * Discord's decimal bit-set text; `role_snapshots` holds, per server, the ids
+ * of the user's own roles (JSON text) and when the snapshot was read.
  */
 export const MIGRATIONS: readonly string[] = [
   `
@@ -107,5 +110,24 @@ CREATE TABLE sends (
   settled INTEGER
 );
 CREATE INDEX sends_created ON sends (created);
+`,
+  `
+CREATE TABLE roles (
+  id INTEGER PRIMARY KEY,
+  server INTEGER NOT NULL,
+  name TEXT,
+  position INTEGER NOT NULL,
+  permissions TEXT NOT NULL,
+  managed INTEGER NOT NULL CHECK (managed IN (0, 1)),
+  raw TEXT NOT NULL,
+  updated INTEGER NOT NULL
+);
+CREATE INDEX roles_server ON roles (server);
+
+CREATE TABLE role_snapshots (
+  server INTEGER PRIMARY KEY,
+  own_roles TEXT NOT NULL,
+  read_at INTEGER NOT NULL
+);
 `,
 ]
