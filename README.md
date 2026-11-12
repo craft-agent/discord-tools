@@ -90,7 +90,9 @@ codex plugin add discord-tools@craft-agent
 
 Codex turns `-` into `_` in server names, so it shows the tools as
 `mcp__discord_tools__discord_*`. It starts the MCP server in the plugin's
-install directory, which is never the caller's working tree.
+install directory and passes no roots, so the server takes each call's directory
+from what Codex sends with the call: its sandbox state, which the server asks
+for, else the one workspace it names.
 
 ### Grok Build
 

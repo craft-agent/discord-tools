@@ -26,14 +26,14 @@ import { createToolRuntime, type RuntimeOptions } from "../entry/runtime"
 import type { EntrySettings } from "../entry/settings"
 import { storageContext } from "../entry/storage"
 import { elicitationConfirm } from "./confirm"
-import { createWorkingDirResolver } from "./roots"
+import { createWorkingDirResolver, SANDBOX_STATE_META } from "./roots"
 
 const DEFAULT_VERSION = "0.0.0"
 
 export type ServerOptions = RuntimeOptions & {
-  /** The directory a call runs in when the client names no usable root; defaults to `process.cwd`. */
+  /** The directory a call runs in when the client names no usable call directory or root; defaults to `process.cwd`. */
   cwd?: () => string
-  /** Where the tools are installed: never a call's working tree, so a client root inside it is skipped. */
+  /** Where the tools are installed: never a call's working tree, so client directories inside it are skipped. */
   ownDir?: string
   /** The toolsets the settings select from; defaults to this package's. */
   toolsets?: Toolsets
@@ -66,7 +66,8 @@ function describeTool(spec: ToolSpec): Tool {
 /**
  * An MCP server that serves the tools the settings select from `specs`, over
  * whatever transport is connected. Each call runs in the client's working
- * directory, and with `confirm: "elicitation"` an administrative tool asks
+ * directory from call metadata, else roots, else the fallback. With
+ * `confirm: "elicitation"` an administrative tool asks
  * through a form where the client offers one.
  */
 export function createServer(specs: ToolSpec[], settings: EntrySettings, options: ServerOptions = {}): Server {
@@ -75,7 +76,7 @@ export function createServer(specs: ToolSpec[], settings: EntrySettings, options
   const log = options.log ?? ((entry: string) => process.stderr.write(`${entry}\n`))
   const server = new Server(
     { name: profile.name, version: options.version ?? DEFAULT_VERSION },
-    { capabilities: { tools: {} } },
+    { capabilities: { tools: {}, experimental: { [SANDBOX_STATE_META]: {} } } },
   )
   const workingDir = createWorkingDirResolver(server, options.cwd ?? (() => process.cwd()), options.ownDir)
   const toolsets = options.toolsets ?? profile.toolsets
@@ -90,7 +91,7 @@ export function createServer(specs: ToolSpec[], settings: EntrySettings, options
     try {
       const confirm = settings.confirm === "elicitation" ? elicitationConfirm(server, extra.signal) : undefined
       const ctx: ToolContext = {
-        cwd: await workingDir(extra.signal),
+        cwd: await workingDir(extra.signal, request.params._meta),
         ownDir: options.ownDir,
         options: settings.options,
         ...storageContext(settings),
