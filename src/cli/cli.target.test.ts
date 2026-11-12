@@ -176,4 +176,23 @@ describe("target", () => {
     expect(seen).toEqual({ sendDirs: ["/flag/send1", "/flag/send2"], sendMaxMb: 15 })
     expect(json(run)).toMatchObject({ resources: ["/flag/send1", "/flag/send2"] })
   })
+
+  test("accepts the size limits as flags", async () => {
+    let seen: { downloadMaxMb?: number; sendMaxMb?: number } = {}
+    const checkTool = {
+      ...specs[1]!,
+      id: "demo_target_limits",
+      async targets(_args: unknown, ctx: { downloadMaxMb?: number; sendMaxMb?: number }) {
+        seen = { downloadMaxMb: ctx.downloadMaxMb, sendMaxMb: ctx.sendMaxMb }
+        return ["limits"]
+      },
+    }
+    const run = await cli(
+      ["target", "demo_target_limits", "--cwd", "/x", "--download-max-mb", "20", "--send-max-mb=30"],
+      "",
+      { specs: [checkTool], env: { DEMO_SEND_MAX_MB: "15" } },
+    )
+    expect(run.code).toBe(EXIT_OK)
+    expect(seen).toEqual({ downloadMaxMb: 20, sendMaxMb: 30 })
+  })
 })

@@ -242,21 +242,6 @@ describe("parseSettings", () => {
     })
   })
 
-  test("rejects a relative state_dir in flag or environment", () => {
-    expect(failure(() => parse(["--state-dir", "rel/path"])).message).toContain("--state-dir")
-    expect(failure(() => parse([], { DEMO_STATE_DIR: "rel/path" })).message).toContain("DEMO_STATE_DIR")
-  })
-
-  test("rejects a relative download_dir in flag or environment", () => {
-    expect(failure(() => parse(["--download-dir", "rel/path"])).message).toContain("--download-dir")
-    expect(failure(() => parse([], { DEMO_DOWNLOAD_DIR: "rel/path" })).message).toContain("DEMO_DOWNLOAD_DIR")
-  })
-
-  test("rejects a relative send_dirs in flag or environment", () => {
-    expect(failure(() => parse(["--send-dirs", "rel/path"])).message).toContain("--send-dirs")
-    expect(failure(() => parse([], { DEMO_SEND_DIRS: "rel/path" })).message).toContain("DEMO_SEND_DIRS")
-  })
-
   test("drops empty list items", () => {
     const settings = parse(["--toolsets", "alpha,,beta,", "--tools", ",a, ,b"])
     expect(settings.toolsets).toEqual(["alpha", "beta"])

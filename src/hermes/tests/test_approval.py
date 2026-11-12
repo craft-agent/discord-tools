@@ -52,28 +52,17 @@ class ApprovalHookTest(FakeCliCase):
         self.assertEqual(call["argv"], ["target", "demo_thing_create", "--cwd", CWD])
         self.assertEqual(json.loads(call["stdin"]), {"target": "target/one", "body": "hi"})
 
-    def test_state_dir_flags_are_appended_to_target_call(self) -> None:
+    def test_the_package_settings_are_appended_to_target_call(self) -> None:
         self.reply("target demo_thing_create", stdout='{"resources":["target/one"]}\n')
-        ctx = self.register({"state_dir": "/custom/state"})
-        hook = ctx.hooks[0][1]
-        hook(tool_name="demo_thing_create", args={"target": "target/one"})
-        [call] = self.target_calls()
-        self.assertEqual(call["argv"], ["target", "demo_thing_create", "--cwd", CWD, "--state-dir", "/custom/state"])
-
-    def test_download_dir_flag_is_appended_to_target_call(self) -> None:
-        self.reply("target demo_thing_create", stdout='{"resources":["target/one"]}\n')
-        ctx = self.register({"download_dir": "/custom/get", "download_max_mb": 5})
-        hook = ctx.hooks[0][1]
-        hook(tool_name="demo_thing_create", args={"target": "target/one"})
-        [call] = self.target_calls()
-        self.assertEqual(
-            call["argv"],
-            ["target", "demo_thing_create", "--cwd", CWD, "--download-dir", "/custom/get", "--download-max-mb", "5"],
+        ctx = self.register(
+            {
+                "state_dir": "/custom/state",
+                "download_dir": "/custom/get",
+                "download_max_mb": 5,
+                "send_dirs": ["/custom/send1", "/custom/send2"],
+                "send_max_mb": 6,
+            }
         )
-
-    def test_send_dirs_flag_is_appended_to_target_call(self) -> None:
-        self.reply("target demo_thing_create", stdout='{"resources":["target/one"]}\n')
-        ctx = self.register({"send_dirs": ["/custom/send1", "/custom/send2"], "send_max_mb": 5})
         hook = ctx.hooks[0][1]
         hook(tool_name="demo_thing_create", args={"target": "target/one"})
         [call] = self.target_calls()
@@ -84,11 +73,26 @@ class ApprovalHookTest(FakeCliCase):
                 "demo_thing_create",
                 "--cwd",
                 CWD,
+                "--state-dir",
+                "/custom/state",
+                "--download-dir",
+                "/custom/get",
+                "--download-max-mb",
+                "5",
                 "--send-dirs",
                 "/custom/send1,/custom/send2",
                 "--send-max-mb",
-                "5",
+                "6",
             ],
+        )
+
+    def test_the_language_flags_come_before_the_package_settings(self) -> None:
+        self.reply("target demo_thing_create", stdout='{"resources":["target/one"]}\n')
+        ctx = self.register({"language": "ja", "state_dir": "/custom/state"})
+        ctx.hooks[0][1](tool_name="demo_thing_create", args={"target": "target/one"})
+        [call] = self.target_calls()
+        self.assertEqual(
+            call["argv"], ["target", "demo_thing_create", "--cwd", CWD, "--language=ja", "--state-dir", "/custom/state"]
         )
 
     def test_every_non_read_class_is_sent_to_approval(self) -> None:

@@ -133,6 +133,7 @@ describe("OpenCode state_dir setting", () => {
       const server = createV1Server([], { profile: PROFILE })
       await expect(server({}, { download_dir: "relative/path" })).rejects.toThrow('Option "download_dir"')
       await expect(server({}, { download_max_mb: 0 })).rejects.toThrow("download_max_mb")
+      await expect(server({}, { download_max_mb: "26" })).rejects.toThrow('Option "download_max_mb"')
     })
   })
 
@@ -200,7 +201,8 @@ describe("OpenCode state_dir setting", () => {
 
     test("rejects an invalid send option", async () => {
       const server = createV1Server([], { profile: PROFILE })
-      await expect(server({}, { send_dirs: "relative/path" })).rejects.toThrow('Option "send_dirs"')
+      await expect(server({}, { send_dirs: "/abs" })).rejects.toThrow('Option "send_dirs"')
+      await expect(server({}, { send_dirs: ["relative/path"] })).rejects.toThrow('Option "send_dirs"')
       await expect(server({}, { send_dirs: ["/abs", "relative/path"] })).rejects.toThrow('Option "send_dirs"')
       await expect(server({}, { send_dirs: 123 })).rejects.toThrow('Option "send_dirs"')
       await expect(server({}, { send_max_mb: 0 })).rejects.toThrow("send_max_mb")
