@@ -911,6 +911,16 @@ Every entry point takes the same settings:
   that may have reached Discord is `uncertain` after one read-back of the
   channel's newest posts the user owns with that name. The post and its
   first message, which shares its id, go through the ingest.
+- **Joining and leaving a thread change only the user's membership.**
+  `discord_thread_join` and `discord_thread_leave` name a thread the mirror
+  knows (a public, private or announcement thread, or a post) and send `PUT`
+  or `DELETE /channels/{t}/thread-members/@me`; anything else is refused
+  before a request. Joining again changes nothing, so a join is idempotent;
+  leaving a private thread may take an invite to undo, so a leave is an
+  overwrite. Discord refuses an archived thread, and that refusal is passed
+  on: joining does not reopen one. The mirror holds no membership, so nothing
+  follows a change there, and an outcome that may have reached Discord is
+  `uncertain` after one read of the user's membership.
 
 ## Approval prompts
 
@@ -959,6 +969,9 @@ Every entry point takes the same settings:
   when there is one, its name, public or private, and when it archives; the
   name is the model's words for others to read, shown as given, never
   translated.
+- **A join or a leave names the thread.** Its prompt is the thread's chat
+  facts (its kind, server and channel) under "About to join {chat}" or
+  "About to leave {chat}", with no text.
 - **A post shows what it puts up.** Its prompt names the forum, the post's
   name, its tags by the names the mirror holds, and a send's facts
   (`Mass mentions`, `Notifications`, `Length`); its text is the first
@@ -1002,7 +1015,7 @@ Every entry point takes the same settings:
   `inbox` (mentions, what waits for an answer, the saved list and read marks), `people` (people and server
   info), `sends`, `history` (counts and the export), `files` (saving received
   files), `actions` (the user's own messages, reactions and pins), `threads`
-  (creating threads and forum posts) and `roles`.
+  (creating threads and forum posts, joining and leaving threads) and `roles`.
 - **`account`, `sync`, `chats`, `search`, `inbox`, `people` and `sends` are on
   by default.** They cover reading a chat and answering it. `history` and
   `files` write files to disk; `actions` changes messages other people have
