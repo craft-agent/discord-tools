@@ -134,6 +134,22 @@ The plugin runs the Node it found when Hermes started. If a version manager
 removes that version while Hermes runs, a call looks for Node again; when it
 finds none, restart Hermes from a shell where `node` runs.
 
+When the package's writes depend on another Hermes plugin, such as a guard
+that blocks writes no one is there to approve, name it in `require_plugins`.
+Hermes keeps loading this plugin when that one fails to import or register,
+and treats a manifest's `requires_plugins` as advisory. With the setting,
+while a named plugin is not loaded, every write is refused before it is
+approved, even under `--yolo`, `approvals.mode: off` or a remembered answer,
+naming the plugin that is missing. Reads still run.
+
+```yaml
+plugins:
+  entries:
+    discord-tools:
+      settings:
+        require_plugins: [write-guard]
+```
+
 ### Any other MCP host
 
 Add the server to the host's MCP configuration. Flags go in `args`:
@@ -670,6 +686,7 @@ variable, and an option or setting wins over the variable too.
 | `confirm`         | `--confirm`         | `DISCORD_TOOLS_CONFIRM`         | MCP server only: `harness` (default) or `elicitation`, as the conventions say                                                   |
 | `language`        | `--language`        | `DISCORD_TOOLS_LANGUAGE`        | native plugins only: the approval prompt's language, such as `ja`                                                               |
 | `emoji`           | —                   | —                               | Hermes only: the emoji shown beside each toolset, by toolset name (`""` for none)                                               |
+| `require_plugins` | —                   | —                               | Hermes only: the plugins that must be loaded; while one is not, every write is refused before it is approved                    |
 | `state_dir`       | `--state-dir`       | `DISCORD_TOOLS_STATE_DIR`       | `path`: where every label's state lives; default `$XDG_STATE_HOME/discord-tools`                                                |
 | `download_dir`    | `--download-dir`    | `DISCORD_TOOLS_DOWNLOAD_DIR`    | `path`: where received files are saved; exports go under its private `exports/` folder; default `~/Downloads/discord-tools`     |
 | `download_max_mb` | `--download-max-mb` | `DISCORD_TOOLS_DOWNLOAD_MAX_MB` | the most megabytes a received file may have, a whole number from 1 to 500; default 100                                          |
