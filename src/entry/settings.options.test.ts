@@ -1,14 +1,15 @@
 import { describe, expect, test } from "bun:test"
 import { settingsFromOptions } from "./settings"
-import { DEFAULT_DOWNLOADS, failure, profile, resolved } from "./settings.testing"
+import { DEFAULT_DOWNLOADS, DEFAULT_GRANTS, failure, profile, resolved } from "./settings.testing"
 
 const fromOptions = (options: Record<string, unknown> | undefined, env: Record<string, string | undefined> = {}) =>
   settingsFromOptions(options, env, profile)
 
 describe("settingsFromOptions", () => {
   test("gives no setting for no options", () => {
-    expect(fromOptions(undefined)).toEqual({ options: {}, state_dir: expect.any(String), ...DEFAULT_DOWNLOADS })
-    expect(fromOptions({})).toEqual({ options: {}, state_dir: expect.any(String), ...DEFAULT_DOWNLOADS })
+    const none = { options: {}, state_dir: expect.any(String), ...DEFAULT_DOWNLOADS, grants: DEFAULT_GRANTS }
+    expect(fromOptions(undefined)).toEqual(none)
+    expect(fromOptions({})).toEqual(none)
   })
 
   test("reads each option", () => {
@@ -36,6 +37,7 @@ describe("settingsFromOptions", () => {
         send_dirs: ["/custom/send1", "/custom/send2"],
         send_max_mb: 25,
       }),
+      grants: DEFAULT_GRANTS,
     })
     expect(fromOptions({ send_dirs: ["/single/send"] }).send_dirs).toEqual(["/single/send"])
     expect(fromOptions({ send_dirs: [] }).send_dirs).toBeUndefined()
@@ -68,6 +70,7 @@ describe("settingsFromOptions", () => {
         send_dirs: ["/env/send1", "/env/send2"],
         send_max_mb: 15,
       }),
+      grants: DEFAULT_GRANTS,
     })
     expect(
       fromOptions(
@@ -93,6 +96,7 @@ describe("settingsFromOptions", () => {
         send_dirs: ["/opt/send1", "/opt/send2"],
         send_max_mb: 8,
       }),
+      grants: DEFAULT_GRANTS,
     })
   })
 

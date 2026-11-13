@@ -1,5 +1,7 @@
 import { expect } from "bun:test"
-import { isToolError } from "../core"
+import { homedir } from "node:os"
+import { join } from "node:path"
+import { isToolError, type GrantContext } from "../core"
 import { PROFILE_OPTIONS } from "./options.testing"
 import type { EntryProfile } from "./profile"
 
@@ -20,6 +22,13 @@ export const DEFAULT_DOWNLOADS = { download_dir: expect.any(String), download_ma
 /** What the package's own settings read as `values` give: the values as the resolved settings, and again as the tool options they were read as. */
 export function resolved<T extends object>(values: T): T & { options: T } {
   return { ...values, options: values }
+}
+
+/** The grants' context of settings that name no grant setting, read from an environment without `HOME` or `XDG_STATE_HOME`. */
+export const DEFAULT_GRANTS: GrantContext = {
+  unattended: false,
+  dir: join(homedir(), ".local", "state", profile.name, "grants"),
+  key: undefined,
 }
 
 export function failure(run: () => unknown): Error {

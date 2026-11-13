@@ -1,4 +1,4 @@
-import type { ToolOptions, ToolRuntime, ToolSpec, Translator } from "../core"
+import type { GrantContext, ToolOptions, ToolRuntime, ToolSpec, Translator } from "../core"
 import { DESCRIBE_TIMEOUT_MS } from "../entry/description"
 import { approvalOf } from "../entry/pin"
 import { createToolRuntime } from "../entry/runtime"
@@ -8,8 +8,9 @@ import {
   harnessError,
   needsPermission,
   permissionMetadata,
-  persistableResources,
+  personOnlyIds,
   runTool,
+  savedResources,
   selectedTools,
   type PluginDeps,
 } from "./shared"
@@ -31,6 +32,7 @@ function v2Tool(
   options: ToolOptions,
   storage: StorageContext,
   runtime: ToolRuntime,
+  grants: GrantContext,
   t: Translator,
 ): V2Tool {
   return {
@@ -40,7 +42,7 @@ function v2Tool(
     output: spec.output,
     async execute(input: unknown, { sessionID, signal }: V2ToolContext): Promise<V2ToolResult> {
       const directory = await sessionDirectory(ctx, sessionID)
-      const toolContext = { cwd: directory ?? process.cwd(), ownDir, options, ...storage, runtime, signal }
+      const toolContext = { cwd: directory ?? process.cwd(), ownDir, options, ...storage, runtime, grants, signal }
       let pin: string | undefined
       if (needsPermission(spec)) {
         if (directory === undefined) {
@@ -55,7 +57,7 @@ function v2Tool(
         await ctx.permission.assert({
           action: spec.id,
           resources,
-          save: persistableResources(resources),
+          save: savedResources(spec, resources),
           metadata: permissionMetadata(spec, input, resources, description, t),
           sessionID,
         })
@@ -67,18 +69,39 @@ function v2Tool(
 }
 
 /**
+ * Makes the permission of each action in `ids` `ask`, since the host allows an
+ * action no rule names; an effect of `deny` stays.
+ */
+async function askForActions(ctx: V2Context, ids: string[]): Promise<void> {
+  const asked = new Set(ids)
+  await ctx.permission.hook?.("evaluate", (event) => {
+    if (asked.has(event.action) && event.effect !== "deny") event.effect = "ask"
+  })
+}
+
+/**
  * The `setup` of the OpenCode V2 plugin: registers the tools the plugin
  * options select, each asking the harness's permission before a non-read call,
- * and the package's skills, those linked to a toolset only when the options
- * leave that toolset a selected tool. A settings mistake throws, so the
- * harness reports the plugin as failed.
+ * a rule that keeps a person-only tool asking whatever the rules say, and the
+ * package's skills, those linked to a toolset only when the options leave that
+ * toolset a selected tool. A settings mistake throws, so the harness reports
+ * the plugin as failed.
  */
 export function createV2Setup(specs: ToolSpec[], deps: PluginDeps = {}): OpenCodePlugin["setup"] {
   const runtime = createToolRuntime(deps)
   return async function setup(ctx: V2Context): Promise<void> {
     const selection = selectedTools(specs, ctx.options, deps)
     const tools = selection.tools.map((spec) =>
-      v2Tool(ctx, spec, deps.ownDir, selection.options, selection.storage, runtime, selection.translator),
+      v2Tool(
+        ctx,
+        spec,
+        deps.ownDir,
+        selection.options,
+        selection.storage,
+        runtime,
+        selection.grants,
+        selection.translator,
+      ),
     )
     const skills =
       deps.skillsDir === undefined
@@ -90,6 +113,8 @@ export function createV2Setup(specs: ToolSpec[], deps: PluginDeps = {}): OpenCod
         for (const tool of tools) editor.add(tool)
       })
     }
+    const personOnly = personOnlyIds(selection.tools)
+    if (personOnly.length > 0) await askForActions(ctx, personOnly)
     if (skills.length > 0) {
       await ctx.skill.transform((editor) => {
         for (const skill of skills) editor.add(skill)
