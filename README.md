@@ -745,8 +745,9 @@ bounds. Where each harness reads them:
 ### Accounts, the token and the sync service
 
 - **Each Discord account has a label**, 1 to 24 lowercase letters, digits and
-  `_` (`default` when signing in names none). A tool's `account` argument
-  picks the label; leave it out when only one account is signed in.
+  `_` (`default` when signing in names none); `grants` is reserved for the
+  grants directory. A tool's `account` argument picks the label; leave it out
+  when only one account is signed in.
 - **Each label keeps its state in one directory**, `<state_dir>/<label>/`
   (mode 700): the mirror of synced messages, the sync list, the token file
   when there is one, and the copies of files being sent or received.

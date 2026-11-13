@@ -583,7 +583,9 @@ and every entry point checks them the same way.
 - **A label is 1 to 24 lowercase letters, digits and `_`**, starting and
   ending with a letter or a digit; `login` names it `default` when no label is
   given. A label is also a directory name and part of a variable's name, so
-  the set is kept to what both take as it is.
+  the set is kept to what both take as it is. `grants` is reserved: the grants
+  directory (`<state root>/grants` by default) sits beside the labels'
+  directories, so no label may take that name, and listing the labels skips it.
 - **Each label keeps all of its state in one directory**,
   `<state root>/<label>/`, created with mode 700: the mirror, the sync list,
   the token file when there is one, the sync service's lock and progress, the
