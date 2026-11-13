@@ -5,8 +5,10 @@ import type { MessageItem } from "../chats/message-schemas"
 import { messagePermalink } from "../chats/permalink"
 import type { ChatSession } from "../chats/session"
 import { getCursor, isChannelCurrent } from "../discord/mirror-cursors"
+import { PRIVATE_CHANNEL_TYPES } from "../discord/sync-page"
 import { ToolError } from "../errors"
 import { placesOf } from "../inbox/places"
+import { FOLLOWABLE_TYPES } from "../sync/add"
 import type { ChatCount } from "./schemas"
 
 /** How many messages an export holds when `limit` is left out. */
@@ -51,18 +53,31 @@ export type ExportRange = MessageBounds & { chat: string; limit?: number }
 type Held = { oldest: bigint; newest: bigint; complete: boolean }
 
 /**
+ * What to do about a chat of this channel type that the mirror holds no
+ * history of in one piece. Only a sync run stores a history so, and it follows
+ * every DM but only the server channels on the sync list; a live read never
+ * makes a chat exportable.
+ */
+function noHistoryHint(type: number): string {
+  if (PRIVATE_CHANNEL_TYPES.includes(type)) {
+    return "A sync run stores every DM's history: export again after the next one (`discord_account_read` shows when the last one ran). Reading the chat with `discord_chat_read` does not make it exportable."
+  }
+  if (FOLLOWABLE_TYPES.includes(type)) {
+    return "Only a sync run stores it, for a channel on the sync list: if `discord_sync_read` method `list` does not show the channel, ask the person whether to add it with `discord_sync_add`, then export again after the next sync run. Reading the chat with `discord_chat_read` does not make it exportable."
+  }
+  return "A sync run follows only DMs and text and announcement channels, never a thread, a forum post or a voice channel, so this chat cannot be exported: read it with `discord_chat_read` method `messages` instead."
+}
+
+/**
  * What the mirror holds of `chat` in one piece, whether or not a sync run
  * marked the chat current lately. `not_found` when the chat has no cursor, no
  * newest edge, or no oldest edge while its history is incomplete: nothing
  * there is vouched for.
  */
-function vouchedOf(session: ChatSession, chat: string): Held {
+function vouchedOf(session: ChatSession, chat: string, type: number): Held {
   const cursor = getCursor(session.mirror, chat)
   if (!cursor || cursor.newest === null || (cursor.oldest === null && !cursor.complete)) {
-    throw new ToolError(
-      "not_found",
-      `The mirror holds no history of chat ${chat} in one piece: sync it, or read it with \`discord_chat_read\` method \`messages\` or \`backfill\` first.`,
-    )
+    throw new ToolError("not_found", `The mirror holds no history of chat ${chat} in one piece. ${noHistoryHint(type)}`)
   }
   return { oldest: BigInt(cursor.oldest ?? "0"), newest: BigInt(cursor.newest), complete: cursor.complete }
 }
@@ -122,8 +137,8 @@ function leftOut(session: ChatSession, chat: string, newest: bigint, before?: st
 export function selectExport(session: ChatSession, range: ExportRange): ExportSelection {
   const limit = range.limit ?? EXPORT_LIMIT_DEFAULT
   knownChannelId(session, range.chat)
-  const server = mirroredChannelId(session, range.chat).server
-  const vouched = vouchedOf(session, range.chat)
+  const { server, type } = mirroredChannelId(session, range.chat)
+  const vouched = vouchedOf(session, range.chat, type)
 
   const afterLow = range.after === undefined ? vouched.oldest : BigInt(range.after) + 1n
   const beforeHigh = range.before === undefined ? vouched.newest : BigInt(range.before) - 1n

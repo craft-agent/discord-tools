@@ -3,7 +3,7 @@ import { failure } from "../chats/read.testing"
 import { CATEGORY, FORUM } from "../chats/read.messages.testing"
 import { setCursorEdges } from "../discord/mirror-cursors"
 import { CHANNEL, DM, msgId, SERVER } from "../discord/objects.testing"
-import { markSynced, numbersOf, said, seedWorld, STALE_AGO, store } from "../search/search.testing"
+import { markSynced, numbersOf, said, seedWorld, STALE_AGO, store, THREAD } from "../search/search.testing"
 import { EXPORT_LIMIT_DEFAULT, EXPORT_LIMIT_MAX } from "./export-select"
 import { selectIn, storeMessages, vouch } from "./export.testing"
 import { createHistoryFixture, type HistoryFixture } from "./history.testing"
@@ -240,9 +240,28 @@ describe("what is refused", () => {
       prepare()
       expect(await failure(selectIn(f, { chat: CHANNEL }))).toMatchObject({
         code: "not_found",
-        message: expect.stringContaining("discord_chat_read"),
+        message: expect.stringContaining("discord_sync_add"),
       })
     }
+  })
+
+  test("says what makes each kind of chat exportable, and that a live read does not", async () => {
+    const message = async (chat: string) => (await failure(selectIn(f, { chat }))).message
+    const dm = await message(DM)
+    expect(dm).toContain("every DM")
+    expect(dm).toContain("next one")
+    expect(dm).not.toContain("discord_sync_add")
+    const channel = await message(CHANNEL)
+    expect(channel).toContain("discord_sync_read")
+    expect(channel).toContain("discord_sync_add")
+    expect(channel).toContain("next sync run")
+    for (const text of [dm, channel]) {
+      expect(text).toContain("does not make it exportable")
+      expect(text).not.toContain("backfill")
+    }
+    const thread = await message(THREAD)
+    expect(thread).toContain("cannot be exported")
+    expect(thread).not.toContain("discord_sync_add")
   })
 
   test("a chat the mirror does not know", async () => {

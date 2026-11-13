@@ -11,7 +11,7 @@ export const EXPORT_FORMAT_DEFAULT: ExportFormat = "markdown"
 export const exportInput = z.object({
   account: actionFields.account,
   chat: snowflakeId("a chat id").describe(
-    "The chat to export: the id of a DM, group DM, server channel or thread the mirror knows, from discord_chat_read; never a name. The mirror must hold some of its history in one piece (a sync run, `messages` or `backfill` stored it).",
+    "The chat to export: the id of a DM, group DM, or text or announcement channel the mirror knows, from discord_chat_read; never a name. A sync run must have stored some of its history in one piece: it does for every DM, for a server channel only while it is on the sync list, and never for a thread or a voice channel. A live read does not make a chat exportable.",
   ),
   format: z
     .enum(EXPORT_FORMATS)

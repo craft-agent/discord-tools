@@ -56,11 +56,14 @@ the person asks.
 
 The person approves every export. It makes no request to Discord. It writes
 only the history the mirror holds in one piece, current or not, oldest first;
-unlike counts it includes system messages too.
+unlike counts it includes system messages too. Only a sync run stores a
+history in one piece: for every DM, and for a server channel only while it is
+on the sync list. A thread or a voice channel is never exportable, and reading
+a chat with `discord_chat_read` does not make it exportable.
 
 | Argument    | Meaning                                                                                                   |
 | ----------- | --------------------------------------------------------------------------------------------------------- |
-| `chat`      | required DM, group DM, channel or thread id the mirror knows, never a name                                |
+| `chat`      | required DM, group DM, or text or announcement channel id the mirror knows, never a name                  |
 | `format`    | `markdown` (default), `json` or `jsonl`                                                                   |
 | `after`     | exclusive start, same forms as counts; takes the first `limit` from there; without it, the newest `limit` |
 | `before`    | exclusive end, same forms; default the newest message held in one piece                                   |
@@ -119,8 +122,10 @@ Collecting never sends, reacts, marks read or changes the sync list on its own.
   count, range, gaps and continuation.
 - **`invalid_argument`**: bad bounds, zone or limit, a name instead of an id,
   an empty export range, or a non-chat target. Correct the scope with the person.
-- **`not_found`**: unknown chat/server or no history held in one piece; sync
-  or read it with `discord_chat_read` first.
+- **`not_found`**: unknown chat/server or no history held in one piece. For a
+  DM, export again after the next sync run. For a server channel off the sync
+  list, ask the person whether to add it (discord-sync), then export after the
+  next sync run. A thread cannot be exported; read it instead.
 - **Download directory refused**: it overlaps state/install directories,
   cannot be created, or `exports` is not a plain folder or cannot be made
   private. Tell the person to choose a usable `download_dir`; do not bypass it.

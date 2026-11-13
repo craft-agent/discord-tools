@@ -10,7 +10,7 @@ import { type SyncAddInput, syncAddInput, syncWriteOutput } from "./write-schema
 import { applySyncChange, syncTargets } from "./write"
 
 /** The channel types a sync run follows by name: text and announcement channels. Threads and forums are read live. */
-const FOLLOWABLE_TYPES: readonly number[] = [0, 5]
+export const FOLLOWABLE_TYPES: readonly number[] = [0, 5]
 
 type ChannelRow = { server: string | null; type: number }
 
