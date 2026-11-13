@@ -3,7 +3,16 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, statSync, symlinkSync, write
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { isToolError } from "../errors"
-import { DEFAULT_LABEL, checkLabel, ensureLabelDir, isLabel, labelPaths, listLabels, pickLabel } from "./labels"
+import {
+  DEFAULT_LABEL,
+  RESERVED_LABEL,
+  checkLabel,
+  ensureLabelDir,
+  isLabel,
+  labelPaths,
+  listLabels,
+  pickLabel,
+} from "./labels"
 
 let tempDir: string
 
@@ -54,6 +63,15 @@ describe("isLabel and checkLabel", () => {
       const error = await failure(() => checkLabel(label))
       expect(isToolError(error) && error.code).toBe("invalid_argument")
     }
+  })
+
+  test("refuses the name kept for the grants directory, saying why", async () => {
+    expect(isLabel(RESERVED_LABEL)).toBe(false)
+    expect(isLabel("grants_2")).toBe(true)
+    const error = await failure(() => checkLabel(RESERVED_LABEL))
+    expect(isToolError(error) && error.code).toBe("invalid_argument")
+    expect((error as Error).message).toContain("kept for the grants directory")
+    expect(() => labelPaths(join(tempDir, "state"), RESERVED_LABEL)).toThrow("kept for the grants directory")
   })
 
   test("quotes and truncates a bad label in the message", async () => {
@@ -108,6 +126,9 @@ describe("listLabels", () => {
     const targetDir = join(tempDir, "target")
     mkdirSync(targetDir)
     symlinkSync(targetDir, join(state, "symlink_dir"))
+
+    // The grants directory shares the state root
+    mkdirSync(join(state, RESERVED_LABEL))
 
     expect(await listLabels(state)).toEqual(["apple", "middle", "zebra"])
   })
