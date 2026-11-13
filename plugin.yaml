@@ -10,6 +10,9 @@ provides_tools:
   - discord_file_post
   - discord_file_save
   - discord_file_send
+  - discord_grant_create
+  - discord_grant_read
+  - discord_grant_revoke
   - discord_history_read
   - discord_inbox_read
   - discord_message_delete
