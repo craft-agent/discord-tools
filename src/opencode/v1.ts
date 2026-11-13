@@ -1,5 +1,13 @@
-import { inputJsonSchema, type ToolOptions, type ToolRuntime, type ToolSpec, type Translator } from "../core"
+import {
+  inputJsonSchema,
+  type GrantContext,
+  type ToolOptions,
+  type ToolRuntime,
+  type ToolSpec,
+  type Translator,
+} from "../core"
 import { DESCRIBE_TIMEOUT_MS } from "../entry/description"
+import { ANY_RESOURCE } from "../entry/permission"
 import { approvalOf } from "../entry/pin"
 import { createToolRuntime } from "../entry/runtime"
 import type { StorageContext } from "../entry/storage"
@@ -7,12 +15,13 @@ import {
   harnessError,
   needsPermission,
   permissionMetadata,
-  persistableResources,
+  personOnlyIds,
   runTool,
+  savedResources,
   selectedTools,
   type PluginDeps,
 } from "./shared"
-import type { OpenCodePlugin, PluginOptions, V1Hooks, V1Tool, V1ToolContext } from "./types"
+import type { OpenCodePlugin, PluginOptions, V1Config, V1Hooks, V1Tool, V1ToolContext } from "./types"
 
 type PropertySchema = {
   type?: unknown
@@ -57,13 +66,14 @@ function v1Tool(
   options: ToolOptions,
   storage: StorageContext,
   runtime: ToolRuntime,
+  grants: GrantContext,
   t: Translator,
 ): V1Tool {
   return {
     description: `${spec.description}${describeArguments(spec)}`,
     args: spec.input.shape,
     async execute(args: unknown, context: V1ToolContext): Promise<string> {
-      const ctx = { cwd: workingDir(context), ownDir, options, ...storage, runtime, signal: context.abort }
+      const ctx = { cwd: workingDir(context), ownDir, options, ...storage, runtime, grants, signal: context.abort }
       let pin: string | undefined
       if (needsPermission(spec)) {
         const approval = await approvalOf(spec, args, ctx, DESCRIBE_TIMEOUT_MS, t)
@@ -73,7 +83,7 @@ function v1Tool(
         await context.ask({
           permission: spec.id,
           patterns: resources,
-          always: persistableResources(resources),
+          always: savedResources(spec, resources),
           metadata: permissionMetadata(spec, args, resources, description, t),
         })
       }
@@ -84,10 +94,38 @@ function v1Tool(
 }
 
 /**
+ * The permission rule of a person-only tool once it is forced to ask: `deny`
+ * stays; a record of patterns keeps its `deny` entries over an `ask` for every
+ * resource, so no `allow` of it stands; anything else becomes `ask`.
+ */
+function askingRule(configured: unknown): unknown {
+  if (configured === "deny") return configured
+  if (typeof configured !== "object" || configured === null || Array.isArray(configured)) return "ask"
+  const denied = Object.entries(configured).filter(([, action]) => action === "deny")
+  return Object.fromEntries([[ANY_RESOURCE, "ask"], ...denied])
+}
+
+/**
+ * The `config` hook that makes each person-only tool's permission `ask`, since
+ * the host allows an action no rule names. A configured `deny` stays. A
+ * permission set as one action for every tool is left as it is: it has no
+ * per-tool rule to change, and a global `allow` still lets the tool through.
+ */
+function askPersonOnlyConfig(ids: string[]): (config: V1Config) => Promise<void> {
+  return async (config) => {
+    if (typeof config.permission === "string") return
+    const permission = config.permission ?? {}
+    for (const id of ids) permission[id] = askingRule(permission[id])
+    config.permission = permission
+  }
+}
+
+/**
  * The `server` of the OpenCode V1 plugin: the tools the plugin options select,
- * each asking the harness's permission before a non-read call. V1 has no skill
- * registration. A settings mistake throws, so the harness reports the plugin
- * as failed.
+ * each asking the harness's permission before a non-read call, and a `config`
+ * hook that keeps a person-only tool asking whatever the rules say. V1 has no
+ * skill registration. A settings mistake throws, so the harness reports the
+ * plugin as failed.
  */
 export function createV1Server(specs: ToolSpec[], deps: PluginDeps = {}): OpenCodePlugin["server"] {
   const runtime = createToolRuntime(deps)
@@ -95,8 +133,17 @@ export function createV1Server(specs: ToolSpec[], deps: PluginDeps = {}): OpenCo
     const selection = selectedTools(specs, options, deps)
     const tool: V1Hooks["tool"] = {}
     for (const spec of selection.tools) {
-      tool[spec.id] = v1Tool(spec, deps.ownDir, selection.options, selection.storage, runtime, selection.translator)
+      tool[spec.id] = v1Tool(
+        spec,
+        deps.ownDir,
+        selection.options,
+        selection.storage,
+        runtime,
+        selection.grants,
+        selection.translator,
+      )
     }
-    return { tool }
+    const personOnly = personOnlyIds(selection.tools)
+    return personOnly.length > 0 ? { tool, config: askPersonOnlyConfig(personOnly) } : { tool }
   }
 }
