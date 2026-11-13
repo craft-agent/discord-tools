@@ -204,6 +204,17 @@ describe("Discord's answer", () => {
     expect(result).toMatchObject({ total: 1, saved: [{ remind_at: null }] })
   })
 
+  test("a 404 with code 10133 is an account that never saved a message, and lists nothing", async () => {
+    f.discord.route("GET", SAVED_PATH, { status: 404, json: { code: 10133, message: "Unknown Saved Messages" } })
+    expect(await saved()).toMatchObject({ saved: [], total: 0, more: false })
+    expect(stored()).toEqual([])
+  })
+
+  test("a 404 with another code is not_found", async () => {
+    f.discord.route("GET", SAVED_PATH, { status: 404, json: { code: 10003, message: "Unknown Channel" } })
+    expect(await failure(saved())).toMatchObject({ code: "not_found", details: { discord_code: 10003 } })
+  })
+
   test.each<[number, ErrorCode]>([
     [401, "unauthenticated"],
     [403, "forbidden"],

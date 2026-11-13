@@ -54,6 +54,12 @@ describe("a save whose outcome is unknown", () => {
     expect(await save({ remind_at: DUE })).toMatchObject({ details: { applied: false } })
   })
 
+  test("a read-back that finds no list at all says not applied", async () => {
+    f.discord.route("PUT", PATH, { status: 502, json: {} })
+    f.discord.route("GET", SAVED_PATH, { status: 404, json: { code: 10133, message: "Unknown Saved Messages" } })
+    expect(await save()).toMatchObject({ code: "uncertain", details: { applied: false, read_back: "done" } })
+  })
+
   test("a failure after the request left is uncertain", async () => {
     f.discord.failNext({ dispatched: true, message: "operation timed out" })
     f.discord.route("GET", SAVED_PATH, savedList())

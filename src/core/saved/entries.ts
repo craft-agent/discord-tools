@@ -1,8 +1,13 @@
+import type { ChatSession } from "../chats/session"
 import { fieldOf, idText, isRecord, timeOrNull, type JsonRecord } from "../discord/ingest-values"
 import { invalidResponse } from "../discord/sync-page"
+import { isToolError } from "../errors"
 
 /** Where Discord lists the account's saved messages. */
 export const SAVED_PATH = "/users/@me/saved-messages"
+
+/** Discord's error code for the list of an account that has never saved a message: it has none yet. */
+export const UNKNOWN_SAVED_MESSAGES_CODE = 10133
 
 /** Where Discord keeps the save of one message. */
 export const savedPath = (channel: string, message: string) => `${SAVED_PATH}/${channel}/${message}`
@@ -68,4 +73,23 @@ export function savedEntries(value: unknown): SavedEntry[] {
     seen.add(key)
     return [entry]
   })
+}
+
+/** Whether a refusal says the account has no saved list because it has never saved a message. */
+function isNoSavedList(error: unknown): boolean {
+  return isToolError(error) && error.code === "not_found" && error.details?.discord_code === UNKNOWN_SAVED_MESSAGES_CODE
+}
+
+/**
+ * Reads Discord's list of saved messages, for `savedEntries` to validate. An
+ * account that has never saved a message has no list, which Discord answers
+ * with 404 and code 10133: that reads as an empty list.
+ */
+export async function readSavedList(session: ChatSession): Promise<unknown> {
+  try {
+    return await session.client().read("GET", SAVED_PATH, session.signal ? { signal: session.signal } : {})
+  } catch (error) {
+    if (isNoSavedList(error)) return { results: [] }
+    throw error
+  }
 }
