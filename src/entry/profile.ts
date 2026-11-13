@@ -1,4 +1,4 @@
-import type { OptionSpec, Toolsets } from "../core"
+import { GRANTS_TOOLSET, type OptionSpec, type Toolsets } from "../core"
 import { PROJECT } from "../project"
 
 /** The package identity, command, service, toolsets and the types of its tool options, with their bounds, an entry point supplies. */
@@ -17,6 +17,6 @@ export const PROJECT_PROFILE: EntryProfile = {
   cli: PROJECT.cli,
   serviceId: PROJECT.serviceId,
   envPrefix: PROJECT.envPrefix,
-  toolsets: { names: PROJECT.toolsets, defaults: PROJECT.defaultToolsets },
+  toolsets: { names: [...PROJECT.toolsets, GRANTS_TOOLSET], defaults: PROJECT.defaultToolsets },
   options: PROJECT.options,
 }
