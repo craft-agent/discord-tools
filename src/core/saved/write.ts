@@ -1,6 +1,6 @@
 import { checkAbort, type ChatSession } from "../chats/session"
 import { isAbortError, isToolError, ToolError } from "../errors"
-import { SAVED_PATH, savedEntries, savedPath, type SavedEntry } from "./entries"
+import { readSavedList, savedEntries, savedPath, type SavedEntry } from "./entries"
 
 /** The one request of a change to the saved list; `referer` is the chat's page. */
 export type SavedRequest = {
@@ -31,7 +31,7 @@ async function readBack(
   if (session.signal?.aborted) return { status: "skipped", applied: null }
   let value: unknown
   try {
-    value = await session.client().read("GET", SAVED_PATH, session.signal ? { signal: session.signal } : {})
+    value = await readSavedList(session)
   } catch {
     return { status: "failed", applied: null }
   }

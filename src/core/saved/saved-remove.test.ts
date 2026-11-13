@@ -114,6 +114,12 @@ describe("a removal whose outcome is unknown", () => {
     expect(f.listReads()).toHaveLength(1)
   })
 
+  test("a read-back that finds no list at all says applied", async () => {
+    f.discord.route("DELETE", PATH, { status: 502, json: {} })
+    f.discord.route("GET", SAVED_PATH, { status: 404, json: { code: 10133, message: "Unknown Saved Messages" } })
+    expect(await remove()).toMatchObject({ code: "uncertain", details: { applied: true, read_back: "done" } })
+  })
+
   test("a failure after the request left is uncertain", async () => {
     f.discord.failNext({ dispatched: true, message: "operation timed out" })
     f.discord.route("GET", SAVED_PATH, savedList(saveEntry(CHANNEL, 10)))

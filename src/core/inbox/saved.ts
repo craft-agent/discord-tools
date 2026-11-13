@@ -2,7 +2,7 @@ import { UNTRUSTED_NOTE, isoOrNull } from "../chats/format"
 import { itemOf, reactionsNote } from "../chats/message-items"
 import { ingestMessages } from "../discord/ingest"
 import { rowsOfIds } from "../search/items"
-import { SAVED_PATH, savedEntries, type SavedEntry } from "../saved/entries"
+import { readSavedList, savedEntries, type SavedEntry } from "../saved/entries"
 import { SAVED_LIMIT_DEFAULT } from "./args"
 import { placesOf } from "./places"
 import type { InboxHandler, SavedItem } from "./schemas"
@@ -32,8 +32,7 @@ function bySavedOrder(a: SavedEntry, b: SavedEntry): number {
  */
 export const readSaved: InboxHandler = async (session, args) => {
   const limit = args.limit ?? SAVED_LIMIT_DEFAULT
-  const value = await session.client().read("GET", SAVED_PATH, session.signal ? { signal: session.signal } : {})
-  const entries = savedEntries(value).sort(bySavedOrder)
+  const entries = savedEntries(await readSavedList(session)).sort(bySavedOrder)
   session.store((ctx) => {
     const found = entries.flatMap(({ payload }) => payload ?? [])
     ingestMessages(session.mirror, ctx, found, { reactions: false })
