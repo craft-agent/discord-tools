@@ -1,6 +1,6 @@
 {
   "name": "@craftsamo/discord-tools",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "Discord tools for coding agents: chats, messages, search, inbox, files, sends and roles.",
   "author": "craftsamo",
   "license": "LicenseRef-AGPL-3.0-Commons-Clause",
