@@ -77,16 +77,40 @@ rm -rf package craftsamo-discord-tools-<version>.tgz
 ### Claude Code
 
 ```sh
-claude plugin marketplace add craft-agent/discord-tools#v<version>
+claude plugin marketplace add craft-agent/plugins
 claude plugin install discord-tools@craft-agent
 ```
+
+[craft-agent/plugins](https://github.com/craft-agent/plugins) lists every
+craft-agent package at its latest release. To pin this package to a release
+instead, add its own marketplace at the tag, and do not install it from both:
+
+```sh
+claude plugin marketplace add craft-agent/discord-tools#v<version>
+claude plugin install discord-tools@discord-tools
+```
+
+If you added this repository as the `craft-agent` marketplace before, remove
+it first: `claude plugin marketplace remove craft-agent`.
 
 ### Codex
 
 ```sh
-codex plugin marketplace add craft-agent/discord-tools --ref v<version>
+codex plugin marketplace add craft-agent/plugins
 codex plugin add discord-tools@craft-agent
 ```
+
+[craft-agent/plugins](https://github.com/craft-agent/plugins) lists every
+craft-agent package at its latest release. To pin this package to a release
+instead, add its own marketplace at the tag, and do not install it from both:
+
+```sh
+codex plugin marketplace add craft-agent/discord-tools --ref v<version>
+codex plugin add discord-tools@discord-tools
+```
+
+If you added this repository as the `craft-agent` marketplace before, remove
+it first: `codex plugin marketplace remove craft-agent`.
 
 Codex turns `-` into `_` in server names, so it shows the tools as
 `mcp__discord_tools__discord_*`. It starts the MCP server in the plugin's
